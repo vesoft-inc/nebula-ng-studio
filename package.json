@@ -1,0 +1,54 @@
+{
+  "private": true,
+  "name": "nebula-ng-studio-workspace",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "turbo run nebula-studio#dev",
+    "dev:server": "go -C apps/server run .",
+    "dev:gui": "turbo run nebula-gui#dev",
+    "build": "turbo run nebula-studio#build",
+    "build:gui": "turbo run nebula-gui#build",
+    "build:server": "pnpm build && go -C apps/server build -trimpath -o bin/studio .",
+    "test:server": "go -C apps/server test ./...",
+    "test:integration:graphd": "go -C apps/server test -tags=integration ./integration -v",
+    "test": "turbo test",
+    "lint-staged": "lint-staged",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write . --ignore-path .prettierignore",
+    "format:check": "prettier --check . --ignore-path .prettierignore",
+    "prepare": "husky"
+  },
+  "pnpm": {
+    "packageExtensions": {
+      "@naoak/workerize-transferable@0.1.0": {
+        "peerDependenciesMeta": {
+          "workerize-loader": {
+            "optional": true
+          }
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@commitlint/config-conventional": "^19.5.0",
+    "@eslint/js": "^8.57.1",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "autoprefixer": "^10.4.14",
+    "commitlint": "^19.5.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "globals": "^13.24.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "postcss": "^8.4.49",
+    "prettier": "^3.3.3",
+    "rimraf": "^5.0.10",
+    "tailwindcss": "^3.4.15",
+    "turbo": "2.10.12",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.12.2"
+}

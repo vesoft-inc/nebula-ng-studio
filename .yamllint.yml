@@ -1,0 +1,22 @@
+# yamllint configuration.
+#
+# GitHub Actions workflows and Compose files do not start with a document
+# marker, use `on:` as a keyword, and contain deliberately long single-line
+# shell commands. The default rules flag all three; keep the rules that still
+# carry signal and relax only those cases.
+extends: default
+
+rules:
+  document-start: disable
+  truthy:
+    allowed-values: ['true', 'false', 'on']
+    check-keys: false
+  comments:
+    # Prettier (the repository formatter) normalizes inline comments to a
+    # single preceding space, so yamllint must not require two.
+    min-spaces-from-content: 1
+  line-length:
+    max: 160
+    level: warning
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true

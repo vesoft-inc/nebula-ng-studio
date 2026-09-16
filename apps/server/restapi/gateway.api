@@ -1,0 +1,95 @@
+syntax = "v1"
+
+type (
+	ExecGQLParams {
+		Gql     string `json:"gql"`
+		Timeout int    `json:"timeout,optional"` // timeout in seconds, 0 means use client default
+	}
+	ConnectDBParams {
+		Address       string `json:"address"`
+		Authorization string `header:"Authorization"`
+		DefaultSchema string `json:"defaultSchema,optional"`
+	}
+	Oauth2ConnectReq {
+		Address string `json:"address"`
+	}
+	Oauth2ConnectResp {
+		AuthURL  string `json:"redirect"`
+		ClientID string `json:"clientID"`
+	}
+	Oauth2ConfigResp {
+		Enabled bool `json:"enabled"`
+	}
+	Oauth2CallbackReq {
+		Code  string `form:"code"`
+		State string `form:"state"`
+	}
+	ChangeSchemaParams {
+		SchemaPath string `json:"schemaPath"`
+	}
+	ImportDataParams {
+		DataSet string `json:"dataSet"`
+	}
+	UserInfo {
+		Username      string `json:"username"`
+		Address       string `json:"address"`
+		CoreVersion   string `json:"coreVersion"`
+		Version       string `json:"version"`
+		CurSchemaPath string `json:"curSchemaPath"`
+	}
+	AnyResp {
+		Data interface{} `json:"data"`
+	}
+)
+
+@server (
+	group:  gateway
+	prefix: /api-studio/db
+)
+service studio-api {
+	@doc "Connect DB"
+	@handler Connect
+	post /connect (ConnectDBParams)
+
+	@doc "OAuth2 config"
+	@handler Oauth2Config
+	get /oauth2-config returns (Oauth2ConfigResp)
+
+	@doc "OAuth2 connect"
+	@handler Oauth2Connect
+	post /oauth2-connect (Oauth2ConnectReq) returns (Oauth2ConnectResp)
+
+	@doc "OAuth2 callback"
+	@handler Oauth2Callback
+	get /oauth2-callback (Oauth2CallbackReq)
+
+	@doc "Disconnect DB"
+	@handler Disconnect
+	post /disconnect returns (AnyResp)
+
+}
+
+@server (
+	group: gateway
+)
+service studio-api {
+	@doc "Exec GQL"
+	@handler ExecGQL
+	post /api-studio/gql/exec (ExecGQLParams) returns (AnyResp)
+
+	@doc "Change Schema"
+	@handler ChangeSchema
+	post /api-studio/nebula/changeSchema (ChangeSchemaParams) returns (AnyResp)
+
+	@doc "Get User Info"
+	@handler GetUserInfo
+	get /api-studio/nebula/userInfo returns (UserInfo)
+
+	@doc "Import Data Via .ngql File"
+	@handler ImportData
+	post /api-studio/nebula/import-data (ImportDataParams) returns (AnyResp)
+
+	@doc "Exec GQL on Console"
+	@handler ExecConsoleGQL
+	post /api-studio/nebula/console/execGql (ExecGQLParams) returns (AnyResp)
+}

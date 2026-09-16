@@ -1,0 +1,15 @@
+syntax = "v1"
+
+info (
+	title: "NebulaGraph Studio API"
+	desc:  "NebulaGraph Studio API"
+)
+
+import (
+	"gateway.api"
+	"sketch.api"
+	"explorer_global_config.api"
+	"explorer_icon_group.api"
+	"explorer_snapshot.api"
+)
+

@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+.turbo
+apps/web/index.html
+docs/local/**
+**/dist/**
+apps/server/assets/public/**
+packages/utils/types/**

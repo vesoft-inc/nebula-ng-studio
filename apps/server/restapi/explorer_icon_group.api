@@ -1,0 +1,90 @@
+syntax = "v1"
+
+type (
+	IconGroupItem {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		Type       string `json:"type"`
+		CreateTime int64  `json:"create_time"`
+		UpdateTime int64  `json:"update_time"`
+	}
+	IconItem {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		GroupId    string `json:"groupId"`
+		Icon       string `json:"icon"`
+		CreateTime int64  `json:"create_time"`
+	}
+	IconGroupActionResult {
+		ID string `json:"id"`
+	}
+	IconActionResult {
+		ID string `json:"id"`
+	}
+	AddIconGroupParams {
+		Name string `json:"name"`
+		Type string `json:"type,options=svg|img"`
+	}
+	GetIconGroupsParams {
+		Type string `form:"type,options=svg|img"`
+	}
+	GetIconGroupsResult {
+		Items []IconGroupItem `json:"items"`
+	}
+	DeleteIconGroupParams {
+		GroupId string `path:"groupId"`
+	}
+	UpdateIconGroupParams {
+		GroupId string `path:"groupId"`
+		Name    string `json:"name"`
+	}
+	AddIconParams {
+		GroupId string `path:"groupId"`
+		Name    string `json:"name"`
+		Icon    string `json:"icon"`
+	}
+	GetIconParams {
+		GroupId string `path:"groupId"`
+	}
+	GetIconResult {
+		Items []IconItem `json:"items"`
+	}
+	DeleteIconParams {
+		GroupId string `path:"groupId"`
+		IconId  string `path:"iconId"`
+	}
+)
+
+@server (
+	group:  explorer/icon_group
+	prefix: /api-studio/explorer
+	maxBytes: 33554432
+)
+service studio-api {
+	@handler AddIcon
+	post /icongroup/:groupId (AddIconParams) returns (IconActionResult)
+}
+
+@server (
+	group:  explorer/icon_group
+	prefix: /api-studio/explorer
+)
+service studio-api {
+	@handler AddIconGroup
+	post /icongroup/add (AddIconGroupParams) returns (IconGroupActionResult)
+
+	@handler GetIconGroups
+	get /icongroup (GetIconGroupsParams) returns (GetIconGroupsResult)
+
+	@handler DeleteIconGroup
+	delete /icongroup/:groupId (DeleteIconGroupParams) returns (IconGroupActionResult)
+
+	@handler UpdateIconGroup
+	put /icongroup/:groupId (UpdateIconGroupParams) returns (IconGroupActionResult)
+
+	@handler GetIcons
+	get /icongroup/:groupId/icons (GetIconParams) returns (GetIconResult)
+
+	@handler DeleteIcon
+	delete /icongroup/:groupId/icon/:iconId (DeleteIconParams) returns (IconActionResult)
+}

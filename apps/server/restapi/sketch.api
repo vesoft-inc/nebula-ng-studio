@@ -1,0 +1,78 @@
+type (
+	GetSketchesRequest {
+		Page     int64  `form:"page,range=[0:],optional"`
+		PageSize int64  `form:"pageSize,default=10,range=[1:1000],optional"`
+		Keyword  string `form:"keyword,optional"`
+	}
+	SketchList {
+		Items    []Sketch `json:"items"`
+		Total    int64    `json:"total"`
+		Page     int64    `json:"page"`
+		PageSize int64    `json:"pageSize"`
+	}
+	Sketch {
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		IfNotExists bool   `json:"if_not_exists,optional"`
+		Schema      string `json:"schema"`
+		Snapshot    string `json:"snapshot"`
+	}
+	CreateSketchRequest {
+		Name        string `json:"name" validate:"required"`
+		IfNotExists bool   `json:"ifNotExists,optional"`
+		Schema      string `json:"schema,optional"`
+		Snapshot    string `json:"snapshot,optional"`
+	}
+	UpdateSketchRequest {
+		ID          int    `path:"id" validate:"required"`
+		Name        string `json:"name" validate:"required"`
+		IfNotExists bool   `json:"ifNotExists,optional"`
+		Schema      string `json:"schema,optional"`
+		Snapshot    string `json:"snapshot,optional"`
+	}
+	DeleteSketchRequest {
+		ID int `path:"id" validate:"required"`
+	}
+	SketchIDResult {
+		ID int `json:"id"`
+	}
+	SketchTotalNumResult {
+		Total int64 `json:"total"`
+	}
+	GetSketchItemRequest {
+		ID int `path:"id" validate:"required"`
+	}
+	GetSketchItemResult {
+		Item Sketch `json:"item"`
+	}
+)
+
+@server (
+	group:  sketches
+	prefix: /api-studio/sketch
+)
+service studio-api {
+	@doc "Create Sketch"
+	@handler CreateSketch
+	post /create (CreateSketchRequest) returns (SketchIDResult)
+
+	@doc "Get Sketch List"
+	@handler GetSketchList
+	get /list (GetSketchesRequest) returns (SketchList)
+
+	@doc "Get Sketch Item"
+	@handler GetSketchItem
+	get /:id (GetSketchItemRequest) returns (GetSketchItemResult)
+
+	@doc "Get Sketch List Total Num"
+	@handler GetSketchTotalNum
+	get /total returns (SketchTotalNumResult)
+
+	@doc "Delete Sketch"
+	@handler DeleteSketch
+	delete /delete/:id (DeleteSketchRequest)
+
+	@doc "Update Sketch Item"
+	@handler UpdateSketch
+	put /update/:id (UpdateSketchRequest)
+}

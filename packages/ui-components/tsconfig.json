@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2021",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "lib": ["ES2021", "DOM"]
+  },
+  "include": ["src", "global.d.ts"],
+  "exclude": ["node_modules", "esm", "types"]
+}

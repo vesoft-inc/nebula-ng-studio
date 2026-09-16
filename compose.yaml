@@ -1,0 +1,44 @@
+name: nebula-studio
+
+services:
+  studio:
+    image: nebula-studio:${STUDIO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        STUDIO_VERSION: ${STUDIO_VERSION:-dev}
+        GIT_HASH: ${GIT_HASH:-unknown}
+        GIT_REF: ${GIT_REF:-unknown}
+        NEBULA_STUDIO_BRAND_NAME: ${NEBULA_STUDIO_BRAND_NAME-NebulaGraph}
+        NEBULA_STUDIO_BRAND_NAME_ZH_CN: ${NEBULA_STUDIO_BRAND_NAME_ZH_CN-NebulaGraph}
+        NEBULA_STUDIO_BRAND_CONSOLE_NAME: ${NEBULA_STUDIO_BRAND_CONSOLE_NAME-NebulaGraph}
+        NEBULA_STUDIO_BRAND_CONSOLE_PROMPT: ${NEBULA_STUDIO_BRAND_CONSOLE_PROMPT-nebula}
+        NEBULA_STUDIO_BRAND_STUDIO_TITLE: ${NEBULA_STUDIO_BRAND_STUDIO_TITLE-NebulaGraph Studio}
+        NEBULA_STUDIO_BRAND_GUI_TITLE: ${NEBULA_STUDIO_BRAND_GUI_TITLE-NebulaGraph Console}
+        NEBULA_STUDIO_COPYRIGHT: ${NEBULA_STUDIO_COPYRIGHT-Copyright © vesoft inc.}
+        NEBULA_STUDIO_BRAND_HELP_URL_TEMPLATE: ${NEBULA_STUDIO_BRAND_HELP_URL_TEMPLATE-https://ent-docs.nebula-graph.io/{coreVersion}}
+        NEBULA_STUDIO_DEFAULT_LANGUAGE: ${NEBULA_STUDIO_DEFAULT_LANGUAGE-en_US}
+        SOURCE_URL: ${SOURCE_URL:-https://github.com/vesoft-inc/nebula-ng-studio}
+        LICENSES: ${LICENSES:-Apache-2.0}
+    init: true
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${STUDIO_PORT:-7001}:7001'
+    environment:
+      - STUDIO_TOKEN_SECRET
+      - STUDIO_ENCRYPT_PASSPHRASE
+    volumes:
+      - studio-data:/app/data
+      - type: bind
+        source: ${STUDIO_CONFIG_FILE:-./apps/server/etc/config-release.yaml}
+        target: /app/etc/config-release.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+volumes:
+  studio-data:

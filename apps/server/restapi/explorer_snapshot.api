@@ -1,0 +1,81 @@
+syntax = "v1"
+
+type (
+	AddSnapshotParams {
+		Name       string `json:"name"`
+		Graph      string `json:"graph"`
+		GraphType  string `json:"graph_type"`
+		SchemaPath string `json:"schema_path"`
+		Data       string `json:"data,optional"`
+		Thumbnail  string `json:"thumbnail,optional"`
+	}
+	SnapshotActionResult {
+		ID string `json:"id"`
+	}
+	GetSnapshotsParams {
+		Page     int    `form:"page,range=[1:]"`
+		PageSize int    `form:"pageSize,default=10,range=[1:1000]"`
+		Filter   string `form:"filter,optional"`
+	}
+	SnapshotItem {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Graph     string `json:"graph"`
+		GraphType string `json:"graph_type"`
+		Data      string `json:"data"`
+		Thumbnail string `json:"thumbnail"`
+		CreatedAt int64  `json:"created_at"`
+		UpdatedAt int64  `json:"updated_at"`
+	}
+	GetSnapshotsResult {
+		Total    int            `json:"total"`
+		Page     int            `json:"page"`
+		PageSize int            `json:"pageSize"`
+		Items    []SnapshotItem `json:"items"`
+	}
+	GetSnapshotDetailParams {
+		ID string `path:"id"`
+	}
+	UpdateSnapshotParams {
+		ID        string `path:"id"`
+		Name      string `json:"name,optional"`
+		Data      string `json:"data,optional"`
+		Thumbnail string `json:"thumbnail,optional"`
+	}
+	DeleteSnapshotParams {
+		ID string `path:"id"`
+	}
+)
+
+@server (
+	group:  explorer/snapshot
+	prefix: /api-studio/explorer
+	maxBytes: 33554432
+)
+service studio-api {
+	@doc "Add Snapshot"
+	@handler AddSnapshot
+	post /snapshots (AddSnapshotParams) returns (SnapshotActionResult)
+
+	@doc "Update Snapshot"
+	@handler UpdateSnapshot
+	put /snapshots/:id (UpdateSnapshotParams) returns (SnapshotActionResult)
+}
+
+@server (
+	group:  explorer/snapshot
+	prefix: /api-studio/explorer
+)
+service studio-api {
+	@doc "Get Snapshots"
+	@handler GetSnapshots
+	get /snapshots (GetSnapshotsParams) returns (GetSnapshotsResult)
+
+	@doc "Get Snapshot Detail"
+	@handler GetSnapshotDetail
+	get /snapshots/:id (GetSnapshotDetailParams) returns (SnapshotItem)
+
+	@doc "Delete Snapshot"
+	@handler DeleteSnapshot
+	delete /snapshots/:id (DeleteSnapshotParams) returns (SnapshotActionResult)
+}

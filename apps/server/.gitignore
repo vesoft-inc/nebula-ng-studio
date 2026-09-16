@@ -1,0 +1,22 @@
+# Build and test output
+vendor/
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+__debug_bin*
+
+# Generated Web assets
+assets/*
+!assets/.gitkeep
+
+# Local runtime data and credentials
+logs/
+data/
+certs/
+dbTls/
+*.pem
+*.crt

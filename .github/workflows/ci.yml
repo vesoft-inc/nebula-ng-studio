@@ -1,0 +1,280 @@
+name: Public CI
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Exact commit to test when CI is called by another workflow
+        required: false
+        default: ''
+        type: string
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  HUSKY: 0
+  SOURCE_SHA: ${{ inputs.checkout_ref || github.sha }}
+  SOURCE_REF: ${{ inputs.checkout_ref || github.ref_name }}
+
+jobs:
+  repository-checks:
+    name: Repository checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint repository
+        run: pnpm lint
+
+      - name: Typecheck workspaces
+        run: pnpm -r --if-present lint:types
+
+      - name: Reject generated or lockfile drift
+        run: git diff --exit-code
+
+  frontend-and-packages:
+    name: Frontend and packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend and package tests
+        run: pnpm test
+
+      - name: Build Studio and GUI
+        run: |
+          pnpm build
+          pnpm build:gui
+
+      - name: Smoke test the retained GUI routes
+        run: |
+          pnpm --dir apps/gui preview --host 127.0.0.1 --port 4173 &
+          preview_pid=$!
+          trap 'kill "${preview_pid}" || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/ui/console >/dev/null; then
+              break
+            fi
+            if [ "${attempt}" -eq 20 ]; then
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4173/ >/dev/null
+          kill "${preview_pid}"
+          wait "${preview_pid}" || true
+          trap - EXIT
+
+      - name: Reject tracked build drift
+        run: git diff --exit-code
+
+  go-server:
+    name: Go Server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+
+      - name: Test all Server packages
+        run: go test ./...
+
+      - name: Compile the Studio Server
+        run: go build -trimpath -o "${RUNNER_TEMP}/studio" .
+
+      - name: Install the pinned generator
+        run: go install github.com/golang/mock/mockgen@v1.6.0
+
+      - name: Verify generated Go sources
+        run: |
+          go generate ./...
+          git diff --exit-code
+
+  studio-archives:
+    name: Studio Linux archives
+    uses: ./.github/workflows/studio-archives.yml
+    with:
+      version: 0.0.0-dev+${{ inputs.checkout_ref || github.sha }}
+      git_hash: ${{ inputs.checkout_ref || github.sha }}
+      git_ref: ${{ inputs.checkout_ref || github.ref_name }}
+      artifact_suffix: ci
+    permissions:
+      contents: read
+
+  native-docker-delivery:
+    name: Native Docker delivery (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Require the expected native architecture
+        run: test "$(uname -m)" = '${{ matrix.machine }}'
+
+      - name: Build and run the native Docker image
+        run: |
+          image="nebula-studio:ci-${{ matrix.arch }}"
+          container="studio-ci-${{ matrix.arch }}"
+          docker buildx build \
+            --platform 'linux/${{ matrix.arch }}' \
+            --build-arg "STUDIO_VERSION=0.0.0-dev+${SOURCE_SHA}" \
+            --build-arg "GIT_HASH=${SOURCE_SHA}" \
+            --build-arg "GIT_REF=${SOURCE_REF}" \
+            --load \
+            --tag "${image}" \
+            .
+          docker run --detach --rm \
+            --name "${container}" \
+            --publish 127.0.0.1:17001:7001 \
+            --health-interval 1s \
+            --health-start-period 1s \
+            --health-timeout 2s \
+            --health-retries 20 \
+            "${image}"
+          trap 'docker logs "${container}" || true; docker stop --timeout 10 "${container}" || true' EXIT
+          for attempt in {1..30}; do
+            health_state=$(docker inspect --format '{{.State.Health.Status}}' "${container}")
+            if [ "${health_state}" = healthy ]; then
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:17001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
+          docker exec "${container}" ./studio -v | grep -F "V0.0.0-dev+${SOURCE_SHA}"
+          docker exec "${container}" /usr/bin/id -u | grep -Fx 10001
+          docker stop --timeout 10 "${container}"
+          trap - EXIT
+
+  multi-platform-docker:
+    name: Multi-platform Docker build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build the OCI index without pushing
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg "STUDIO_VERSION=0.0.0-dev+${SOURCE_SHA}" \
+            --build-arg "GIT_HASH=${SOURCE_SHA}" \
+            --build-arg "GIT_REF=${SOURCE_REF}" \
+            --provenance=false \
+            --output "type=oci,dest=${RUNNER_TEMP}/nebula-studio.oci.tar" \
+            .
+
+      - name: Verify both image manifests
+        run: |
+          mkdir "${RUNNER_TEMP}/nebula-studio-oci"
+          tar -xf "${RUNNER_TEMP}/nebula-studio.oci.tar" -C "${RUNNER_TEMP}/nebula-studio-oci"
+          index_digest=$(jq -r '.manifests[0].digest | sub("^sha256:"; "")' "${RUNNER_TEMP}/nebula-studio-oci/index.json")
+          jq -e \
+            '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]' \
+            "${RUNNER_TEMP}/nebula-studio-oci/blobs/sha256/${index_digest}"
+
+  public-ci:
+    name: Public CI gate
+    if: always()
+    needs:
+      - repository-checks
+      - frontend-and-packages
+      - go-server
+      - studio-archives
+      - native-docker-delivery
+      - multi-platform-docker
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every public check
+        env:
+          REPOSITORY_RESULT: ${{ needs.repository-checks.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-and-packages.result }}
+          GO_RESULT: ${{ needs.go-server.result }}
+          ARCHIVE_RESULT: ${{ needs.studio-archives.result }}
+          NATIVE_DOCKER_RESULT: ${{ needs.native-docker-delivery.result }}
+          MULTI_PLATFORM_RESULT: ${{ needs.multi-platform-docker.result }}
+        run: |
+          for check_result in \
+            "${REPOSITORY_RESULT}" \
+            "${FRONTEND_RESULT}" \
+            "${GO_RESULT}" \
+            "${ARCHIVE_RESULT}" \
+            "${NATIVE_DOCKER_RESULT}" \
+            "${MULTI_PLATFORM_RESULT}"; do
+            test "${check_result}" = success
+          done

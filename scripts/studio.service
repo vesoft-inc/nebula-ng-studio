@@ -1,0 +1,248 @@
+#! /bin/bash
+#
+# Studio service manager shipped inside the Linux archive.
+#
+# It keeps the command surface and the pid/log layout of the release script used
+# by earlier Studio packages:
+#
+#   ./scripts/studio.service <start | stop | restart | status> [studio | all]
+#
+# `studio` and `all` are equivalent: this archive contains a single daemon.
+
+set -u
+
+OLD_DIR=$(pwd)
+SCRIPT_PATH=$(readlink -f "$0")
+SCRIPT_DIR=$(dirname "${SCRIPT_PATH}")
+ROOT_PATH=$(cd "${SCRIPT_DIR}/.." && pwd)
+
+USAGE_INFO="${0} [-h] [-v] [-c <config file>] <start | stop | restart | status> [studio | all]"
+
+if [[ ! -t 1 ]]; then
+    RED=""
+    GREEN=""
+    YELLOW=""
+    NC=""
+else
+    RED=$'\033[1;31m'
+    GREEN=$'\033[1;32m'
+    YELLOW=$'\033[1;33m'
+    NC=$'\033[0m'
+fi
+
+function INFO {
+    echo "${GREEN}[INFO]${NC}" "$@"
+}
+
+function WARN {
+    echo "${YELLOW}[WARN]${NC}" "$@" >&2
+}
+
+function ERROR {
+    echo "${RED}[ERROR]${NC}" "$@" >&2
+}
+
+function ERROR_AND_EXIT {
+    ERROR "$@"
+    exit 1
+}
+
+function usage {
+    echo "Usage: ${USAGE_INFO}"
+}
+
+# A pid file alone cannot prove the process is still ours: once the daemon dies and the
+# kernel recycles its pid, `ps -p` reports the pid as running and `stop` would signal an
+# unrelated process. Confirm the pid's executable is this archive's Server first.
+function is_process_running {
+    local pid_file=${1}
+
+    [[ -f ${pid_file} ]] || return 1
+
+    local pid exe
+    read -r pid <"${pid_file}" || return 1
+    [[ ${pid} =~ ^[0-9]+$ ]] || return 1
+
+    ps -p "${pid}" >/dev/null 2>&1 || return 1
+
+    # The kernel appends " (deleted)" once the binary is replaced in place. /proc is
+    # absent off Linux, where this degrades to the ps check above.
+    exe=$(readlink "/proc/${pid}/exe" 2>/dev/null) || exe=""
+    [[ -z ${exe} ]] && return 0
+    [[ ${exe% (deleted)} == "${STUDIO_BIN_PATH}" ]]
+}
+
+function wait_for_exit {
+    local pid_file=${1}
+    local seconds=${2}
+
+    is_process_running "${pid_file}" || return 0
+    while [[ ${seconds} -gt 0 ]]; do
+        sleep 1
+        is_process_running "${pid_file}" || return 0
+        seconds=$((seconds - 1))
+    done
+    return 1
+}
+
+CONFIG="etc/config.yaml"
+ACTION=
+TARGET=
+TARGETS=()
+
+while getopts ":hvc:" opt; do
+    case ${opt} in
+        h)
+            usage
+            exit 0
+            ;;
+        v)
+            [[ -x ${ROOT_PATH}/bin/studio ]] || ERROR_AND_EXIT "${ROOT_PATH}/bin/studio not found"
+            "${ROOT_PATH}/bin/studio" -v
+            exit 0
+            ;;
+        c)
+            CONFIG=${OPTARG}
+            ;;
+        \?)
+            ERROR "Invalid option: -${OPTARG}"
+            usage
+            exit 1
+            ;;
+        :)
+            ERROR_AND_EXIT "Option -${OPTARG} requires an argument."
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    usage
+    exit 1
+fi
+
+ACTION=${1}
+TARGET=${2:-studio}
+
+case ${TARGET} in
+    studio | all)
+        TARGETS=(STUDIO)
+        ;;
+    *)
+        ERROR "Unknown daemon ${TARGET}"
+        usage
+        exit 1
+        ;;
+esac
+
+STUDIO_BIN_PATH=${ROOT_PATH}/bin/studio
+STUDIO_DAEMON_NAME=studio-server
+STUDIO_PID_FILE=${ROOT_PATH}/pids/studio.pid
+STUDIO_LOG_FILE=${ROOT_PATH}/logs/studio.log
+STUDIO_HEALTHCHECK_URL=${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/db/oauth2-config}
+
+function start_daemon {
+    local executable_file="${STUDIO_BIN_PATH}"
+
+    [[ -x ${executable_file} ]] || ERROR_AND_EXIT "${executable_file} not found"
+    [[ -f ${ROOT_PATH}/${CONFIG} ]] || ERROR_AND_EXIT "${ROOT_PATH}/${CONFIG} not found"
+
+    if is_process_running "${STUDIO_PID_FILE}"; then
+        ERROR "${STUDIO_DAEMON_NAME} already running: $(cat "${STUDIO_PID_FILE}")"
+        return 1
+    fi
+
+    mkdir -p "$(dirname "${STUDIO_PID_FILE}")" "$(dirname "${STUDIO_LOG_FILE}")" \
+        || ERROR_AND_EXIT "cannot create ${ROOT_PATH}/pids or ${ROOT_PATH}/logs"
+
+    INFO "Starting ${STUDIO_DAEMON_NAME}"
+    cd "${ROOT_PATH}" || ERROR_AND_EXIT "Failed to enter ${ROOT_PATH}"
+    nohup "${executable_file}" -f "${CONFIG}" >>"${STUDIO_LOG_FILE}" 2>&1 &
+    echo $! >"${STUDIO_PID_FILE}"
+
+    local deadline=$((SECONDS + 30))
+    while ((SECONDS < deadline)); do
+        if "${executable_file}" -healthcheck "${STUDIO_HEALTHCHECK_URL}" >/dev/null 2>&1; then
+            INFO "${STUDIO_DAEMON_NAME} is running, pid is $(cat "${STUDIO_PID_FILE}")"
+            INFO "Log file: ${STUDIO_LOG_FILE}"
+            return 0
+        fi
+        if ! is_process_running "${STUDIO_PID_FILE}"; then
+            ERROR "${STUDIO_DAEMON_NAME} exited during startup; last log lines:"
+            tail -n 20 "${STUDIO_LOG_FILE}" >&2 || true
+            rm -f "${STUDIO_PID_FILE}"
+            return 1
+        fi
+        sleep 1
+    done
+
+    ERROR "${STUDIO_DAEMON_NAME} did not answer ${STUDIO_HEALTHCHECK_URL} within 30s; last log lines:"
+    tail -n 20 "${STUDIO_LOG_FILE}" >&2 || true
+    return 1
+}
+
+function stop_daemon {
+    if ! is_process_running "${STUDIO_PID_FILE}"; then
+        INFO "No such process"
+        rm -f "${STUDIO_PID_FILE}"
+        return 0
+    fi
+
+    local pid
+    pid=$(cat "${STUDIO_PID_FILE}")
+    INFO "Stopping ${STUDIO_DAEMON_NAME} (pid ${pid})"
+    kill -s TERM "${pid}" 2>/dev/null || true
+
+    if wait_for_exit "${STUDIO_PID_FILE}" 30; then
+        rm -f "${STUDIO_PID_FILE}"
+        INFO "Done"
+        return 0
+    fi
+
+    ERROR "${STUDIO_DAEMON_NAME} did not stop within 30s"
+    return 1
+}
+
+function status_daemon {
+    if is_process_running "${STUDIO_PID_FILE}"; then
+        INFO "${STUDIO_DAEMON_NAME} is running, pid is $(cat "${STUDIO_PID_FILE}")"
+        return 0
+    fi
+
+    ERROR "${STUDIO_DAEMON_NAME} status is: Exited"
+    return 3
+}
+
+function restart_daemon {
+    stop_daemon || return 1
+    start_daemon
+}
+
+for DAEMON in "${TARGETS[@]}"; do
+    case ${ACTION} in
+        start)
+            start_daemon
+            ;;
+        stop)
+            stop_daemon
+            ;;
+        restart)
+            restart_daemon
+            ;;
+        status)
+            status_daemon
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+    status=$?
+    if [[ ${status} -ne 0 ]]; then
+        cd "${OLD_DIR}" >/dev/null 2>&1 || true
+        exit "${status}"
+    fi
+done
+
+cd "${OLD_DIR}" >/dev/null 2>&1 || true

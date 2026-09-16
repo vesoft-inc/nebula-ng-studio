@@ -1,0 +1,75 @@
+syntax = "v1"
+
+type (
+	UpsertGlobalConfigParams {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	UpsertGlobalConfigResult {
+		Key string `json:"key"`
+	}
+	AddGlobalConfigParams {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	UpdateGlobalConfigParams {
+		Key   string `path:"key"`
+		Value string `json:"value,optional"`
+	}
+	DeleteGlobalConfigParams {
+		Key string `path:"key"`
+	}
+	GetGlobalConfigParams {
+		Key string `path:"key"`
+	}
+	GlobalConfigItem {
+		Key       string `json:"key"`
+		Value     string `json:"value"`
+		UpdatedAt int64  `json:"updated_at"`
+	}
+	GetGlobalConfigsParams {
+		Page     int    `form:"page,range=[1:]"`
+		PageSize int    `form:"pageSize,default=10,range=[1:1000]"`
+		Filter   string `form:"filter,optional"`
+	}
+	GetGlobalConfigsResult {
+		Total    int                `json:"total"`
+		Page     int                `json:"page"`
+		PageSize int                `json:"pageSize"`
+		Items    []GlobalConfigItem `json:"items"`
+	}
+	GlobalConfigActionResult {
+		Key string `json:"key"`
+	}
+)
+
+@server (
+	group:  explorer/global_config
+	prefix: /api-studio/explorer
+)
+service studio-api {
+	@doc "Upsert Global Config"
+	@handler UpsertGlobalConfig
+	post /global-config/upsert (UpsertGlobalConfigParams) returns (UpsertGlobalConfigResult)
+
+	@doc "Add Global Config"
+	@handler AddGlobalConfig
+	post /global-config (AddGlobalConfigParams) returns (GlobalConfigActionResult)
+
+	@doc "Get Global Config List"
+	@handler GetGlobalConfigs
+	get /global-config (GetGlobalConfigsParams) returns (GetGlobalConfigsResult)
+
+	@doc "Get Global Config Detail"
+	@handler GetGlobalConfig
+	get /global-config/:key (GetGlobalConfigParams) returns (GlobalConfigItem)
+
+	@doc "Update Global Config"
+	@handler UpdateGlobalConfig
+	put /global-config/:key (UpdateGlobalConfigParams) returns (GlobalConfigActionResult)
+
+	@doc "Delete Global Config"
+	@handler DeleteGlobalConfig
+	delete /global-config/:key (DeleteGlobalConfigParams) returns (GlobalConfigActionResult)
+}
+

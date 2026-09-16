@@ -1,0 +1,639 @@
+import { Box, Button, ButtonGroup, Container, TextField, useTheme } from '@mui/material';
+import { BreadCrumbs } from '@vesoft-inc/ui-components';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { observer } from 'mobx-react-lite';
+import { FormContainer, TextFieldElement, useForm } from 'react-hook-form-mui';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import domtoimage from 'dom-to-image';
+
+import { useModal, useStore } from '@studio/stores';
+import {
+  ActionContainer,
+  ContentContainer,
+  CreateGraphContainer,
+  FooterContainer,
+  StepContainer,
+  TableContainer,
+} from './styles';
+import VisualBuilder from './VisualBuilder';
+import NodeTypeTable from './NodeType';
+import EdgeTypeTable from './EdgeType';
+import Preview from './Preview';
+import { GraphTypeBuildMode } from '@studio/interfaces';
+import LabelTable from './LabelTable';
+import { createSketch, execGql } from '@studio/services';
+import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
+import { CloseFilled, EditFilled } from '@vesoft-inc/icons';
+import { encodeUrl, isStudioTarget } from '@studio/utils';
+import GroupButton from '@studio/components/GroupButton';
+import TitleEllipsis from '@studio/components/TitleEllipsis';
+import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
+import { reactFlowInstance } from './VisualBuilder/store';
+import { MassiveGraphConfirmMask } from './VisualBuilder/MassiveGraphConfirmMask';
+
+enum CreateGraphTypeStep {
+  create,
+  preview,
+}
+
+enum CreateFunction {
+  VisualBuilder,
+  NodeType,
+  EdgeType,
+  Label,
+  Index,
+}
+
+interface FunctionTabs {
+  name: string;
+  type: CreateFunction;
+}
+
+const thumbnailMaxWidth = 195;
+const thumbnailMaxHeight = 113;
+
+interface GraphTypeBuilderProps {
+  mode: GraphTypeBuildMode;
+}
+
+function GraphTypeBuilder(props: GraphTypeBuilderProps) {
+  const { mode } = props;
+  const theme = useTheme();
+  const { t } = useTranslation(['graphtype']);
+  const [curStep, setCurStep] = useState<CreateGraphTypeStep>(CreateGraphTypeStep.create);
+  const { graphtypeStore, schemaStore } = useStore();
+  const [curTab, setCurTab] = useState<CreateFunction>(CreateFunction.VisualBuilder);
+  const message = useModal().message;
+  const navigate = useNavigate();
+  const [curNgql, setCurNgql] = useState('');
+  const location = useLocation();
+  const params = useParams<{ graphTypeName: string }>();
+  const readonlyMode = mode === GraphTypeBuildMode.Readonly;
+
+  const FunctionTabs = useMemo<FunctionTabs[]>(
+    () => [
+      {
+        name: t('visualBuilder', { ns: 'graphtype' }),
+        type: CreateFunction.VisualBuilder,
+      },
+      {
+        name: t('nodeType', { ns: 'graphtype' }),
+        type: CreateFunction.NodeType,
+      },
+      {
+        name: t('edgeType', { ns: 'graphtype' }),
+        type: CreateFunction.EdgeType,
+      },
+      {
+        name: t('label', { ns: 'graphtype' }),
+        type: CreateFunction.Label,
+      },
+    ],
+    [t]
+  );
+
+  const form = useForm({
+    defaultValues: {
+      graphTypeName: '',
+    },
+  });
+
+  useEffect(() => {
+    initGraphTypes();
+  }, []);
+
+  const initGraphTypes = async () => {
+    await schemaStore.updateGraphTypesBySchema();
+  };
+
+  useEffect(() => {
+    setCurStep(CreateGraphTypeStep.create); // Reset to initial status on location change (menu item changed)
+    graphtypeStore.updateMode(mode);
+    switch (mode) {
+      case GraphTypeBuildMode.Create:
+        graphtypeStore.initSchemaStore();
+        break;
+      case GraphTypeBuildMode.Edit:
+      case GraphTypeBuildMode.Readonly: {
+        // const graphTypeName = location.pathname.split('/').pop();
+        const { graphTypeName } = params;
+        if (graphTypeName) {
+          graphtypeStore.initSchemaStore();
+          graphtypeStore.schemaStore?.transformGraphTypeToEditorFromDDL(graphTypeName);
+        }
+        break;
+      }
+      case GraphTypeBuildMode.Sketch: {
+        const sketchId = location.pathname.split('/').pop();
+        if (sketchId) {
+          const curSketchId = parseInt(sketchId);
+          graphtypeStore.initSchemaStore();
+          graphtypeStore.schemaStore?.transformGrapTypeBySketch(curSketchId);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    return () => {
+      graphtypeStore.destroySchemaStore();
+    };
+  }, [mode, location.pathname]);
+
+  useEffect(() => {
+    const graphTypeName = graphtypeStore.schemaStore?.graphtypeName;
+    if (graphTypeName) {
+      form.reset({
+        graphTypeName,
+      });
+    } else {
+      form.reset({
+        graphTypeName: '',
+      });
+    }
+  }, [graphtypeStore.schemaStore?.graphtypeName]);
+
+  const handeNextClick = () => {
+    form.handleSubmit(() => {
+      setCurStep(curStep + 1);
+    })();
+  };
+
+  useEffect(() => {
+    if (curStep === CreateGraphTypeStep.preview) {
+      getNgql();
+    }
+  }, [curStep]);
+
+  const handlePreviousClick = () => {
+    setCurStep(curStep - 1);
+  };
+
+  const getCreateGraphTypeNgql = () => {
+    const { graphTypeName } = form.getValues();
+    const nodeTypeList = graphtypeStore.schemaStore?.nodeTypeList || [];
+    const edgeTypeList = graphtypeStore.schemaStore?.edgeTypeList || [];
+    return generateCreateGraphTypeGQL({
+      graphTypeName,
+      nodeTypeList,
+      edgeTypeList,
+    });
+  };
+
+  const detectNameConflicts = (): string[] => {
+    if (!graphtypeStore.schemaStore) return [];
+    const { nodeTypeList, edgeTypeList, originalEdgeTypeList, originalNodeTypeList } = graphtypeStore.schemaStore;
+
+    const droppedNodeNames = originalNodeTypeList
+      .filter((node) => !nodeTypeList.find((n) => n.id === node.id))
+      .map((node) => node.name);
+    const createdNodeNames = nodeTypeList
+      .filter((node) => !originalNodeTypeList.find((n) => n.id === node.id))
+      .map((node) => node.name);
+
+    const droppedEdgeNames = originalEdgeTypeList
+      .filter((edge) => !edgeTypeList.find((e) => e.id === edge.id))
+      .map((edge) => edge.name);
+    const createdEdgeNames = edgeTypeList
+      .filter((edge) => !originalEdgeTypeList.find((e) => e.id === edge.id))
+      .map((edge) => edge.name);
+
+    const conflicts: string[] = [];
+    for (const name of createdNodeNames) {
+      if (droppedNodeNames.includes(name)) {
+        conflicts.push(`${t('nodeType', { ns: 'graphtype' })}: ${name}`);
+      }
+    }
+    for (const name of createdEdgeNames) {
+      if (droppedEdgeNames.includes(name)) {
+        conflicts.push(`${t('edgeType', { ns: 'graphtype' })}: ${name}`);
+      }
+    }
+    return conflicts;
+  };
+
+  const getAlterGraphTypeNgql = () => {
+    if (!graphtypeStore.schemaStore) return '';
+    const {
+      graphtypeName: original_graphType,
+      nodeTypeList,
+      edgeTypeList,
+      originalEdgeTypeList,
+      originalNodeTypeList,
+    } = graphtypeStore.schemaStore;
+    if (!original_graphType) return '';
+    const curGraphTypeName = form.getValues('graphTypeName');
+    return generateAlterGraphTypeGQL(
+      {
+        graphTypeName: original_graphType,
+        nodeTypeList: originalNodeTypeList,
+        edgeTypeList: originalEdgeTypeList,
+      },
+      {
+        graphTypeName: curGraphTypeName,
+        nodeTypeList,
+        edgeTypeList,
+      }
+    );
+  };
+
+  const handleCreateGraphType = async () => {
+    if (mode === GraphTypeBuildMode.Edit) {
+      const conflicts = detectNameConflicts();
+      if (conflicts.length > 0) {
+        message.error(t('nameConflictError', { ns: 'graphtype', names: conflicts.join(', ') }));
+      }
+      const gql = getAlterGraphTypeNgql();
+      if (!gql.trim().length) return message.error(t('updateContentEmptyError', { ns: 'graphtype' }));
+      const res = await execGql(getAlterGraphTypeNgql());
+      if (res.code === 0) {
+        message.success(t('alterGraphTypeSuccess', { ns: 'graphtype' }));
+        navigate('/schema-manager/graphtype');
+      }
+      return;
+    }
+    if (mode === GraphTypeBuildMode.Create || mode === GraphTypeBuildMode.Sketch) {
+      const res = await execGql(getCreateGraphTypeNgql());
+      if (res.code === 0) {
+        message.success(t('createGraphTypeSuccess', { ns: 'graphtype' }));
+        navigate('/schema-manager/graphtype');
+      }
+    }
+  };
+
+  const generateThumbnail = (dataUrl: string) =>
+    new Promise<string>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(thumbnailMaxWidth / img.width, thumbnailMaxHeight / img.height);
+        const scaleBy = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(img.width * ratio * scaleBy, 1);
+        canvas.height = Math.max(img.height * ratio * scaleBy, 1);
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = dataUrl;
+    });
+
+  const filter = (node: Node) => {
+    if (node instanceof SVGElement) {
+      const classname = typeof node.className === 'string' ? node.className : node.className.baseVal;
+      return (
+        !classname?.includes('activeNode') &&
+        !classname?.includes('ve-link-points') &&
+        !classname?.includes('ve-shdow-path')
+      );
+    }
+    return true;
+  };
+
+  const getReactFlowSnapshot = async () => {
+    const instance = reactFlowInstance.get();
+    const flowElement = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+    if (!instance || !flowElement) return null;
+
+    const nodes = instance.getNodes();
+    const edges = instance.getEdges();
+    if (!nodes.length && !edges.length) return null;
+
+    const bounds = getNodesBounds(nodes);
+    const exportWidth = Math.max(bounds.width, flowElement.clientWidth, 1);
+    const exportHeight = Math.max(bounds.height, flowElement.clientHeight, 1);
+    const viewport = getViewportForBounds(bounds, exportWidth, exportHeight, 0.1, 4, 0.2);
+
+    try {
+      const dataUrl = await domtoimage.toPng(flowElement, {
+        width: exportWidth,
+        height: exportHeight,
+        bgcolor: 'transparent',
+        filter,
+        style: {
+          width: `${exportWidth}px`,
+          height: `${exportHeight}px`,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+          transformOrigin: 'top left',
+        },
+      });
+
+      return generateThumbnail(dataUrl);
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  };
+
+  const handleSaveSketch = () => {
+    form.handleSubmit(async (values) => {
+      const nodeTypeList = graphtypeStore.schemaStore?.nodeTypeList || [];
+      const edgeTypeList = graphtypeStore.schemaStore?.edgeTypeList || [];
+      if (!nodeTypeList.length && !edgeTypeList.length) {
+        message.error(t('sketchContentEmptyError', { ns: 'graphtype' }));
+        return;
+      }
+      const baseUrl = await getReactFlowSnapshot();
+      if (!baseUrl) {
+        message.error(t('sketchContentEmptyError', { ns: 'graphtype' }));
+        return;
+      }
+      const params = {
+        name: values.graphTypeName,
+        // ifNotExists: values.ifNotExists,
+        schema: JSON.stringify({
+          nodes: nodeTypeList,
+          edges: edgeTypeList,
+        }),
+        snapshot: baseUrl,
+      };
+      const res = await createSketch(params);
+      if (res.code === 0) {
+        message.success(t('sketchSaveSuccess', { ns: 'graphtype' }));
+      }
+    })();
+  };
+
+  const getNgql = async () => {
+    let ngql = '';
+    switch (mode) {
+      case GraphTypeBuildMode.Create:
+      case GraphTypeBuildMode.Sketch:
+        ngql = getCreateGraphTypeNgql();
+        break;
+      case GraphTypeBuildMode.Edit: {
+        const conflicts = detectNameConflicts();
+        if (conflicts.length > 0) {
+          message.error(t('nameConflictError', { ns: 'graphtype', names: conflicts.join(', ') }));
+        }
+        ngql = getAlterGraphTypeNgql();
+        break;
+      }
+      default:
+        break;
+    }
+    setCurNgql(ngql);
+  };
+
+  const pathI18nMap = useMemo(
+    () => ({
+      graphtype: t('graphtype', { ns: 'route' }),
+      create: t('create', { ns: 'route' }),
+      sketch: t('sketch', { ns: 'route' }),
+      manage: t('manage', { ns: 'route' }),
+      view: t('view', { ns: 'route' }),
+    }),
+    [t]
+  );
+
+  const pathnames = location.pathname.split('/');
+  const graphtypeIndex = pathnames.indexOf('graphtype');
+  const basePaths = pathnames.slice(0, graphtypeIndex + 1);
+
+  const getBreadCrumbItems = () => {
+    const paths: {
+      title: string | ReactNode;
+      to?: string;
+    }[] = [
+      {
+        title: pathI18nMap.graphtype,
+        to: basePaths.join('/'),
+      },
+    ];
+    switch (mode) {
+      case GraphTypeBuildMode.Create:
+        paths.push({
+          title: pathI18nMap.create,
+          to: basePaths.concat(['create']).join('/'),
+        });
+        break;
+      case GraphTypeBuildMode.Edit: {
+        const graphtype = pathnames[pathnames.length - 1];
+        paths.push({
+          title: (
+            <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+              <TitleEllipsis
+                title={params.graphTypeName}
+                maxWidth={300}
+                slotProps={{
+                  component: 'span',
+                  display: 'inline-block',
+                  height: '16px',
+                  lineHeight: '16px',
+                }}
+              />
+            </Box>
+          ),
+        });
+        paths.push({
+          title: pathI18nMap.manage,
+          to: basePaths.concat(['edit', graphtype]).join('/'),
+        });
+        break;
+      }
+      case GraphTypeBuildMode.Readonly: {
+        // const graphtype = pathnames[pathnames.length - 1];
+        paths.push({
+          title: (
+            <Box component="span" sx={{ display: 'flex', alignItems: 'center' }}>
+              <TitleEllipsis
+                title={params.graphTypeName}
+                maxWidth={300}
+                slotProps={{
+                  component: 'span',
+                  display: 'inline-block',
+                  height: '16px',
+                  lineHeight: '16px',
+                }}
+              />
+            </Box>
+          ),
+        });
+        // paths.push({
+        //   title: pathI18nMap.view,
+        //   to: basePaths.concat(['view', graphtype]).join('/'),
+        // });
+        break;
+      }
+      case GraphTypeBuildMode.Sketch:
+        paths.push({
+          title: pathI18nMap.sketch,
+          to: basePaths.concat(['sketch']).join('/'),
+        });
+        break;
+      default:
+        break;
+    }
+    return paths;
+  };
+
+  // Warn the user before rendering very large graphs that can degrade performance.
+  const HEAVY_GRAPH_THRESHOLD = 5000;
+  const [hasConfirmedHeavyRender, setHasConfirmedHeavyRender] = useState(false);
+  const totalElements =
+    (graphtypeStore.schemaStore?.nodeTypeList?.length || 0) + (graphtypeStore.schemaStore?.edgeTypeList?.length || 0);
+  const shouldConfirmHeavyRender = !hasConfirmedHeavyRender && totalElements >= HEAVY_GRAPH_THRESHOLD;
+  useEffect(() => {
+    setHasConfirmedHeavyRender(false);
+  }, [graphtypeStore.schemaStore?.graphtypeName]);
+
+  return (
+    <ContentContainer>
+      <Box display="flex" justifyContent="space-between">
+        <BreadCrumbs
+          onBack={() => {
+            navigate('/schema-manager/graphtype');
+          }}
+          items={getBreadCrumbItems()}
+          slotProps={{
+            container: {
+              sx: { mb: 2 },
+            },
+          }}
+        />
+        {readonlyMode && (
+          <Button
+            variant="outlined"
+            startIcon={<EditFilled />}
+            onClick={() => {
+              const { graphTypeName } = params;
+              if (!graphTypeName) return;
+              navigate(`/schema-manager/graphtype/edit/${encodeUrl(graphTypeName)}`);
+            }}
+          >
+            {t('editGraphType', { ns: 'graphtype' })}
+          </Button>
+        )}
+        {mode === GraphTypeBuildMode.Edit && (
+          <Button
+            variant="outlined"
+            startIcon={<CloseFilled color="error" />}
+            color="error"
+            onClick={() => {
+              const { graphTypeName } = params;
+              if (!graphTypeName) return;
+              navigate(`/schema-manager/graphtype/view/${encodeUrl(graphTypeName)}`);
+            }}
+          >
+            {t('cancelEditGraphType', { ns: 'graphtype' })}
+          </Button>
+        )}
+      </Box>
+      <StepContainer display={curStep === CreateGraphTypeStep.create ? 'flex' : 'none'}>
+        <Box display="flex" alignItems="center" position="relative">
+          {!readonlyMode && (
+            <ActionContainer sx={{ position: 'absolute', left: 0, top: 0 }}>
+              <FormContainer
+                formContext={form}
+                handleSubmit={(e) => {
+                  e.preventDefault();
+                  handeNextClick();
+                }}
+                FormProps={{
+                  style: {
+                    width: '100%',
+                  },
+                }}
+              >
+                <TextFieldElement
+                  label={t('graphTypeName', { ns: 'graphtype' })}
+                  name="graphTypeName"
+                  required
+                  size="small"
+                  fullWidth
+                  sx={{ width: 220 }}
+                  component={(props) => (
+                    <TextField
+                      {...props}
+                      inputProps={{
+                        size: 'small',
+                        disabled: curStep === CreateGraphTypeStep.preview,
+                      }}
+                    />
+                  )}
+                />
+              </FormContainer>
+            </ActionContainer>
+          )}
+          <Container maxWidth="md" sx={{ justifyContent: 'center', display: 'flex' }}>
+            <ButtonGroup
+              sx={{
+                height: '36px',
+              }}
+            >
+              {FunctionTabs.map((tab) => (
+                <GroupButton active={curTab === tab.type} key={tab.type} onClick={() => setCurTab(tab.type)}>
+                  {tab.name}
+                </GroupButton>
+              ))}
+            </ButtonGroup>
+          </Container>
+        </Box>
+        <CreateGraphContainer
+          sx={{
+            height: 'calc(100% - 48px)',
+            display: curTab === CreateFunction.VisualBuilder ? 'block' : 'none',
+            mt: 2,
+          }}
+        >
+          {shouldConfirmHeavyRender ? (
+            <MassiveGraphConfirmMask
+              nodesCount={graphtypeStore.schemaStore?.nodeTypeList?.length || 0}
+              edgesCount={graphtypeStore.schemaStore?.edgeTypeList?.length || 0}
+              onConfirm={() => setHasConfirmedHeavyRender(true)}
+            />
+          ) : (
+            <VisualBuilder key={params.graphTypeName} />
+          )}
+        </CreateGraphContainer>
+        {curTab === CreateFunction.NodeType && (
+          <TableContainer>
+            <NodeTypeTable readonly={readonlyMode} />
+          </TableContainer>
+        )}
+        {curTab === CreateFunction.EdgeType && (
+          <TableContainer>
+            <EdgeTypeTable readonly={readonlyMode} />
+          </TableContainer>
+        )}
+        {curTab === CreateFunction.Label && (
+          <TableContainer>
+            <LabelTable />
+          </TableContainer>
+        )}
+      </StepContainer>
+      {curStep === CreateGraphTypeStep.preview && <Preview ngql={curNgql} />}
+      {!readonlyMode && (
+        <FooterContainer sx={{ zIndex: theme.zIndex.drawer }}>
+          {curStep === CreateGraphTypeStep.create && curTab === CreateFunction.VisualBuilder && isStudioTarget && (
+            <Button variant="text" sx={{ mr: '10px' }} onClick={handleSaveSketch}>
+              {t('saveAsSketch', { ns: 'graphtype' })}
+            </Button>
+          )}
+          <Button
+            disabled={curStep === CreateGraphTypeStep.create}
+            variant="outlined"
+            onClick={handlePreviousClick}
+            sx={{ width: '120px' }}
+          >
+            {t('previous', { ns: 'graphtype' })}
+          </Button>
+          {curStep === CreateGraphTypeStep.create && (
+            <Button variant="contained" sx={{ ml: '10px', width: '120px' }} onClick={handeNextClick}>
+              {t('preview', { ns: 'graphtype' })}
+            </Button>
+          )}
+          {curStep === CreateGraphTypeStep.preview && (
+            <Button variant="contained" sx={{ ml: '10px', minWidth: '120px' }} onClick={handleCreateGraphType}>
+              {(mode === GraphTypeBuildMode.Create || mode === GraphTypeBuildMode.Sketch) &&
+                t('createGraphType', { ns: 'graphtype' })}
+              {mode === 'edit' && t('commitEdit', { ns: 'graphtype' })}
+            </Button>
+          )}
+        </FooterContainer>
+      )}
+    </ContentContainer>
+  );
+}
+
+export default observer(GraphTypeBuilder);

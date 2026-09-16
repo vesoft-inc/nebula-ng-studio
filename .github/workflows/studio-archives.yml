@@ -1,0 +1,211 @@
+name: Studio Linux archives
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Studio version without a leading v
+        required: true
+        type: string
+      git_hash:
+        description: Full source commit SHA
+        required: true
+        type: string
+      git_ref:
+        description: Source branch or release tag
+        required: true
+        type: string
+      artifact_suffix:
+        description: Suffix that keeps artifacts unique within the caller run
+        required: false
+        default: ci
+        type: string
+
+permissions:
+  contents: read
+
+# The glibc floor declared in README.md and deploy/linux-tar.md. The archive job
+# asserts that the built binary does not require symbol versions above this value,
+# and runs that binary on the oldest distribution that provides it.
+env:
+  GLIBC_FLOOR: '2.17'
+  GLIBC_FLOOR_IMAGE: oraclelinux:7-slim
+
+jobs:
+  archive:
+    name: Linux ${{ matrix.arch }} archive
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.git_hash }}
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Validate archive inputs and native runner
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+          GIT_HASH: ${{ inputs.git_hash }}
+          GIT_REF: ${{ inputs.git_ref }}
+          ARTIFACT_SUFFIX: ${{ inputs.artifact_suffix }}
+        run: |
+          test "$(uname -m)" = '${{ matrix.machine }}'
+          [[ "${STUDIO_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-(rc|beta)\.[0-9]+)?|0\.0\.0-dev\+[0-9a-f]{7,40})$ ]]
+          [[ "${GIT_HASH}" =~ ^[0-9a-f]{7,40}$ ]]
+          [[ "${GIT_REF}" =~ ^[A-Za-z0-9._/@+-]{1,255}$ ]]
+          [[ "${ARTIFACT_SUFFIX}" =~ ^[a-z0-9-]{1,32}$ ]]
+
+      - name: Build the native Studio bundle
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+          GIT_HASH: ${{ inputs.git_hash }}
+          GIT_REF: ${{ inputs.git_ref }}
+        run: |
+          docker buildx build \
+            --platform 'linux/${{ matrix.arch }}' \
+            --target archive-export \
+            --build-arg "STUDIO_VERSION=${STUDIO_VERSION}" \
+            --build-arg "GIT_HASH=${GIT_HASH}" \
+            --build-arg "GIT_REF=${GIT_REF}" \
+            --output "type=local,dest=${RUNNER_TEMP}/studio-bundle" \
+            .
+
+          test -s "${RUNNER_TEMP}/studio-bundle/assets/public/index.html"
+          find "${RUNNER_TEMP}/studio-bundle/assets/public/assets" -maxdepth 1 -type f -name '*.js' -print -quit | grep -q .
+          find "${RUNNER_TEMP}/studio-bundle/assets/public/assets" -maxdepth 1 -type f -name '*.css' -print -quit | grep -q .
+
+      - name: Assemble the deterministic archive
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+        run: |
+          archive_root="nebula-studio-${STUDIO_VERSION}"
+          staging_root="${RUNNER_TEMP}/archive-stage"
+          release_root="${GITHUB_WORKSPACE}/dist/release"
+          archive="nebula-studio-${STUDIO_VERSION}-linux-${{ matrix.arch }}.tar.gz"
+
+          mkdir -p "${staging_root}/${archive_root}/bin" "${staging_root}/${archive_root}/assets" \
+            "${staging_root}/${archive_root}/etc" "${staging_root}/${archive_root}/scripts" "${release_root}"
+          install -m 0755 "${RUNNER_TEMP}/studio-bundle/studio" "${staging_root}/${archive_root}/bin/studio"
+          install -m 0755 scripts/studio.service "${staging_root}/${archive_root}/scripts/studio.service"
+          cp -a "${RUNNER_TEMP}/studio-bundle/assets/public" "${staging_root}/${archive_root}/assets/public"
+          chmod -R u=rwX,go=rX "${staging_root}/${archive_root}/assets/public"
+          install -m 0644 apps/server/etc/config-release.yaml "${staging_root}/${archive_root}/etc/config.yaml"
+          install -m 0644 deploy/linux-tar.md "${staging_root}/${archive_root}/README.md"
+          install -m 0644 LICENSE "${staging_root}/${archive_root}/LICENSE"
+
+          tar \
+            --directory "${staging_root}" \
+            --format=ustar \
+            --sort=name \
+            --mtime=@0 \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -cf - \
+            "${archive_root}" | gzip -n -9 > "${release_root}/${archive}"
+          (cd "${release_root}" && sha256sum "${archive}" > "${archive}.sha256")
+
+      - name: Verify the archive contract and runtime
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+          GIT_HASH: ${{ inputs.git_hash }}
+          GIT_REF: ${{ inputs.git_ref }}
+        run: |
+          archive_root="nebula-studio-${STUDIO_VERSION}"
+          release_root="${GITHUB_WORKSPACE}/dist/release"
+          archive="nebula-studio-${STUDIO_VERSION}-linux-${{ matrix.arch }}.tar.gz"
+          smoke_root="${RUNNER_TEMP}/archive-smoke"
+          actual_tree="${RUNNER_TEMP}/actual-tree.txt"
+
+          tar -tzf "${release_root}/${archive}" | sort > "${actual_tree}"
+          grep -Fxq "${archive_root}/bin/studio" "${actual_tree}"
+          grep -Fxq "${archive_root}/assets/public/index.html" "${actual_tree}"
+          grep -Fxq "${archive_root}/etc/config.yaml" "${actual_tree}"
+          grep -Fxq "${archive_root}/README.md" "${actual_tree}"
+          grep -Fxq "${archive_root}/LICENSE" "${actual_tree}"
+          grep -Fxq "${archive_root}/scripts/studio.service" "${actual_tree}"
+          # The service script must stay executable after packaging.
+          tar -tvzf "${release_root}/${archive}" "${archive_root}/scripts/studio.service" | grep -Eq '^-rwxr-xr-x '
+          (cd "${release_root}" && sha256sum --check "${archive}.sha256")
+
+          mkdir -p "${smoke_root}"
+          tar -xzf "${release_root}/${archive}" -C "${smoke_root}"
+          version_output=$("${smoke_root}/${archive_root}/bin/studio" -v)
+          grep -F "V${STUDIO_VERSION}" <<< "${version_output}"
+          grep -F "Git Ref: ${GIT_REF}" <<< "${version_output}"
+          grep -F "Git Hash: ${GIT_HASH}" <<< "${version_output}"
+          test -s "${smoke_root}/${archive_root}/assets/public/index.html"
+          find "${smoke_root}/${archive_root}/assets/public/assets" -maxdepth 1 -type f -name '*.js' -print -quit | grep -q .
+          find "${smoke_root}/${archive_root}/assets/public/assets" -maxdepth 1 -type f -name '*.css' -print -quit | grep -q .
+
+          cd "${smoke_root}/${archive_root}"
+          test ! -e pids/studio.pid
+          ./scripts/studio.service start studio
+          ./scripts/studio.service status studio
+          test -s pids/studio.pid
+          test -s logs/studio.log
+          curl --fail --silent http://127.0.0.1:7001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
+          ./scripts/studio.service restart studio
+          ./scripts/studio.service status studio
+          ./scripts/studio.service stop studio
+          test ! -e pids/studio.pid
+          if ./scripts/studio.service status studio; then
+            echo 'status must report a stopped daemon as not running' >&2
+            exit 1
+          fi
+
+      - name: Assert the GLIBC symbol ceiling
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          archive_root="nebula-studio-${STUDIO_VERSION}"
+          binary="${RUNNER_TEMP}/archive-smoke/${archive_root}/bin/studio"
+          highest=$(readelf -V "${binary}" | grep -o 'GLIBC_[0-9.]*' | sort -V -u | tail -1 || true)
+          if [ -z "${highest}" ]; then
+            echo 'Binary has no versioned GLIBC symbols (statically linked); floor assertion is not applicable.'
+            exit 0
+          fi
+          echo "Highest required symbol: ${highest}; declared floor: GLIBC_${GLIBC_FLOOR}"
+          newest=$(printf '%s\n' "GLIBC_${GLIBC_FLOOR}" "${highest}" | sort -V | tail -1)
+          if [ "${newest}" != "GLIBC_${GLIBC_FLOOR}" ]; then
+            echo "::error::Binary requires ${highest}, newer than the declared floor GLIBC_${GLIBC_FLOOR}." >&2
+            echo 'Raise the documented floor and support matrix, or lower the build baseline.' >&2
+            exit 1
+          fi
+
+      - name: Run the archive binary on the oldest supported glibc
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          archive_root="nebula-studio-${STUDIO_VERSION}"
+          smoke_root="${RUNNER_TEMP}/archive-smoke/${archive_root}"
+          # Native runner platform matches the archive architecture, so no --platform
+          # override is needed. The loader refuses to start a binary whose symbol
+          # versions exceed this distribution's glibc (2.34), which is exactly the
+          # declared floor.
+          container_version=$(docker run --rm -v "${smoke_root}:/work:ro" -w /work "${GLIBC_FLOOR_IMAGE}" ./bin/studio -v)
+          grep -F "V${STUDIO_VERSION}" <<< "${container_version}"
+          echo "${GLIBC_FLOOR_IMAGE} (glibc ${GLIBC_FLOOR}) ran the archive binary successfully."
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: studio-linux-${{ matrix.arch }}-${{ inputs.artifact_suffix }}
+          path: |
+            dist/release/nebula-studio-${{ inputs.version }}-linux-${{ matrix.arch }}.tar.gz
+            dist/release/nebula-studio-${{ inputs.version }}-linux-${{ matrix.arch }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3

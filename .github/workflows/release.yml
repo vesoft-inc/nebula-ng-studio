@@ -1,0 +1,519 @@
+name: Release Studio
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Studio SemVer without a leading v (for example 1.2.3 or 1.2.3-rc.1)
+        required: true
+        type: string
+      target_ref:
+        description: Commit, tag, or branch on the default branch to release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: studio-release-channels
+  cancel-in-progress: false
+
+env:
+  CI: true
+  HUSKY: 0
+  STUDIO_IMAGE: ghcr.io/${{ github.repository_owner }}/nebula-studio
+
+jobs:
+  preflight:
+    name: Validate release request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      studio_version: ${{ steps.request.outputs.studio_version }}
+      tag_name: ${{ steps.request.outputs.tag_name }}
+      target_sha: ${{ steps.request.outputs.target_sha }}
+      is_prerelease: ${{ steps.request.outputs.is_prerelease }}
+      is_stable: ${{ steps.request.outputs.is_stable }}
+      image: ${{ steps.request.outputs.image }}
+      release_state: ${{ steps.request.outputs.release_state }}
+      tag_exists: ${{ steps.request.outputs.tag_exists }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve the immutable release request
+        id: request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [[ "${REQUESTED_VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta)\.(0|[1-9][0-9]*))?$ ]]
+          [[ "${TARGET_REF}" =~ ^[A-Za-z0-9][A-Za-z0-9._/@+-]{0,254}$ ]]
+
+          git fetch --force --tags origin
+          target_sha=$(git rev-parse --verify "${TARGET_REF}^{commit}")
+          default_sha=$(git rev-parse --verify "origin/${DEFAULT_BRANCH}^{commit}")
+          git merge-base --is-ancestor "${target_sha}" "${default_sha}" || {
+            echo "Target ${target_sha} is not on ${DEFAULT_BRANCH}." >&2
+            exit 1
+          }
+
+          tag_name="v${REQUESTED_VERSION}"
+          tag_exists=false
+          if git show-ref --verify --quiet "refs/tags/${tag_name}"; then
+            test "$(git cat-file -t "refs/tags/${tag_name}")" = tag || {
+              echo "Existing ${tag_name} is not an annotated tag." >&2
+              exit 1
+            }
+            test "$(git rev-list -n 1 "refs/tags/${tag_name}")" = "${target_sha}" || {
+              echo "Existing ${tag_name} points to another commit." >&2
+              exit 1
+            }
+            tag_exists=true
+          fi
+
+          if [[ "${REQUESTED_VERSION}" == *-* ]]; then
+            is_prerelease=true
+            is_stable=false
+          else
+            is_prerelease=false
+            is_stable=true
+          fi
+
+          release_state=absent
+          release_json="${RUNNER_TEMP}/existing-release.json"
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag_name}" > "${release_json}" 2>/dev/null; then
+            test "${tag_exists}" = true || {
+              echo "Release ${tag_name} exists without the required annotated tag." >&2
+              exit 1
+            }
+            if jq -e '.draft == true' "${release_json}" >/dev/null; then
+              release_state=draft
+            else
+              release_state=published
+              jq -e --argjson expected "${is_prerelease}" '.prerelease == $expected' "${release_json}" >/dev/null || {
+                echo "Published release prerelease state conflicts with the requested version." >&2
+                exit 1
+              }
+            fi
+          fi
+
+          image=$(printf '%s' "${STUDIO_IMAGE}" | tr '[:upper:]' '[:lower:]')
+          [[ "${image}" =~ ^ghcr\.io/[a-z0-9._-]+/nebula-studio$ ]]
+
+          {
+            echo "studio_version=${REQUESTED_VERSION}"
+            echo "tag_name=${tag_name}"
+            echo "target_sha=${target_sha}"
+            echo "is_prerelease=${is_prerelease}"
+            echo "is_stable=${is_stable}"
+            echo "image=${image}"
+            echo "release_state=${release_state}"
+            echo "tag_exists=${tag_exists}"
+          } >> "${GITHUB_OUTPUT}"
+
+  quality-gate:
+    name: Public CI quality gate
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    with:
+      checkout_ref: ${{ needs.preflight.outputs.target_sha }}
+    permissions:
+      contents: read
+
+  release-archives:
+    name: Release Linux archives
+    needs:
+      - preflight
+      - quality-gate
+    uses: ./.github/workflows/studio-archives.yml
+    with:
+      version: ${{ needs.preflight.outputs.studio_version }}
+      git_hash: ${{ needs.preflight.outputs.target_sha }}
+      git_ref: ${{ needs.preflight.outputs.tag_name }}
+      artifact_suffix: release
+    permissions:
+      contents: read
+
+  release-candidate:
+    name: Review release candidate
+    needs:
+      - preflight
+      - release-archives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: studio-linux-*-release
+          path: ${{ runner.temp }}/release-assets
+          merge-multiple: true
+
+      - name: Verify artifacts and publish the approval preview
+        env:
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          RELEASE_STATE: ${{ needs.preflight.outputs.release_state }}
+          TAG_EXISTS: ${{ needs.preflight.outputs.tag_exists }}
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/release-assets"
+          for architecture in amd64 arm64; do
+            archive="nebula-studio-${STUDIO_VERSION}-linux-${architecture}.tar.gz"
+            test -f "${archive}"
+            test -f "${archive}.sha256"
+            sha256sum --check "${archive}.sha256"
+          done
+          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4
+
+          if [ "${IS_PRERELEASE}" = true ]; then
+            release_kind=prerelease
+          else
+            release_kind=stable
+          fi
+          {
+            echo '## Studio release approval preview'
+            echo
+            echo "- Version: \`${STUDIO_VERSION}\` (${release_kind})"
+            echo "- Annotated tag: \`${TAG_NAME}\` (already exists: \`${TAG_EXISTS}\`)"
+            echo "- Source commit: \`${TARGET_SHA}\`"
+            echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}\`"
+            echo "- Existing Release state: \`${RELEASE_STATE}\`"
+            echo '- Linux archives: `amd64`, `arm64`'
+            for checksum_file in ./*.sha256; do
+              echo "- Checksum: \`$(cat "${checksum_file}")\`"
+            done
+            echo
+            echo 'The publish job requires approval from the protected `release` environment.'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  publish:
+    name: Publish approved Studio release
+    needs:
+      - preflight
+      - release-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment:
+      name: release
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: studio-linux-*-release
+          path: ${{ runner.temp }}/release-assets
+          merge-multiple: true
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or verify the annotated tag
+        env:
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          if git show-ref --verify --quiet "refs/tags/${TAG_NAME}"; then
+            test "$(git cat-file -t "refs/tags/${TAG_NAME}")" = tag
+            test "$(git rev-list -n 1 "refs/tags/${TAG_NAME}")" = "${TARGET_SHA}"
+          else
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git tag --annotate "${TAG_NAME}" "${TARGET_SHA}" --message "NebulaGraph Studio ${STUDIO_VERSION}"
+            git push origin "refs/tags/${TAG_NAME}"
+          fi
+          test "$(git rev-list -n 1 "refs/tags/${TAG_NAME}")" = "${TARGET_SHA}"
+
+      - name: Generate OCI metadata
+        id: metadata
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
+        with:
+          images: ${{ needs.preflight.outputs.image }}
+          flavor: latest=false
+          tags: type=raw,value=${{ needs.preflight.outputs.studio_version }}
+          labels: |
+            org.opencontainers.image.title=NebulaGraph Studio
+            org.opencontainers.image.description=Self-hosted NebulaGraph Studio with integrated Explorer
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
+          annotations: |
+            org.opencontainers.image.title=NebulaGraph Studio
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
+
+      - name: Inspect an existing immutable version image
+        id: image-state
+        env:
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          image_ref="${IMAGE}:${STUDIO_VERSION}"
+          if docker buildx imagetools inspect "${image_ref}" > "${RUNNER_TEMP}/image.txt" 2> "${RUNNER_TEMP}/image-error.txt"; then
+            docker buildx imagetools inspect "${image_ref}" --raw > "${RUNNER_TEMP}/image.json"
+            revision=$(jq -r '.annotations["org.opencontainers.image.revision"] // empty' "${RUNNER_TEMP}/image.json")
+            test "${revision}" = "${TARGET_SHA}" || {
+              echo "${image_ref} already exists with revision ${revision:-missing}." >&2
+              exit 1
+            }
+            digest=$(awk '$1 == "Digest:" { print $2; exit }' "${RUNNER_TEMP}/image.txt")
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo 'exists=true' >> "${GITHUB_OUTPUT}"
+            echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          elif grep -Eqi 'not found|manifest unknown' "${RUNNER_TEMP}/image-error.txt"; then
+            echo 'exists=false' >> "${GITHUB_OUTPUT}"
+          else
+            cat "${RUNNER_TEMP}/image-error.txt" >&2
+            exit 1
+          fi
+
+      - name: Build and push the immutable version image
+        id: push-image
+        if: steps.image-state.outputs.exists != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          annotations: ${{ steps.metadata.outputs.annotations }}
+          build-args: |
+            STUDIO_VERSION=${{ needs.preflight.outputs.studio_version }}
+            GIT_HASH=${{ needs.preflight.outputs.target_sha }}
+            GIT_REF=${{ needs.preflight.outputs.tag_name }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+            LICENSES=Apache-2.0
+          cache-from: type=gha,scope=studio-release
+          cache-to: type=gha,mode=max,scope=studio-release
+
+      - name: Resolve the immutable image digest
+        id: image
+        env:
+          IMAGE_EXISTS: ${{ steps.image-state.outputs.exists }}
+          EXISTING_DIGEST: ${{ steps.image-state.outputs.digest }}
+          PUSHED_DIGEST: ${{ steps.push-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ "${IMAGE_EXISTS}" = true ]; then
+            digest="${EXISTING_DIGEST}"
+          else
+            digest="${PUSHED_DIGEST}"
+          fi
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create or reuse the GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          release_json="${RUNNER_TEMP}/release.json"
+          if ! gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" > "${release_json}" 2>/dev/null; then
+            release_args=(--draft --verify-tag --title "NebulaGraph Studio ${STUDIO_VERSION}" --notes 'Release notes are being prepared.')
+            if [ "${IS_PRERELEASE}" = true ]; then
+              release_args+=(--prerelease)
+            fi
+            gh release create "${TAG_NAME}" "${release_args[@]}"
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" > "${release_json}"
+          fi
+
+          release_id=$(jq -r .id "${release_json}")
+          draft=$(jq -r .draft "${release_json}")
+          if [ "${draft}" = true ]; then
+            notes="${RUNNER_TEMP}/release-notes.md"
+            gh api \
+              --method POST \
+              "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f "tag_name=${TAG_NAME}" \
+              --jq .body > "${notes}"
+            {
+              echo
+              echo '## Delivery metadata'
+              echo
+              echo "- Version: \`${STUDIO_VERSION}\`"
+              echo "- Source commit: \`${TARGET_SHA}\`"
+              echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
+              echo '- Linux archives: `amd64`, `arm64` (SHA-256 files attached)'
+              for checksum_file in "${RUNNER_TEMP}"/release-assets/*.sha256; do
+                echo "- Checksum: \`$(cat "${checksum_file}")\`"
+              done
+              echo '- Upgrade note: back up the Studio database before deployment.'
+            } >> "${notes}"
+            jq -n \
+              --arg name "NebulaGraph Studio ${STUDIO_VERSION}" \
+              --rawfile body "${notes}" \
+              --argjson prerelease "${IS_PRERELEASE}" \
+              '{name: $name, body: $body, draft: true, prerelease: $prerelease}' \
+              > "${RUNNER_TEMP}/release-update.json"
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+              --input "${RUNNER_TEMP}/release-update.json" >/dev/null
+          else
+            jq -e --argjson expected "${IS_PRERELEASE}" '.prerelease == $expected' "${release_json}" >/dev/null
+          fi
+
+          echo "id=${release_id}" >> "${GITHUB_OUTPUT}"
+          echo "draft=${draft}" >> "${GITHUB_OUTPUT}"
+
+      - name: Reuse or upload verified Release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_DRAFT: ${{ steps.release.outputs.draft }}
+        run: |
+          set -euo pipefail
+          assets_root="${RUNNER_TEMP}/release-assets"
+          release_json="${RUNNER_TEMP}/release-assets.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "${release_json}"
+
+          expected_assets=(
+            "nebula-studio-${STUDIO_VERSION}-linux-amd64.tar.gz"
+            "nebula-studio-${STUDIO_VERSION}-linux-amd64.tar.gz.sha256"
+            "nebula-studio-${STUDIO_VERSION}-linux-arm64.tar.gz"
+            "nebula-studio-${STUDIO_VERSION}-linux-arm64.tar.gz.sha256"
+          )
+          for asset_name in "${expected_assets[@]}"; do
+            local_path="${assets_root}/${asset_name}"
+            test -f "${local_path}"
+            count=$(jq --arg name "${asset_name}" '[.assets[] | select(.name == $name)] | length' "${release_json}")
+            test "${count}" -le 1
+            asset_id=$(jq -r --arg name "${asset_name}" '[.assets[] | select(.name == $name)][0].id // empty' "${release_json}")
+            if [ -n "${asset_id}" ]; then
+              remote_path="${RUNNER_TEMP}/remote-${asset_name}"
+              gh api \
+                -H 'Accept: application/octet-stream' \
+                "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" > "${remote_path}"
+              test "$(sha256sum "${local_path}" | cut -d ' ' -f 1)" = "$(sha256sum "${remote_path}" | cut -d ' ' -f 1)" || {
+                echo "Existing asset ${asset_name} has different content." >&2
+                exit 1
+              }
+              echo "Reusing ${asset_name}."
+            else
+              test "${RELEASE_DRAFT}" = true || {
+                echo "Published Release is missing ${asset_name}; immutable assets will not be modified." >&2
+                exit 1
+              }
+              gh release upload "${TAG_NAME}" "${local_path}"
+            fi
+          done
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "${release_json}"
+          jq -e --arg version "${STUDIO_VERSION}" '
+            ([.assets[].name] | sort) ==
+            ([
+              "nebula-studio-\($version)-linux-amd64.tar.gz",
+              "nebula-studio-\($version)-linux-amd64.tar.gz.sha256",
+              "nebula-studio-\($version)-linux-arm64.tar.gz",
+              "nebula-studio-\($version)-linux-arm64.tar.gz.sha256"
+            ] | sort)
+          ' "${release_json}" >/dev/null
+
+      - name: Publish or verify the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          RELEASE_DRAFT: ${{ steps.release.outputs.draft }}
+          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          if [ "${RELEASE_DRAFT}" = true ]; then
+            if [ "${IS_PRERELEASE}" = true ]; then
+              make_latest=false
+            else
+              make_latest=true
+            fi
+            jq -n \
+              --argjson prerelease "${IS_PRERELEASE}" \
+              --arg make_latest "${make_latest}" \
+              '{draft: false, prerelease: $prerelease, make_latest: $make_latest}' \
+              > "${RUNNER_TEMP}/publish-release.json"
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+              --input "${RUNNER_TEMP}/publish-release.json" >/dev/null
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            --jq 'select(.draft == false) | .html_url'
+
+      - name: Update stable OCI channels last
+        if: needs.preflight.outputs.is_stable == 'true'
+        env:
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor patch <<< "${STUDIO_VERSION}"
+          test -n "${major}" && test -n "${minor}" && test -n "${patch}"
+          channels=("${major}.${minor}" "${major}" latest)
+          tag_args=()
+          for channel in "${channels[@]}"; do
+            tag_args+=(--tag "${IMAGE}:${channel}")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${IMAGE}@${IMAGE_DIGEST}"
+          for channel in "${channels[@]}"; do
+            channel_digest=$(docker buildx imagetools inspect "${IMAGE}:${channel}" | awk '$1 == "Digest:" { print $2; exit }')
+            test "${channel_digest}" = "${IMAGE_DIGEST}"
+          done
+
+      - name: Summarize the published state
+        env:
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          IS_STABLE: ${{ needs.preflight.outputs.is_stable }}
+        run: |
+          {
+            echo '## Studio release published'
+            echo
+            echo "- Version: \`${STUDIO_VERSION}\`"
+            echo "- Source: \`${TARGET_SHA}\`"
+            echo "- Image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
+            echo "- Stable channels updated: \`${IS_STABLE}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -1,0 +1,35 @@
+export const EmptyIcon = 'icon-image-iconUnselect';
+
+const IconCfg = [
+  EmptyIcon,
+  'icon-image-icon1',
+  'icon-image-icon2',
+  'icon-image-icon3',
+  'icon-image-icon4',
+  'icon-image-icon5',
+  'icon-image-icon6',
+  'icon-image-icon7',
+  'icon-image-icon8',
+  'icon-image-icon9',
+  'icon-image-icon10',
+  'icon-image-icon11',
+  'icon-image-icon12',
+  'icon-image-icon13',
+  'icon-image-icon14',
+  'icon-image-icon15',
+  'icon-image-icon16',
+  'icon-image-icon17',
+  'icon-image-icon18',
+  'icon-image-icon19',
+  'icon-image-icon21',
+  'icon-image-icon22',
+  'icon-image-icon23',
+  'icon-image-icon24',
+  'icon-image-icon25',
+  'icon-image-icon26',
+  'icon-image-icon27',
+  'icon-image-icon28',
+  'icon-image-icon29',
+];
+
+export default IconCfg;

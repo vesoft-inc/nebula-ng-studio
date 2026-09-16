@@ -1,0 +1,76 @@
+export default {
+  overview: 'Overview',
+  statistic: 'Statistic',
+  index: 'Index',
+  createIndex: 'Create Index',
+  noDataTip: 'No data to display',
+  viewIndexNGql: 'View Index GQL',
+  indexName: 'Index Name',
+  state: 'State',
+  indexType: 'Index Type',
+  schema: 'Schema',
+  graphName: 'Graph Name',
+  entityType: 'Entity Type',
+  elementType: 'Element Type',
+  property: 'Property',
+  deleteIndex: 'Delete Index',
+  deleteIndexSuccess: 'Delete index successfully',
+  confirmDeleteIndex: 'Are you sure to delete this index?',
+  ifExists: 'If Not Exists',
+  indexProperties: 'Index Properties',
+  propName: 'Property Name',
+  sort: 'Sort',
+  createIndexSuccess: 'Create index successfully',
+  execStats: 'Execute Stats',
+  entryName: 'Name',
+  entryType: 'Type',
+  totalNum: 'Total',
+  totalNode: 'Total Nodes:',
+  totalEdge: 'Total Edges:',
+  execStatsSuccess: 'Execute stats successfully',
+  normalIndex: {
+    title: 'Normal Index',
+  },
+  vertexCentricIndex: {
+    title: 'Vertex-Centric Index',
+    description:
+      'Only available for edge indexes. Use _src or _dst as the prefix key to accelerate vertex-centered edge filtering and ordering queries.',
+    anchorSelector: 'Anchor Node',
+    sourceEndpoint: 'Source',
+    targetEndpoint: 'Target',
+    anchorArrowForward: '->',
+    anchorArrowBackward: '<-',
+    onlyEdgeSupported: 'Vertex-Centric Index only supports edge types.',
+    undirectedEdgeNotSupported: 'Undirected edges do not support Vertex-Centric Index yet.',
+    directionParseNotSupported:
+      'The current edge type direction cannot be parsed, so Vertex-Centric Index is not supported.',
+    anchorCurrent: 'Current anchor node: {{endpoint}} ({{anchor}})',
+  },
+  vectorIndex: {
+    title: 'Vector Index',
+    description:
+      'You can create a vector index based on a single attribute of a single point type or edge type to accelerate approximate nearest neighbor (ANN) search queries based on the indexed attribute.',
+    advancedSettings: 'Advanced settings',
+    metric: 'METRIC',
+    type: 'TYPE',
+    maxDegree: 'MAXDEGREE',
+    efConstruction: 'EFCONSTRUCTION',
+    capacity: 'CAPACITY',
+  },
+  spatialIndex: {
+    title: 'Spatial Index',
+    description:
+      'You can create a spatial index based on a single geographic spatial type attribute of a single point type or edge type to speed up spatial-related queries such as spatial range, proximity, and intersection.',
+    s2_max_level: 'S2 Max Level',
+    s2_max_level_description:
+      'The maximum level that the grid can be divided into. A larger level means finer grid division and smaller cells, but also increases index size and maintenance cost. The value range is (0,30].',
+    s2_max_cells: 'S2 Max Cells',
+    s2_max_cells_description:
+      'The maximum number of grid cells that a geospatial object can cover. Lower values result in fewer index records, which reduces storage requirements and query complexity, but can affect index accuracy. The value range is (0,256).',
+  },
+  fulltextIndex: {
+    title: 'Fulltext Index',
+    description:
+      'You can create a fulltext index based on a single STRING type attribute of a single point type or edge type to efficiently search for specific words or phrases in the indexed attribute.',
+  },
+};
