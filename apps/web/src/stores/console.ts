@@ -167,14 +167,12 @@ export default class ConsoleStore {
       } else if (doubleQuoteIndex === -1) {
         startIndex = singleQuoteIndex;
         delimiter = "'''";
+      } else if (singleQuoteIndex < doubleQuoteIndex) {
+        startIndex = singleQuoteIndex;
+        delimiter = "'''";
       } else {
-        if (singleQuoteIndex < doubleQuoteIndex) {
-          startIndex = singleQuoteIndex;
-          delimiter = "'''";
-        } else {
-          startIndex = doubleQuoteIndex;
-          delimiter = '"""';
-        }
+        startIndex = doubleQuoteIndex;
+        delimiter = '"""';
       }
 
       // Process text before the triple quote block (head or middle text)

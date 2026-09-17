@@ -139,6 +139,7 @@ export class ExplorerStore {
     this.updateLoading(true);
     const snapshotDetail = await this.getSnapshotDetail(snapshotId).finally(() => this.updateLoading(false));
     if (!snapshotDetail || this.graphWorkspace !== graphWorkspace) return;
+    // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
     const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
     graphWorkspace.initSnapShot({
       ...snapshotDetail,
@@ -196,9 +197,11 @@ export class ExplorerStore {
       // console.error('importSnapshotTransfer error', err);
       return;
     }
+    // SAFETY: `safeParse` yields the serialized shape (string endpoints/ids) that must be migrated before use.
     migrateSnapshotEdgeIds(data as unknown as SerializedSnapshotGraphData);
 
     // handle imagesCache
+    // SAFETY: the serialized form is an array of [key, src] tuples, not the runtime Map.
     (data.imagesCache as unknown as [string, string | HTMLImageElement][]).forEach((item) => {
       if (Array.isArray(item) && item.length !== 2) {
         return;
@@ -212,17 +215,19 @@ export class ExplorerStore {
 
     // handle nodes & links
     Array.from(AttrSet).forEach((key) => {
+      // SAFETY: serialized sets are stored as id arrays until rebuilt below.
       const items = data[key] as unknown as Array<string>;
+      // SAFETY: `nowDataMap` is a plain object of serialized entries until rebuilt below.
       const nowDataMap = data.nowDataMap as unknown as Record<string, NodeObject | LinkObject>;
-      if (!!items?.length) {
+      if (items?.length) {
         if (key === 'nodes' || key === 'nodesSelected') {
-          // @ts-ignore
+          // @ts-expect-error
           data[key] = observable.set<NodeObject>(items.map((id) => nowDataMap?.[id] as NodeObject).filter(Boolean), {
             deep: false,
           });
         }
         if (key === 'links' || key === 'linksSelected') {
-          // @ts-ignore
+          // @ts-expect-error
           data[key] = observable.set<LinkObject>(items.map((id) => nowDataMap?.[id] as LinkObject).filter(Boolean), {
             deep: false,
           });
@@ -232,6 +237,7 @@ export class ExplorerStore {
 
     // make link's node string=>object
     data.links?.forEach((link) => {
+      // SAFETY: link endpoints are serialized as ids resolved through the serialized `nowDataMap` object.
       const nowDataMap = data.nowDataMap as unknown as Record<string, NodeObject>;
       link.source = nowDataMap[link.source as string] || ({} as NodeObject);
       link.target = nowDataMap[link.target as string] || ({} as NodeObject);
@@ -243,7 +249,7 @@ export class ExplorerStore {
     // handle ObservableArray
     AttrArray.forEach((key) => {
       const items = (data[key as keyof SnapshotData] || []) as unknown;
-      // @ts-ignore
+      // @ts-expect-error
       data[key] = observable.array(items, {
         deep: false,
       });
@@ -256,9 +262,10 @@ export class ExplorerStore {
    */
   exportSnapshotTransfer = (data: SnapshotData) => {
     // node id may be number 0, check it
+    // SAFETY: the exported object is assembled dynamically and is only consumed by `JSON.stringify`.
     const ret = {
       version: process.env.VERSION,
-    } as Record<string, any>;
+    } as Record<string, unknown>;
 
     // handle nowDataMap
     const { nowDataMap } = data;
