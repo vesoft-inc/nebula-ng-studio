@@ -15,6 +15,10 @@ import { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
 import { execGql } from '@studio/services';
 import { useExplorerSettings } from '../Snapshots/hook';
 
+const RIGHT_SIDE_DRAWER_WIDTH = 355;
+/** Collapsed strip only fits the 24px toggle button plus a 2px gutter on each side. */
+const RIGHT_SIDE_DRAWER_COLLAPSED_WIDTH = 28;
+
 function withExplorerSettings<T>(WrappedComponent: FC<T>) {
   return observer((props: NonNullable<T>) => {
     const { explorerStore, commonStore } = useStore();
@@ -111,11 +115,11 @@ function ExplorerGraph() {
         <Drawer
           open={drawerOpen}
           variant="permanent"
-          openWidth={355}
+          openWidth={RIGHT_SIDE_DRAWER_WIDTH}
+          closeWidth={RIGHT_SIDE_DRAWER_COLLAPSED_WIDTH}
           sx={{
             height: '100%',
             '& .MuiDrawer-paper': {
-              width: drawerOpen ? 355 : 48,
               transition: 'width 0.3s',
               height: '100%',
               padding: 0,
@@ -124,7 +128,7 @@ function ExplorerGraph() {
             },
           }}
         >
-          <Box position="relative" height="100%" padding="8px 16px">
+          <Box position="relative" height="100%" padding={drawerOpen ? '8px 16px' : 0}>
             <Box
               sx={{
                 display: drawerOpen ? 'block' : 'none',
