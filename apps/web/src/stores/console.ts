@@ -8,6 +8,13 @@ import { GraphItem, GraphTypeElement } from '@studio/interfaces';
 import { processGqlStatement } from '@studio/utils/gql';
 import type { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
 
+/** Reference to the Explorer snapshot created from a Console result. */
+export interface ConsoleResultSnapshotRef {
+  snapshotId: string;
+  /** Graph locked when the snapshot was first created, reused when a deleted snapshot is recreated. */
+  graph: string;
+}
+
 export default class ConsoleStore {
   rootStore?: RootStore;
   editorRef?: editor.IStandaloneCodeEditor = undefined;
@@ -17,6 +24,8 @@ export default class ConsoleStore {
   results = observable.array<ConsoleResult>([], { deep: false });
   graphs: GraphItem[] = [];
   graphWorkspaces = observable.map<string, GraphWorkspaceStore>({}, { deep: false });
+  /** One Explorer snapshot per Console result: `result.id` → snapshot reference. Session-scoped. */
+  resultSnapshots = observable.map<string, ConsoleResultSnapshotRef>({}, { deep: false });
   editorRowCount = 1;
   graphTypeInfo = observable.map<string, GraphTypeElement[]>({}, { deep: false });
 
@@ -49,7 +58,30 @@ export default class ConsoleStore {
   updateEditorValue = (value = '') => (this.editorValue = value);
   updateResults = (results: ConsoleResult[]) => this.results.replace(results);
   addResult = (result: ConsoleResult) => this.results.unshift(result);
-  removeResult = (result: ConsoleResult) => this.results.remove(result);
+  removeResult = (result: ConsoleResult) => {
+    this.removeResultSnapshot(result.id);
+    this.results.remove(result);
+  };
+
+  getResultSnapshot = (resultId: string) => this.resultSnapshots.get(resultId);
+
+  setResultSnapshot = (resultId: string, ref: ConsoleResultSnapshotRef) => {
+    this.resultSnapshots.set(resultId, ref);
+  };
+
+  removeResultSnapshot = (resultId: string) => {
+    this.resultSnapshots.delete(resultId);
+  };
+
+  /** Purge mappings pointing at a snapshot deleted from Explorer (same-session cleanup). */
+  removeResultSnapshotsBySnapshotId = (snapshotId: string) => {
+    const staleResultIds = Array.from(this.resultSnapshots.entries())
+      .filter(([, ref]) => ref.snapshotId === snapshotId)
+      .map(([resultId]) => resultId);
+    staleResultIds.forEach((resultId) => this.resultSnapshots.delete(resultId));
+  };
+
+  clearResultSnapshots = () => this.resultSnapshots.clear();
   setQuickActionModalOpen = (open: boolean) => (this.quickActionModalOpen = open);
   setEditorRef = (ref?: editor.IStandaloneCodeEditor) => {
     this.editorRef = ref;
@@ -406,6 +438,7 @@ export default class ConsoleStore {
       this.updateEditorValue('');
       this.updateGraphs([]);
       this.results.clear();
+      this.clearResultSnapshots();
       this.editorRunning = false;
     });
   };

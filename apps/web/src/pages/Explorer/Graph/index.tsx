@@ -84,7 +84,8 @@ function ExplorerGraph() {
     );
   }
 
-  const shouldShowLoading = loading || graphWorkspace.loading || graphWorkspace.graph.loading;
+  const shouldShowLoading =
+    loading || graphWorkspace.loading || graphWorkspace.graph.loading || graphWorkspace.restoreState === 'restoring';
 
   return (
     <Box display="flex" flexDirection="column" height="100%">

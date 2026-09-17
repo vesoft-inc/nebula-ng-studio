@@ -29,4 +29,28 @@ describe('GraphWorkspaceStore lifecycle', () => {
     expect(await workspace.execGqlBySerial('RETURN 1')).toBeUndefined();
     expect(execGql).not.toHaveBeenCalled();
   });
+
+  it('tracks the snapshot restore state and resets it on destroy', async () => {
+    vi.stubGlobal('window', { removeEventListener: vi.fn() });
+    vi.stubGlobal('self', {});
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
+    const { GraphWorkspaceStore } = await import('./workspace');
+    const workspace = new GraphWorkspaceStore({
+      explorerId: 'snapshot-1',
+      execGql: vi.fn() as unknown as ConstructorParameters<typeof GraphWorkspaceStore>[0]['execGql'],
+    });
+
+    expect(workspace.restoreState).toBe('idle');
+    workspace.setRestoreState('restoring');
+    expect(workspace.restoreState).toBe('restoring');
+    workspace.setRestoreState('ready');
+    expect(workspace.restoreState).toBe('ready');
+
+    workspace.destroy();
+    expect(workspace.restoreState).toBe('idle');
+  });
 });

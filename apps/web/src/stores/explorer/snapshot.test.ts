@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import type { SnapshotData } from '@studio/interfaces/explorer';
 import { RawEntityType } from '@studio/interfaces/explorer/gql';
+import { deleteSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 
 vi.mock('@studio/services/explorer', () => ({
   addSnapshot: vi.fn(),
@@ -99,5 +100,72 @@ describe('Explorer snapshot serialization', () => {
     const restoredLink = Array.from(restored?.links ?? [])[0];
     expect((restoredLink?.source as NodeObject).id).toBe('1');
     expect((restoredLink?.target as NodeObject).id).toBe('2');
+  });
+
+  it('purges the Console result mapping when a snapshot is deleted', async () => {
+    const { ExplorerStore } = await import('./snapshot');
+    const removeResultSnapshotsBySnapshotId = vi.fn();
+
+    const store = new ExplorerStore({
+      rootStore: {
+        schemaStore: { currentSchema: { path: '/schema/demo' } },
+        consoleStore: { removeResultSnapshotsBySnapshotId },
+      } as never,
+      settings: {},
+    });
+
+    vi.mocked(deleteSnapshot).mockResolvedValueOnce({ code: 0 } as never);
+    await expect(store.deleteSnapshot('snap-1')).resolves.toBe(true);
+    expect(removeResultSnapshotsBySnapshotId).toHaveBeenCalledWith('snap-1');
+
+    vi.mocked(deleteSnapshot).mockResolvedValueOnce({ code: 1 } as never);
+    await expect(store.deleteSnapshot('snap-2')).resolves.toBe(false);
+    expect(removeResultSnapshotsBySnapshotId).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the canvas restoring until the snapshot payload is applied', async () => {
+    const { ExplorerStore } = await import('./snapshot');
+    const store = new ExplorerStore({
+      rootStore: { schemaStore: { currentSchema: { path: '/schema/demo' } } } as never,
+      settings: {},
+    });
+    const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
+    const emptySnapshotData = {
+      nodes: [],
+      links: [],
+      nodesSelected: [],
+      linksSelected: [],
+      displayedNodePropertyItems: [],
+      displayedEdgePropertyItems: [],
+      filterList: [],
+      imagesCache: [],
+      nowDataMap: {},
+    };
+    vi.mocked(getSnapshotDetail).mockResolvedValueOnce({
+      code: 0,
+      data: { id: 'snap-1', data: JSON.stringify(emptySnapshotData) },
+    } as never);
+
+    await store.openSnapshot('snap-1', workspace as never);
+
+    expect(workspace.setRestoreState.mock.calls.map(([state]) => state)).toEqual(['restoring', 'ready']);
+    expect(workspace.initSnapShot).toHaveBeenCalledTimes(1);
+    expect(store.loading).toBe(false);
+  });
+
+  it('releases the restoring gate when the snapshot detail is missing', async () => {
+    const { ExplorerStore } = await import('./snapshot');
+    const store = new ExplorerStore({
+      rootStore: { schemaStore: { currentSchema: { path: '/schema/demo' } } } as never,
+      settings: {},
+    });
+    const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
+    vi.mocked(getSnapshotDetail).mockResolvedValueOnce({ code: 1, data: undefined } as never);
+
+    await store.openSnapshot('missing', workspace as never);
+
+    expect(workspace.setRestoreState.mock.calls.map(([state]) => state)).toEqual(['restoring', 'ready']);
+    expect(workspace.initSnapShot).not.toHaveBeenCalled();
+    expect(store.loading).toBe(false);
   });
 });

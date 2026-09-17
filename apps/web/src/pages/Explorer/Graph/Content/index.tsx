@@ -40,7 +40,9 @@ function GraphContent() {
         });
       }}
     >
-      {graphWorkspace.graph.isEmpty && <EmptyContent explorerItem={explorerItem} />}
+      {graphWorkspace.restoreState !== 'restoring' && graphWorkspace.graph.isEmpty && (
+        <EmptyContent explorerItem={explorerItem} />
+      )}
       <KeyboardTip />
       {explorerStore.settings.displayPropertiesOnHover && <Tooltip explorerItem={explorerItem} />}
       <Minimap explorerItem={explorerItem}>

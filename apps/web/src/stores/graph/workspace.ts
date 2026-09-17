@@ -18,6 +18,9 @@ import { getAllLabelsByGraphType } from '@studio/utils/graph/helpers';
 import type { ModalStore } from '@vesoft-inc/ui-components/modal';
 import { Settings4GraphStore } from '@studio/components/Settings/constants';
 
+/** Snapshot restore lifecycle of a graph workspace. */
+export type GraphRestoreState = 'idle' | 'restoring' | 'ready';
+
 export class GraphWorkspaceStore {
   explorerId?: string;
   currentSnapshot?: Snapshot;
@@ -31,6 +34,8 @@ export class GraphWorkspaceStore {
   minimap: MinimapStore;
   labelColorPicker: ColorPicker = new ColorPicker('label');
   loading = false;
+  /** Drives the canvas loading gate: `restoring` until the snapshot payload has been applied. */
+  restoreState: GraphRestoreState = 'idle';
 
   stores?: { modalStore?: ModalStore };
   private _settings?: Settings4GraphStore;
@@ -87,6 +92,10 @@ export class GraphWorkspaceStore {
 
   initSnapShot = (snapshot?: Snapshot) => {
     this.updateCurrentSnapshot(snapshot);
+  };
+
+  setRestoreState = (restoreState: GraphRestoreState) => {
+    this.restoreState = restoreState;
   };
 
   isPropertyPrimaryKey = (typeName: string, propertyName: string) => {
@@ -276,6 +285,7 @@ export class GraphWorkspaceStore {
     this.requestQueue.clear();
     this.graph.destroyGraph();
     this.minimap.destroy();
+    this.restoreState = 'idle';
     this.updateCurrentSnapshot(undefined);
   }
 

@@ -13,10 +13,11 @@ import {
   SearchFilled,
   CloseFilled as CloseSmall,
   MonitorDashboard,
+  GraphExpand,
 } from '@vesoft-inc/icons';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult, HttpResCode } from '@vesoft-inc/utils';
 import { Dropdown } from '@vesoft-inc/ui-components';
 import { observer } from 'mobx-react-lite';
 import {
@@ -32,10 +33,20 @@ import {
 } from './styles';
 import { GraphDataTable } from '@studio/interfaces/console';
 import { Trans, useTranslation } from 'react-i18next';
-import { brandConfig, JSONBig, formatMicroseconds, transformNebulaResult } from '@studio/utils';
+import { brandConfig, JSONBig, formatMicroseconds, transformNebulaResult, isGuiTarget } from '@studio/utils';
 import { EmptyResultId } from '@studio/utils/constant';
-import { Skeleton, Stack, Typography, useTheme } from '@mui/material';
-import { useStore } from '@studio/stores';
+import { CircularProgress, Skeleton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
+import { useStore, useModal } from '@studio/stores';
+import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
+import { getUsedGraphsFromData } from '@studio/utils/parseData';
+import {
+  buildHandoffPayload,
+  buildSnapshotName,
+  ensureSnapshotSchemaPath,
+  pickGraphType,
+  rankGraphCandidates,
+} from '@studio/utils/console';
+import { useNavigate } from 'react-router-dom';
 import { hasExplainInfo, isGraphResult } from '@studio/utils/explorer';
 import { HorizonTabs, type HorizonTabItem } from '../HorizonTabs';
 import { generateFullGraphCanvas } from '@studio/utils/graph/base/screenshot';
@@ -100,7 +111,10 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
   const handleMenuClick = useCallback((key: string) => {
     setActiveMenu(key as OutputMenu);
   }, []);
-  const { consoleStore } = useStore();
+  const { consoleStore, schemaStore, explorerStore, commonStore } = useStore();
+  const navigate = useNavigate();
+  const { message } = useModal();
+  const [handoffPending, setHandoffPending] = useState(false);
 
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
 
@@ -337,6 +351,149 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
     }
   };
 
+  const existingSnapshot = consoleStore.getResultSnapshot(result.id);
+  const graphWorkspace = consoleStore.graphWorkspaces.get(result.id);
+  const handoffCandidates = useMemo(
+    () =>
+      graphWorkspace
+        ? rankGraphCandidates(getUsedGraphsFromData(result.data?.tables || []), graphWorkspace.graph.nodes)
+        : [],
+    // Tracking `graph.nodes.size` keeps the ranked candidates in sync with the live workspace.
+    [graphWorkspace, result, graphWorkspace?.graph.nodes.size]
+  );
+  const isMultiGraphHandoff = handoffCandidates.length > 1;
+  const shouldOpenExisting = Boolean(existingSnapshot);
+  const graphReady = Boolean(graphWorkspace && !graphWorkspace.graph.loading && !graphWorkspace.graph.isEmpty);
+  // A result with an existing snapshot only needs the card to be present: its Console canvas may be gone.
+  const handoffDisabled = handoffPending || (!shouldOpenExisting && !(graphReady && handoffCandidates.length > 0));
+  const handoffTip = handoffPending
+    ? t('exploreCreating', { ns: 'console' })
+    : shouldOpenExisting
+      ? t('exploreOpenExistingTip', { ns: 'console' })
+      : !graphWorkspace || graphWorkspace.graph.loading
+        ? t('exploreNotReady', { ns: 'console' })
+        : graphWorkspace.graph.isEmpty || handoffCandidates.length === 0
+          ? t('exploreNoData', { ns: 'console' })
+          : isMultiGraphHandoff
+            ? t('exploreSelectGraph', { ns: 'console' })
+            : t('exploreInExplorerTip', { ns: 'console' });
+
+  const handleExplore = useCallback(
+    async (graph?: string) => {
+      if (handoffPending) return;
+      const existing = consoleStore.getResultSnapshot(result.id);
+      if (!existing) {
+        const workspace = consoleStore.graphWorkspaces.get(result.id);
+        if (!graph || !workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
+      }
+
+      setHandoffPending(true);
+      try {
+        let targetGraph = graph;
+
+        if (existing) {
+          // Reuse the snapshot already created for this result; self-heal when it was deleted elsewhere.
+          const detail = await getSnapshotDetail(existing.snapshotId, { errTip: false });
+          if (detail?.code === 0 && detail.data) {
+            navigate(`/explorer/snapshots/${existing.snapshotId}`);
+            return;
+          }
+          if (detail?.code !== HttpResCode.ErrNotFound) {
+            message.error(detail?.message?.replace(/^\w+::/, '') || t('exploreFailed', { ns: 'console' }));
+            return;
+          }
+          // Snapshot is gone: drop the mapping and recreate it with the graph locked at first click.
+          consoleStore.removeResultSnapshot(result.id);
+          targetGraph = existing.graph;
+        }
+
+        if (!targetGraph) return;
+        const graphName = targetGraph;
+        const workspace = consoleStore.graphWorkspaces.get(result.id);
+        if (!workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
+
+        const resolveGraphType = () =>
+          pickGraphType({
+            graph: graphName,
+            consoleGraphs: consoleStore.graphs,
+            graphTypeInfo: consoleStore.graphTypeInfo,
+            schemaGraphs: schemaStore.currentSchema?.graphs ?? [],
+          });
+
+        // Capture the live canvas state synchronously: navigating away destroys this workspace,
+        // so no `await` may happen before this call. A missing graph_type is filled in below.
+        const payload = buildHandoffPayload({
+          workspace,
+          explorerStore,
+          name: buildSnapshotName(result.gql),
+          graph: graphName,
+          graphType: resolveGraphType() ?? '',
+          schemaPath: schemaStore.currentSchema?.path ?? '',
+        });
+
+        let graphType = payload.graph_type;
+        if (!graphType) {
+          await consoleStore.updateGraphTypeMap([graphName]);
+          graphType = resolveGraphType() ?? '';
+        }
+        if (!graphType) {
+          message.error(t('exploreFailed', { ns: 'console' }));
+          return;
+        }
+
+        // Console can run before the schema list is loaded; the Explorer list filters by the
+        // session schema, so resolve it here rather than storing an empty `schema_path`.
+        const schemaPath = await ensureSnapshotSchemaPath({
+          getPath: () => schemaStore.currentSchema?.path,
+          refresh: () => explorerStore.getCurrentSchema(),
+          fallback: () => commonStore.userInfo?.curSchemaPath,
+        });
+
+        // `errTip: false` keeps the single error toast in this handler.
+        const res = await addSnapshot(
+          { ...payload, graph_type: graphType, schema_path: schemaPath },
+          { errTip: false }
+        );
+        if (res?.code !== 0 || !res.data?.id) {
+          message.error(res?.message?.replace(/^\w+::/, '') || t('exploreFailed', { ns: 'console' }));
+          return;
+        }
+        // One snapshot per result: later clicks open it instead of creating a duplicate.
+        consoleStore.setResultSnapshot(result.id, { snapshotId: res.data.id, graph: graphName });
+        navigate(`/explorer/snapshots/${res.data.id}`);
+      } catch (error) {
+        message.error(error instanceof Error && error.message ? error.message : t('exploreFailed', { ns: 'console' }));
+      } finally {
+        setHandoffPending(false);
+      }
+    },
+    [consoleStore, explorerStore, handoffPending, message, navigate, result, schemaStore, t]
+  );
+
+  const exploreButton = (
+    <IconButton
+      disabled={handoffDisabled}
+      aria-label={t('exploreInExplorer', { ns: 'console' })}
+      onClick={
+        handoffDisabled || (isMultiGraphHandoff && !shouldOpenExisting)
+          ? undefined
+          : () => handleExplore(shouldOpenExisting ? undefined : handoffCandidates[0].graph)
+      }
+      sx={{
+        width: 24,
+        height: 24,
+        border: `1px solid ${theme.palette.vesoft.v2.border1}`,
+        backgroundColor: 'transparent',
+        '&:active,&:focus,&:hover': {
+          backgroundColor: theme.palette.vesoft.v2.bg3,
+          color: theme.palette.vesoft.v2.primary3,
+        },
+      }}
+    >
+      {handoffPending ? <CircularProgress size={14} /> : <GraphExpand sx={{ width: 16, height: 16 }} />}
+    </IconButton>
+  );
+
   return (
     <OutputContainer
       className={isFullScreen ? fullScreenCls : undefined}
@@ -508,6 +665,40 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
                           </IconButton>
                         )}
                       </Box>
+                    )}
+
+                    {/* Explore current graph result in Explorer */}
+                    {activeMenu === OutputMenu.ExplorerData && !isGuiTarget && (
+                      <Tooltip title={handoffTip}>
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
+                          {isMultiGraphHandoff && !handoffDisabled && !shouldOpenExisting ? (
+                            <Dropdown
+                              trigger="click"
+                              items={handoffCandidates.map((candidate, index) => ({
+                                key: candidate.graph,
+                                label: (
+                                  <Stack direction="row" alignItems="center" gap="8px">
+                                    <Typography fontSize={12}>{candidate.graph}</Typography>
+                                    <Typography fontSize={12} color="text.secondary">
+                                      {t('exploreNodeCount', { ns: 'console', count: candidate.nodeCount })}
+                                    </Typography>
+                                    {index === 0 && (
+                                      <Typography fontSize={12} color="primary.main">
+                                        {t('exploreRecommended', { ns: 'console' })}
+                                      </Typography>
+                                    )}
+                                  </Stack>
+                                ),
+                                onClick: () => handleExplore(candidate.graph),
+                              }))}
+                            >
+                              {exploreButton}
+                            </Dropdown>
+                          ) : (
+                            exploreButton
+                          )}
+                        </Box>
+                      </Tooltip>
                     )}
 
                     {/* Download */}

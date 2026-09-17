@@ -79,6 +79,41 @@ describe('Explorer persistence API paths', () => {
     ]);
   });
 
+  it('passes optional snapshot data, thumbnail and request config to the canonical create route', async () => {
+    await addSnapshot(
+      {
+        name: 'Console: MATCH (v) RETURN v',
+        graph: 'demo',
+        graph_type: 'demo_type',
+        schema_path: '/schema/demo',
+        data: '{"nodes":[],"links":[]}',
+        thumbnail: 'data:image/png;base64,dGVzdA==',
+      },
+      { errTip: false }
+    );
+
+    expect(fetcher.post).toHaveBeenCalledTimes(1);
+    expect(fetcher.post).toHaveBeenCalledWith(
+      '/explorer/snapshots',
+      {
+        name: 'Console: MATCH (v) RETURN v',
+        graph: 'demo',
+        graph_type: 'demo_type',
+        schema_path: '/schema/demo',
+        data: '{"nodes":[],"links":[]}',
+        thumbnail: 'data:image/png;base64,dGVzdA==',
+      },
+      { errTip: false }
+    );
+  });
+
+  it('forwards request config for snapshot detail without changing the canonical path', async () => {
+    await getSnapshotDetail('snapshot-1', { errTip: false });
+
+    expect(fetcher.get).toHaveBeenCalledTimes(1);
+    expect(fetcher.get).toHaveBeenCalledWith('/explorer/snapshots/snapshot-1', undefined, { errTip: false });
+  });
+
   it('never calls an absolute or legacy Explorer prefix', async () => {
     await fetchSnapshots({ page: 1, pageSize: 9 });
     await deleteSnapshot('snapshot-1');

@@ -137,14 +137,23 @@ export class ExplorerStore {
   openSnapshot = async (snapshotId: string, graphWorkspace: GraphWorkspaceStore) => {
     this.updateGraphWorkspace(graphWorkspace);
     this.updateLoading(true);
+    // Keep the canvas gated on the screenshot restore instead of flashing the empty state while
+    // the payload is fetched, parsed and applied.
+    graphWorkspace.setRestoreState('restoring');
     const snapshotDetail = await this.getSnapshotDetail(snapshotId).finally(() => this.updateLoading(false));
-    if (!snapshotDetail || this.graphWorkspace !== graphWorkspace) return;
-    // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
-    const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
-    graphWorkspace.initSnapShot({
-      ...snapshotDetail,
-      data,
-    });
+    if (this.graphWorkspace !== graphWorkspace) return;
+    try {
+      if (snapshotDetail) {
+        // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
+        const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
+        graphWorkspace.initSnapShot({
+          ...snapshotDetail,
+          data,
+        });
+      }
+    } finally {
+      graphWorkspace.setRestoreState('ready');
+    }
   };
 
   addSnapshot = async (data: { name: string; graph: string; graph_type: string }) => {
@@ -166,6 +175,10 @@ export class ExplorerStore {
   deleteSnapshot = async (id: string) => {
     const res = await deleteSnapshot(id);
     const flag = res.code === 0;
+    if (flag) {
+      // Keep the Console "one snapshot per result" mapping from pointing at a deleted snapshot.
+      this.rootStore?.consoleStore?.removeResultSnapshotsBySnapshotId(id);
+    }
     return flag;
   };
 

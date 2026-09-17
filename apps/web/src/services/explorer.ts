@@ -1,4 +1,4 @@
-import { fetcher } from './fetcher';
+import { fetcher, type ConfigType } from './fetcher';
 import type { IconGroup, IconItem, Snapshot } from '@studio/interfaces/explorer/explorer';
 import { IconGroupType } from '@studio/utils/explorer/constant';
 
@@ -12,13 +12,21 @@ export const fetchSnapshots = async (payload: { page: number; pageSize: number; 
   return res.data;
 };
 
-export const addSnapshot = async (payload: {
-  name: string;
-  graph: string;
-  graph_type: string;
-  schema_path: string;
-}) => {
-  const res = await fetcher.post<{ id: string }>('/explorer/snapshots', payload);
+export const addSnapshot = async (
+  payload: {
+    name: string;
+    graph: string;
+    graph_type: string;
+    schema_path: string;
+    /** Serialized `SnapshotData`; optional so the existing Explorer "new snapshot" flow is unchanged. */
+    data?: string;
+    thumbnail?: string;
+  },
+  config?: ConfigType
+) => {
+  const res = config
+    ? await fetcher.post<{ id: string }>('/explorer/snapshots', payload, config)
+    : await fetcher.post<{ id: string }>('/explorer/snapshots', payload);
   return res.data;
 };
 
@@ -27,8 +35,10 @@ export const deleteSnapshot = async (id: string) => {
   return res.data;
 };
 
-export const getSnapshotDetail = async (id: string) => {
-  const res = await fetcher.get<Snapshot>(`/explorer/snapshots/${id}`);
+export const getSnapshotDetail = async (id: string, config?: ConfigType) => {
+  const res = config
+    ? await fetcher.get<Snapshot>(`/explorer/snapshots/${id}`, undefined, config)
+    : await fetcher.get<Snapshot>(`/explorer/snapshots/${id}`);
   return res.data;
 };
 
