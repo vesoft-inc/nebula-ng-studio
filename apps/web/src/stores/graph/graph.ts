@@ -44,6 +44,7 @@ import {
   parseEdgeValueToLinkObject,
   parseVertexValueToNodeObject,
 } from '@studio/utils/graph/base/parseData';
+import { isNullLike } from '@studio/utils/graph/base/dml';
 import {
   convertBigNumberToString,
   getDirection,
@@ -244,7 +245,7 @@ export class GraphStore {
       const imagesCache = [...imgCacheMap.entries()].map(([key, img]) => [key, (img as HTMLImageElement).src]);
       return Object.keys(otherAttrs).reduce(
         (ret, key) => {
-          // @ts-ignore
+          // @ts-expect-error
           ret[key] = isObservableSet(otherAttrs[key])
             ? // @ts-ignore
               [...otherAttrs[key]]
@@ -252,6 +253,8 @@ export class GraphStore {
               toJS(otherAttrs[key]);
           return ret;
         },
+        // SAFETY: the seed only carries `imagesCache`; the reducer fills in the remaining
+        // `SnapshotData` keys from the store's own attributes.
         { imagesCache } as unknown as SnapshotData
       );
     })();
@@ -507,6 +510,8 @@ export class GraphStore {
       linksSelected: this.linksSelected.toJSON(),
       nowDataMap: new Map(Array.from(this.nowDataMap)),
     };
+    // SAFETY: the history entry is a detached JSON snapshot; `nodesSelected`/`linksSelected`
+    // are reshaped back into observable sets when the entry is restored.
     this.actionHistory.push(snapshot as unknown as SnapshotData);
     this.historyIndex++;
   };
@@ -531,7 +536,7 @@ export class GraphStore {
       }
     });
     newEdges = newEdges.filter((link) =>
-      !!reverse
+      reverse
         ? this.nodesSelected.has(link.source as NodeObject) &&
           this.nodesSelected.has(link.target as NodeObject) &&
           selectEdgeIds.includes(link.id!)
@@ -559,6 +564,85 @@ export class GraphStore {
     const nextNodes = this.nodes.toJSON().filter((node) => !this.nodesSelected.has(node));
 
     this.initData({ nodes: nextNodes, links: nextLinks });
+  };
+
+  /**
+   * Edit mode: place freshly created nodes at the center of the current viewport.
+   */
+  moveNodesToViewportCenter = (nodes: NodeObject[]) => {
+    const { instance } = this.twoGraph || {};
+    const { width, height } = this.rect;
+    if (!instance || !width || !height || !nodes.length) return;
+    const center = instance.screen2GraphCoords(width / 2, height / 2);
+    nodes.forEach((node) => {
+      node.x = center.x;
+      node.y = center.y;
+      node.fx = center.x;
+      node.fy = center.y;
+      node.vx = 0;
+      node.vy = 0;
+    });
+    this.updateNodes([...this.nodes]);
+  };
+
+  /**
+   * Edit mode: reflect successfully persisted property changes on the canvas.
+   * Raw form values are converted with the schema's property type.
+   */
+  applyEntityProperties = (entity: NodeObject | LinkObject, values: Record<string, string | null | undefined>) => {
+    const value = entity.data?.value;
+    if (!value) return;
+    const entityType = entity.data.type === RawEntityType.EDGE ? GraphEntityType.Edge : GraphEntityType.Node;
+    const typeDetail = this.explorerStore.graphTypeDetails?.find(
+      (item) => item.type_name === value.type && item.entity_type === entityType
+    );
+    const properties = value.properties as Record<string, unknown>;
+    Object.entries(values).forEach(([propertyName, rawValue]) => {
+      const propertyInfo = typeDetail?.propertyInfos?.find((item) => item.property_name === propertyName);
+      if (!propertyInfo) return;
+      properties[propertyName] = isNullLike(rawValue)
+        ? null
+        : parseValueByPropertyType(String(rawValue), propertyInfo.data_type, false);
+    });
+    if (entity.data.type === RawEntityType.NODE) {
+      const node = entity as NodeObject;
+      node.label = this.explorerStore.nodeTypePrimaryKeysMap
+        .get(node.data.value.type)
+        ?.map((key) => properties[key])
+        .join(' ');
+    }
+    this.twoGraph?.render();
+    this.explorerStore.minimap.refresh();
+  };
+
+  /**
+   * Edit mode: drop successfully deleted elements from the canvas.
+   * Deleting a node also drops every edge attached to it.
+   */
+  removeEntities = ({ nodes = [], links = [] }: { nodes?: NodeObject[]; links?: LinkObject[] }) => {
+    const nodeSet = new Set(nodes);
+    const linkSet = new Set(links);
+    const nextNodes = this.nodes.toJSON().filter((node) => !nodeSet.has(node));
+    const nextLinks = this.links.toJSON().filter((link) => {
+      if (linkSet.has(link)) return false;
+      const source = typeof link.source === 'object' ? (link.source as NodeObject) : undefined;
+      const target = typeof link.target === 'object' ? (link.target as NodeObject) : undefined;
+      return !nodeSet.has(source as NodeObject) && !nodeSet.has(target as NodeObject);
+    });
+
+    this.unsafeAction((store) => {
+      nodeSet.forEach((node) => store.nodesSelected.delete(node));
+      linkSet.forEach((link) => store.linksSelected.delete(link));
+      store.nodes.replace(nextNodes);
+      store.links.replace(nextLinks);
+      store.nowDataMap = new Map<string, NodeObject | LinkObject>(
+        [...nextNodes, ...nextLinks].map((item) => [item.id!, item])
+      );
+      store.nodeHovering = undefined;
+      store.linkHovering = undefined;
+    });
+    this.twoGraph?.render();
+    this.explorerStore.minimap.refresh();
   };
 
   initGraph = ({
@@ -727,8 +811,16 @@ export class GraphStore {
     edges: LinkObject[];
     shouldNodeSelected?: boolean;
     shouldLinkSelected?: boolean;
+    /** Edit mode writes to the database directly, so it must not enter the canvas undo stack. */
+    shouldPushHistory?: boolean;
   }) => {
-    const { vertexes = [], edges = [], shouldNodeSelected = false, shouldLinkSelected = false } = payload;
+    const {
+      vertexes = [],
+      edges = [],
+      shouldNodeSelected = false,
+      shouldLinkSelected = false,
+      shouldPushHistory = true,
+    } = payload;
     let hasExistedData = false;
     const filteredDupEdges = this.filterDupLinks(edges);
     const nowDataMap: Map<string, NodeObject | LinkObject> = new Map();
@@ -744,29 +836,29 @@ export class GraphStore {
     // search exsit nodes & update it
     vertexes.forEach((node) => {
       node.id = convertBigNumberToString(node.id!);
-      if (!nowDataMap.has(node.id!)) {
-        nowDataMap.set(node.id!, node);
-        this.nodes.add(node);
-      } else {
-        const { color, id, ...others } = node;
+      if (nowDataMap.has(node.id!)) {
+        const { color: _color, id: _id, ...others } = node;
         hasExistedData = true;
         const nodeItem = nowDataMap.get(node.id!);
         if (nodeItem) {
           Object.assign(nodeItem, others);
         }
+      } else {
+        nowDataMap.set(node.id!, node);
+        this.nodes.add(node);
       }
     });
     (filteredDupEdges as LinkObject[]).forEach((link: LinkObject) => {
-      if (!nowDataMap.has(link.id!)) {
-        this.links.add(link);
-        nowDataMap.set(link.id!, link);
-      } else {
-        const { source, target, color, ...others } = link;
+      if (nowDataMap.has(link.id!)) {
+        const { source: _source, target: _target, color: _color, ...others } = link;
         hasExistedData = true;
         const linkItem = nowDataMap.get(link.id!);
         if (linkItem) {
           Object.assign(linkItem, others);
         }
+      } else {
+        this.links.add(link);
+        nowDataMap.set(link.id!, link);
       }
     });
     // make auto circle layout by selected nodes
@@ -818,7 +910,7 @@ export class GraphStore {
 
     // make newest data map
     this.nowDataMap = nowDataMap;
-    this.pushHistory();
+    shouldPushHistory && this.pushHistory();
   };
 
   getExploreInfo = async (payload: {

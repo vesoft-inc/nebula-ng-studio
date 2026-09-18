@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { List, MenuItem } from '@mui/material';
-import { EyeOff, GraphExpand, SwapHorizontal } from '@vesoft-inc/icons';
+import { Delete, EditOutlined, EyeOff, GraphExpand, SwapHorizontal } from '@vesoft-inc/icons';
 
 import { IContextMenuItem } from '@studio/interfaces/explorer';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { EdgeDirectionType } from '@vesoft-inc/utils';
 import { useMemo } from 'react';
 import EdgeStyleSetBtn from '@studio/components/GraphWorkbench/EdgeStyleSetBtn';
 import { ALL_EDGE_TYPE_KEY } from '@studio/utils/explorer/constant';
+import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
 import { MenuItemIcon, MenuItemText } from './styles';
 
@@ -136,6 +137,33 @@ function Menu({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
           closeContextMenu();
         },
       });
+    }
+    if (explorerItem.graphEdit.editMode) {
+      const entities: (NodeObject | LinkObject)[] = [...Array.from(nodesSelected), ...Array.from(linksSelected)];
+      if (entities.length) {
+        menuItems = [
+          {
+            title: t('editProperties', { ns: 'explorer' }),
+            key: 'editProperties',
+            icon: <EditOutlined />,
+            disabled: entities.length !== 1,
+            onClick: () => {
+              explorerItem.graphEdit.openEditEntity(entities[0]);
+              closeContextMenu();
+            },
+          },
+          {
+            title: t('delete', { ns: 'explorer' }),
+            key: 'deleteEntity',
+            icon: <Delete />,
+            onClick: () => {
+              explorerItem.graphEdit.openDeleteConfirm(entities);
+              closeContextMenu();
+            },
+          },
+          ...menuItems,
+        ];
+      }
     }
     return menuItems;
   };

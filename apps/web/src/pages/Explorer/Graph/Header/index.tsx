@@ -28,6 +28,7 @@ import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import { ListboxComponent, OptionItem, StyledPopper } from './VirtualList';
 import { downloadCSVFiles } from '@vesoft-inc/utils';
 import { generateFullGraphCanvas } from '@studio/utils/graph/base/screenshot';
+import { EditModeToggle } from '../EditToolbar';
 
 function GraphHeader() {
   const navigate = useNavigate();
@@ -401,6 +402,7 @@ function GraphHeader() {
             <SearchFilled fontSize="medium" aria-label="SearchFilled" />
           </ToolIconButton>
         </Box>
+        <EditModeToggle explorerItem={graphWorkspace} />
         <ToolIconButton disabled={isSaving} onClick={handleSave} title={t('save', { ns: 'common' })}>
           <ContentSave fontSize="medium" aria-label="ContentSave" />
         </ToolIconButton>

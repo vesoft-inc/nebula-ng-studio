@@ -13,6 +13,7 @@ import type { GraphDataTable } from '@studio/interfaces/explorer/gql';
 import type { execGql } from '@studio/services';
 import { ColorPicker, SiderPanel } from '@studio/interfaces/explorer/explorer';
 import { GraphStore } from './graph';
+import { GraphEditStore } from './graphEdit';
 import { MinimapStore } from './minimap';
 import { getAllLabelsByGraphType } from '@studio/utils/graph/helpers';
 import type { ModalStore } from '@vesoft-inc/ui-components/modal';
@@ -27,6 +28,7 @@ export class GraphWorkspaceStore {
   graphTypeDetails?: DescGraphTypeResult[];
   activeSiderKey?: SiderPanel;
   graph: GraphStore;
+  graphEdit: GraphEditStore;
   isFullScreen = false;
   snapShopDisposer?: IReactionDisposer;
   nodeTypePrimaryKeysMap = new Map<string, string[]>();
@@ -54,6 +56,7 @@ export class GraphWorkspaceStore {
       stores: observable.ref,
       currentSnapshot: observable.ref,
       graph: observable.ref,
+      graphEdit: observable.ref,
       snapShopDisposer: false,
       minimap: false,
       curNodeTypes: computed,
@@ -77,6 +80,7 @@ export class GraphWorkspaceStore {
     );
     this._settings = options.settings;
     this.minimap = new MinimapStore(this);
+    this.graphEdit = new GraphEditStore(this.graph, this);
     this.explorerId = options.explorerId;
     this.labelColorPicker = new ColorPicker('label');
     this.initReactions();
@@ -91,6 +95,7 @@ export class GraphWorkspaceStore {
   };
 
   initSnapShot = (snapshot?: Snapshot) => {
+    this.graphEdit.setEditMode(false);
     this.updateCurrentSnapshot(snapshot);
   };
 
@@ -289,10 +294,10 @@ export class GraphWorkspaceStore {
     this.updateCurrentSnapshot(undefined);
   }
 
-  execGqlBySerial = async <T extends object>(gql: string) => {
+  execGqlBySerial = async <T extends object>(gql: string, config?: Parameters<typeof execGql>[1]) => {
     if (this.destroyed) return;
     const { controller, promise } = this.requestQueue.add((signal) =>
-      this.execGql<T>(gql, { signal, queryTimeout: (this.settings.queryTimeout ?? 0) * 1000 })
+      this.execGql<T>(gql, { signal, queryTimeout: (this.settings.queryTimeout ?? 0) * 1000, ...config })
     );
     try {
       const res = await promise;

@@ -9,11 +9,7 @@ import { NODE_SIZE } from './base';
 import { PathType } from '@studio/utils/explorer/constant';
 import { parseInt64Value } from './parseInt64Value';
 
-export const handleKeyword = (name: string) => {
-  return `\`${handleEscape(name || '')}\``;
-};
-
-export const handleEscape = (name: string) => name.replace(/\\/gm, '\\\\').replace(/`/gm, '\\`');
+export { handleEscape, handleKeyword } from './base/identifier';
 
 export const handleVidStringName = (name: string, spaceVidType?: string) => {
   if (spaceVidType && spaceVidType === 'INT64' && !isNaN(parseInt(name, 10))) {

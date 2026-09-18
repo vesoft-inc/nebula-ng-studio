@@ -21,6 +21,8 @@ export const addCanvasShortcut = (
     const { twoGraph } = graphStore;
     switch (true) {
       case e.key === 'Enter' && shortcut.enter !== false:
+        // edit mode uses Enter-free flows: two selected nodes define a new edge instead
+        if (graphStore.explorerStore.graphEdit.editMode) break;
         if (graphStore.nodesSelected.size) {
           explorerItem.graph.queryRelation(ALL_EDGE_TYPE_KEY, EdgeDirectionType.AnyDirection, 1);
         }
@@ -49,7 +51,11 @@ export const addCanvasShortcut = (
         break;
       case e.key === 'Backspace' && shortcut.delete !== false:
         //  del delete
-        graphStore.deleteNodesAndEdges({ reverse: e.shiftKey });
+        if (graphStore.explorerStore.graphEdit.editMode) {
+          graphStore.explorerStore.graphEdit.openDeleteConfirm();
+        } else {
+          graphStore.deleteNodesAndEdges({ reverse: e.shiftKey });
+        }
         break;
       case e.key === 'a' && (e.metaKey || e.ctrlKey): {
         // cmd + a select all

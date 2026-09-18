@@ -67,7 +67,7 @@ export class TwoGraphStore {
     }
     const nodes: NodeObject[] = [];
     const links: LinkObject[] = [];
-    Array.from(this.graph.links).filter((link) => {
+    Array.from(this.graph.links).forEach((link) => {
       if (link.source === this.graph.nodeHovering || link.target === this.graph.nodeHovering) {
         nodes.push(link.source as NodeObject, link.target as NodeObject);
         links.push(link);
@@ -651,6 +651,27 @@ export class TwoGraphStore {
 
     this.renderNodeLabel(node, ctx, nodeSize);
     this.renderNodeIcon(node, ctx, nodeSize, !!shouldGreyScale);
+    this.renderEditEndpointMarker(node, ctx, nodeSize);
+  };
+
+  /**
+   * Edit mode: mark the two selected endpoints of a new edge as the source (`S`) and
+   * the target (`T`) so the insertion direction is unambiguous.
+   */
+  renderEditEndpointMarker = (node: NodeObject, ctx: CanvasRenderingContext2D, nodeSize: number) => {
+    const graphEdit = this.graph.explorerStore.graphEdit;
+    if (!graphEdit?.editMode) return;
+    const endpoints = graphEdit.selectedEndpoints;
+    if (!endpoints) return;
+    const marker = node === endpoints.source ? 'S' : node === endpoints.target ? 'T' : undefined;
+    if (!marker) return;
+    ctx.save();
+    ctx.fillStyle = '#0091ff';
+    ctx.font = `bold ${FONT_SIZE + 2}px Sans-Serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(marker, node.x!, node.y! - nodeSize - FONT_SIZE - 6);
+    ctx.restore();
   };
 
   renderNodeLabel = (node: NodeObject, ctx: CanvasRenderingContext2D, nodeSize: number) => {

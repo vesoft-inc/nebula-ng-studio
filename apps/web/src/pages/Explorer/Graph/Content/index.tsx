@@ -9,6 +9,8 @@ import Minimap, {
 } from '@studio/components/GraphWorkbench/Minimap';
 import ContextMenu from '../ContextMenu';
 import RedoUndo from '../RedoUndo';
+import EditActionBar from '../EditToolbar';
+import GraphEditDialogs from '../EditPanel/GraphEditDialogs';
 import EmptyContent from './EmptyContent';
 import SelectedEntityInfo from './SelectedEntityInfo';
 import KeyboardTip from './KeyboardTip';
@@ -58,6 +60,8 @@ function GraphContent() {
       </Minimap>
       <ContextMenu explorerItem={explorerItem} />
       <RedoUndo explorerItem={explorerItem} />
+      <EditActionBar explorerItem={explorerItem} />
+      <GraphEditDialogs explorerItem={explorerItem} />
       {hasEntitySelected && <SelectedEntityInfo explorerItem={explorerItem} />}
     </CommonGraphContent>
   );
