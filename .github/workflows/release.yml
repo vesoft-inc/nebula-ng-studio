@@ -3,13 +3,10 @@ name: Release Studio
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Studio SemVer without a leading v (for example 1.2.3 or 1.2.3-rc.1)
-        required: true
-        type: string
       target_ref:
-        description: Commit, tag, or branch on the default branch to release
-        required: true
+        description: Commit, tag, or branch to release. Leave empty to release the dispatched ref.
+        required: false
+        default: ''
         type: string
 
 permissions:
@@ -34,6 +31,7 @@ jobs:
       studio_version: ${{ steps.request.outputs.studio_version }}
       tag_name: ${{ steps.request.outputs.tag_name }}
       target_sha: ${{ steps.request.outputs.target_sha }}
+      release_source: ${{ steps.request.outputs.release_source }}
       is_prerelease: ${{ steps.request.outputs.is_prerelease }}
       is_stable: ${{ steps.request.outputs.is_stable }}
       image: ${{ steps.request.outputs.image }}
@@ -49,23 +47,72 @@ jobs:
         id: request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REQUESTED_VERSION: ${{ inputs.version }}
           TARGET_REF: ${{ inputs.target_ref }}
+          DISPATCH_REF: ${{ github.ref_name }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          [[ "${REQUESTED_VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta)\.(0|[1-9][0-9]*))?$ ]]
-          [[ "${TARGET_REF}" =~ ^[A-Za-z0-9][A-Za-z0-9._/@+-]{0,254}$ ]]
 
-          git fetch --force --tags origin
-          target_sha=$(git rev-parse --verify "${TARGET_REF}^{commit}")
-          default_sha=$(git rev-parse --verify "origin/${DEFAULT_BRANCH}^{commit}")
-          git merge-base --is-ancestor "${target_sha}" "${default_sha}" || {
-            echo "Target ${target_sha} is not on ${DEFAULT_BRANCH}." >&2
+          # An empty input releases the ref the workflow was dispatched from: pick the branch or tag
+          # above, leave the box empty. Any ref of the repository can be released.
+          target_ref="${TARGET_REF:-${DISPATCH_REF}}"
+          [[ "${target_ref}" =~ ^[A-Za-z0-9][A-Za-z0-9._/@+-]{0,254}$ ]] || {
+            echo "Target ref '${target_ref}' must be a branch, tag, or commit of the repository." >&2
             exit 1
           }
 
-          tag_name="v${REQUESTED_VERSION}"
+          git fetch --force --tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+          # A plain branch name resolves through the fetched remote-tracking ref.
+          resolve_commit() {
+            git rev-parse --verify --quiet "${1}^{commit}" && return 0
+            git rev-parse --verify --quiet "origin/${1}^{commit}" && return 0
+            return 1
+          }
+          target_sha=$(resolve_commit "${target_ref}") || {
+            echo "Target ref '${target_ref}' does not resolve to a commit of this repository." >&2
+            exit 1
+          }
+
+          # Informational only: the approval preview names what is released and whether the commit is
+          # already on the default branch. Nothing here blocks a release.
+          default_sha=$(git rev-parse --verify --quiet "origin/${DEFAULT_BRANCH}^{commit}") || true
+          if [ -n "${default_sha}" ] && git merge-base --is-ancestor "${target_sha}" "${default_sha}"; then
+            release_source="${DEFAULT_BRANCH}"
+          else
+            release_source="${target_ref} (not on ${DEFAULT_BRANCH})"
+          fi
+          echo "::notice::Releasing ${target_sha} for ${release_source}."
+
+          # The version is authored in the Web manifest of the released commit, so a release never
+          # restates it: bump apps/web/package.json in the commit that is being released.
+          manifest="apps/web/package.json"
+          studio_version=""
+          if git cat-file -e "${target_sha}:${manifest}" 2>/dev/null; then
+            studio_version=$(git show "${target_sha}:${manifest}" | jq -r '.version // empty') || {
+              echo "${manifest} at ${target_sha} is not readable as JSON." >&2
+              exit 1
+            }
+          fi
+          [[ "${studio_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta)\.(0|[1-9][0-9]*))?$ ]] || {
+            echo "${manifest} at ${target_sha} declares '${studio_version}', which is not a releasable X.Y.Z or X.Y.Z-(rc|beta).N version." >&2
+            exit 1
+          }
+          if [[ "${studio_version}" == *-* ]]; then
+            is_prerelease=true
+            is_stable=false
+          else
+            is_prerelease=false
+            is_stable=true
+          fi
+
+          release_kind=stable
+          if [ "${is_prerelease}" = true ]; then
+            release_kind=prerelease
+          fi
+          echo "::notice::Releasing ${studio_version} (${release_kind}) from ${manifest} at ${target_sha}."
+
+          tag_name="v${studio_version}"
           tag_exists=false
           if git show-ref --verify --quiet "refs/tags/${tag_name}"; then
             test "$(git cat-file -t "refs/tags/${tag_name}")" = tag || {
@@ -79,17 +126,28 @@ jobs:
             tag_exists=true
           fi
 
-          if [[ "${REQUESTED_VERSION}" == *-* ]]; then
-            is_prerelease=true
-            is_stable=false
-          else
-            is_prerelease=false
-            is_stable=true
-          fi
+          fetch_release() {
+            local release release_id
+            if ! release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag_name}" 2>/dev/null); then
+              release_id=$(gh release view "${tag_name}" --repo "${GITHUB_REPOSITORY}" --json databaseId --jq .databaseId 2>/dev/null || true)
+              if [ -n "${release_id}" ]; then
+                release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}")
+              else
+                release=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+                  jq -s --arg tag "${tag_name}" --arg name "NebulaGraph Studio ${studio_version}" '
+                    map(select(type == "array")) | add // []
+                    | map(select(.tag_name == $tag or (.draft == true and .name == $name)))
+                    | if length == 1 then .[0] else empty end') || return 1
+              fi
+            fi
+            test -n "${release}" || return 1
+            jq -e 'type == "object"' <<< "${release}" >/dev/null || return 1
+            printf '%s\n' "${release}"
+          }
 
           release_state=absent
           release_json="${RUNNER_TEMP}/existing-release.json"
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag_name}" > "${release_json}" 2>/dev/null; then
+          if fetch_release > "${release_json}"; then
             test "${tag_exists}" = true || {
               echo "Release ${tag_name} exists without the required annotated tag." >&2
               exit 1
@@ -109,9 +167,10 @@ jobs:
           [[ "${image}" =~ ^ghcr\.io/[a-z0-9._-]+/nebula-studio$ ]]
 
           {
-            echo "studio_version=${REQUESTED_VERSION}"
+            echo "studio_version=${studio_version}"
             echo "tag_name=${tag_name}"
             echo "target_sha=${target_sha}"
+            echo "release_source=${release_source}"
             echo "is_prerelease=${is_prerelease}"
             echo "is_stable=${is_stable}"
             echo "image=${image}"
@@ -167,6 +226,7 @@ jobs:
           IMAGE: ${{ needs.preflight.outputs.image }}
           RELEASE_STATE: ${{ needs.preflight.outputs.release_state }}
           TAG_EXISTS: ${{ needs.preflight.outputs.tag_exists }}
+          RELEASE_SOURCE: ${{ needs.preflight.outputs.release_source }}
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}/release-assets"
@@ -187,8 +247,10 @@ jobs:
             echo '## Studio release approval preview'
             echo
             echo "- Version: \`${STUDIO_VERSION}\` (${release_kind})"
+            echo '- Version source: `apps/web/package.json` at the target commit'
             echo "- Annotated tag: \`${TAG_NAME}\` (already exists: \`${TAG_EXISTS}\`)"
             echo "- Source commit: \`${TARGET_SHA}\`"
+            echo "- Release source: \`${RELEASE_SOURCE}\`"
             echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}\`"
             echo "- Existing Release state: \`${RELEASE_STATE}\`"
             echo '- Linux archives: `amd64`, `arm64`'
@@ -196,7 +258,7 @@ jobs:
               echo "- Checksum: \`$(cat "${checksum_file}")\`"
             done
             echo
-            echo 'The publish job requires approval from the protected `release` environment.'
+            echo 'The publish job requires approval from the protected `release` environment; it leaves the Release as a draft. Publish the draft manually, then re-run this workflow with the same target to move the stable channels.'
           } >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
@@ -349,26 +411,77 @@ jobs:
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
+          fetch_release() {
+            local release release_id
+            if ! release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" 2>/dev/null); then
+              release_id=$(gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --json databaseId --jq .databaseId 2>/dev/null || true)
+              if [ -n "${release_id}" ]; then
+                release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}")
+              else
+                release=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+                  jq -s --arg tag "${TAG_NAME}" --arg name "NebulaGraph Studio ${STUDIO_VERSION}" '
+                    map(select(type == "array")) | add // []
+                    | map(select(.tag_name == $tag or (.draft == true and .name == $name)))
+                    | if length == 1 then .[0] else empty end') || return 1
+              fi
+            fi
+            test -n "${release}" || return 1
+            jq -e 'type == "object"' <<< "${release}" >/dev/null || return 1
+            printf '%s\n' "${release}"
+          }
+
           release_json="${RUNNER_TEMP}/release.json"
-          if ! gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" > "${release_json}" 2>/dev/null; then
+          if ! fetch_release > "${release_json}"; then
             release_args=(--draft --verify-tag --title "NebulaGraph Studio ${STUDIO_VERSION}" --notes 'Release notes are being prepared.')
             if [ "${IS_PRERELEASE}" = true ]; then
               release_args+=(--prerelease)
             fi
             gh release create "${TAG_NAME}" "${release_args[@]}"
-            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG_NAME}" > "${release_json}"
+            fetch_release > "${release_json}"
           fi
 
           release_id=$(jq -r .id "${release_json}")
           draft=$(jq -r .draft "${release_json}")
           if [ "${draft}" = true ]; then
             notes="${RUNNER_TEMP}/release-notes.md"
-            gh api \
-              --method POST \
-              "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f "tag_name=${TAG_NAME}" \
-              --jq .body > "${notes}"
+            prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TARGET_SHA}^" 2>/dev/null || true)
             {
+              echo '## Changes'
+              echo
+              if [ -n "${prev_tag}" ]; then
+                range="${prev_tag}..${TARGET_SHA}"
+              else
+                range="${TARGET_SHA}"
+              fi
+              git log --no-merges --pretty=format:'%h%x09%s' "${range}" |
+                awk -F'\t' -v repo="${GITHUB_REPOSITORY}" '
+                  function section(subject) {
+                    if (subject ~ /^feat(\(|:|!)/) return "Features"
+                    if (subject ~ /^fix(\(|:|!)/) return "Fixes"
+                    return "Other Changes"
+                  }
+                  $2 ~ /^chore\(release\)/ { next }
+                  {
+                    name = section($2)
+                    items[name] = items[name] "- " $2 " ([" $1 "](https://github.com/" repo "/commit/" $1 "))\n"
+                  }
+                  END {
+                    split("Features Fixes Other Changes", order, " ")
+                    printed = 0
+                    for (i = 1; i <= 3; i++) {
+                      if (order[i] in items) {
+                        printf "### %s\n%s\n", order[i], items[order[i]]
+                        printed = 1
+                      }
+                    }
+                    if (!printed) print "- No user-visible changes recorded in this range."
+                  }
+                '
+              if [ -n "${prev_tag}" ]; then
+                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev_tag}...${TAG_NAME}"
+              else
+                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG_NAME}"
+              fi
               echo
               echo '## Delivery metadata'
               echo
@@ -376,11 +489,8 @@ jobs:
               echo "- Source commit: \`${TARGET_SHA}\`"
               echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
               echo '- Linux archives: `amd64`, `arm64` (SHA-256 files attached)'
-              for checksum_file in "${RUNNER_TEMP}"/release-assets/*.sha256; do
-                echo "- Checksum: \`$(cat "${checksum_file}")\`"
-              done
               echo '- Upgrade note: back up the Studio database before deployment.'
-            } >> "${notes}"
+            } > "${notes}"
             jq -n \
               --arg name "NebulaGraph Studio ${STUDIO_VERSION}" \
               --rawfile body "${notes}" \
@@ -401,7 +511,6 @@ jobs:
       - name: Reuse or upload verified Release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
           STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
           RELEASE_DRAFT: ${{ steps.release.outputs.draft }}
@@ -438,7 +547,12 @@ jobs:
                 echo "Published Release is missing ${asset_name}; immutable assets will not be modified." >&2
                 exit 1
               }
-              gh release upload "${TAG_NAME}" "${local_path}"
+              curl --fail --silent --show-error \
+                --request POST \
+                --header "Authorization: Bearer ${GH_TOKEN}" \
+                --header 'Content-Type: application/octet-stream' \
+                --data-binary "@${local_path}" \
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}"
             fi
           done
 
@@ -453,35 +567,27 @@ jobs:
             ] | sort)
           ' "${release_json}" >/dev/null
 
-      - name: Publish or verify the GitHub Release
+      - name: Leave the draft for review or verify the published Release
+        id: release-state
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
           RELEASE_DRAFT: ${{ steps.release.outputs.draft }}
-          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
         run: |
           set -euo pipefail
           if [ "${RELEASE_DRAFT}" = true ]; then
-            if [ "${IS_PRERELEASE}" = true ]; then
-              make_latest=false
-            else
-              make_latest=true
-            fi
-            jq -n \
-              --argjson prerelease "${IS_PRERELEASE}" \
-              --arg make_latest "${make_latest}" \
-              '{draft: false, prerelease: $prerelease, make_latest: $make_latest}' \
-              > "${RUNNER_TEMP}/publish-release.json"
-            gh api \
-              --method PATCH \
-              "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-              --input "${RUNNER_TEMP}/publish-release.json" >/dev/null
+            echo 'published=false' >> "${GITHUB_OUTPUT}"
+            echo "::notice::${TAG_NAME} stays a draft. Review the release notes, publish the Release in the GitHub UI, then re-run this workflow with the same target to move the stable channels."
+            echo "Draft ready for review: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG_NAME}"
+            exit 0
           fi
+          echo 'published=true' >> "${GITHUB_OUTPUT}"
           gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --jq 'select(.draft == false) | .html_url'
 
       - name: Update stable OCI channels last
-        if: needs.preflight.outputs.is_stable == 'true'
+        if: needs.preflight.outputs.is_stable == 'true' && steps.release-state.outputs.published == 'true'
         env:
           IMAGE: ${{ needs.preflight.outputs.image }}
           STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
@@ -501,19 +607,31 @@ jobs:
             test "${channel_digest}" = "${IMAGE_DIGEST}"
           done
 
-      - name: Summarize the published state
+      - name: Summarize the release state
         env:
           STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
           TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
           IMAGE: ${{ needs.preflight.outputs.image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           IS_STABLE: ${{ needs.preflight.outputs.is_stable }}
+          PUBLISHED: ${{ steps.release-state.outputs.published }}
         run: |
           {
-            echo '## Studio release published'
+            if [ "${PUBLISHED}" = true ]; then
+              echo '## Studio release published'
+            else
+              echo '## Studio release draft prepared'
+            fi
             echo
             echo "- Version: \`${STUDIO_VERSION}\`"
             echo "- Source: \`${TARGET_SHA}\`"
             echo "- Image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
-            echo "- Stable channels updated: \`${IS_STABLE}\`"
+            if [ "${PUBLISHED}" = true ]; then
+              echo "- Stable channels updated: \`${IS_STABLE}\`"
+            else
+              echo '- Stable channels updated: `false` (draft)'
+              echo '- Next: review and publish the draft Release, then re-run this workflow with the same target to move the stable channels.'
+              echo "- Draft: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG_NAME}"
+            fi
           } >> "${GITHUB_STEP_SUMMARY}"

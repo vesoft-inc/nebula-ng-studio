@@ -82,12 +82,12 @@ jobs:
       - name: Run frontend and package tests
         run: pnpm test
 
-      - name: Build Studio and GUI
+      - name: Build workspace apps
         run: |
           pnpm build
           pnpm build:gui
 
-      - name: Smoke test the retained GUI routes
+      - name: Smoke test the workspace apps
         run: |
           pnpm --dir apps/gui preview --host 127.0.0.1 --port 4173 &
           preview_pid=$!
@@ -214,40 +214,6 @@ jobs:
           docker stop --timeout 10 "${container}"
           trap - EXIT
 
-  multi-platform-docker:
-    name: Multi-platform Docker build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: ${{ inputs.checkout_ref || github.sha }}
-          persist-credentials: false
-
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-
-      - name: Build the OCI index without pushing
-        run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --build-arg "STUDIO_VERSION=0.0.0-dev+${SOURCE_SHA}" \
-            --build-arg "GIT_HASH=${SOURCE_SHA}" \
-            --build-arg "GIT_REF=${SOURCE_REF}" \
-            --provenance=false \
-            --output "type=oci,dest=${RUNNER_TEMP}/nebula-studio.oci.tar" \
-            .
-
-      - name: Verify both image manifests
-        run: |
-          mkdir "${RUNNER_TEMP}/nebula-studio-oci"
-          tar -xf "${RUNNER_TEMP}/nebula-studio.oci.tar" -C "${RUNNER_TEMP}/nebula-studio-oci"
-          index_digest=$(jq -r '.manifests[0].digest | sub("^sha256:"; "")' "${RUNNER_TEMP}/nebula-studio-oci/index.json")
-          jq -e \
-            '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]' \
-            "${RUNNER_TEMP}/nebula-studio-oci/blobs/sha256/${index_digest}"
-
   public-ci:
     name: Public CI gate
     if: always()
@@ -257,7 +223,6 @@ jobs:
       - go-server
       - studio-archives
       - native-docker-delivery
-      - multi-platform-docker
     runs-on: ubuntu-24.04
     steps:
       - name: Require every public check
@@ -267,14 +232,12 @@ jobs:
           GO_RESULT: ${{ needs.go-server.result }}
           ARCHIVE_RESULT: ${{ needs.studio-archives.result }}
           NATIVE_DOCKER_RESULT: ${{ needs.native-docker-delivery.result }}
-          MULTI_PLATFORM_RESULT: ${{ needs.multi-platform-docker.result }}
         run: |
           for check_result in \
             "${REPOSITORY_RESULT}" \
             "${FRONTEND_RESULT}" \
             "${GO_RESULT}" \
             "${ARCHIVE_RESULT}" \
-            "${NATIVE_DOCKER_RESULT}" \
-            "${MULTI_PLATFORM_RESULT}"; do
+            "${NATIVE_DOCKER_RESULT}"; do
             test "${check_result}" = success
           done

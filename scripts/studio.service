@@ -52,7 +52,7 @@ function usage {
 }
 
 # A pid file alone cannot prove the process is still ours: once the daemon dies and the
-# kernel recycles its pid, `ps -p` reports the pid as running and `stop` would signal an
+# kernel recycles its pid, `kill -0` reports the pid as existing and `stop` would signal an
 # unrelated process. Confirm the pid's executable is this archive's Server first.
 function is_process_running {
     local pid_file=${1}
@@ -63,10 +63,12 @@ function is_process_running {
     read -r pid <"${pid_file}" || return 1
     [[ ${pid} =~ ^[0-9]+$ ]] || return 1
 
-    ps -p "${pid}" >/dev/null 2>&1 || return 1
+    # `kill -0` is a bash builtin: probing liveness must not depend on forking an external
+    # command, which can fail transiently on a loaded or memory-constrained host.
+    kill -0 "${pid}" 2>/dev/null || return 1
 
     # The kernel appends " (deleted)" once the binary is replaced in place. /proc is
-    # absent off Linux, where this degrades to the ps check above.
+    # absent off Linux, where this degrades to the `kill -0` check above.
     exe=$(readlink "/proc/${pid}/exe" 2>/dev/null) || exe=""
     [[ -z ${exe} ]] && return 0
     [[ ${exe% (deleted)} == "${STUDIO_BIN_PATH}" ]]
@@ -162,17 +164,25 @@ function start_daemon {
     echo $! >"${STUDIO_PID_FILE}"
 
     local deadline=$((SECONDS + 30))
+    local missed=0
     while ((SECONDS < deadline)); do
         if "${executable_file}" -healthcheck "${STUDIO_HEALTHCHECK_URL}" >/dev/null 2>&1; then
             INFO "${STUDIO_DAEMON_NAME} is running, pid is $(cat "${STUDIO_PID_FILE}")"
             INFO "Log file: ${STUDIO_LOG_FILE}"
             return 0
         fi
-        if ! is_process_running "${STUDIO_PID_FILE}"; then
-            ERROR "${STUDIO_DAEMON_NAME} exited during startup; last log lines:"
-            tail -n 20 "${STUDIO_LOG_FILE}" >&2 || true
-            rm -f "${STUDIO_PID_FILE}"
-            return 1
+        # One failed liveness probe can be a transient hiccup; only two consecutive
+        # failures mean the daemon really exited during startup.
+        if is_process_running "${STUDIO_PID_FILE}"; then
+            missed=0
+        else
+            missed=$((missed + 1))
+            if ((missed >= 2)); then
+                ERROR "${STUDIO_DAEMON_NAME} exited during startup; last log lines:"
+                tail -n 20 "${STUDIO_LOG_FILE}" >&2 || true
+                rm -f "${STUDIO_PID_FILE}"
+                return 1
+            fi
         fi
         sleep 1
     done
