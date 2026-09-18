@@ -11,10 +11,11 @@ import {
   rankGraphCandidates,
 } from './console';
 
-const node = (graph: string, id: string = graph): NodeObject =>
+const node = (graph: string, id: string = graph, nodeStyle: { color?: string; type?: string } = {}): NodeObject =>
   ({
     id,
-    data: { value: { graph } },
+    color: nodeStyle.color,
+    data: { value: { graph, type: nodeStyle.type } },
   }) as NodeObject;
 
 const graphItem = (graph: string, graphType: string) => ({ graph, graph_type: graphType }) as GraphItem;
@@ -29,35 +30,88 @@ describe('rankGraphCandidates', () => {
         [node('graph_a'), node('graph_b', 'b-1'), node('graph_b', 'b-2'), node('graph_b', 'b-3')]
       )
     ).toEqual([
-      { graph: 'graph_b', nodeCount: 3 },
-      { graph: 'graph_a', nodeCount: 1 },
+      { graph: 'graph_b', nodeCount: 3, colors: [] },
+      { graph: 'graph_a', nodeCount: 1, colors: [] },
     ]);
   });
 
   it('breaks count ties by graph name for a deterministic default', () => {
     expect(rankGraphCandidates(['z_graph', 'a_graph'], [node('z_graph'), node('a_graph')])).toEqual([
-      { graph: 'a_graph', nodeCount: 1 },
-      { graph: 'z_graph', nodeCount: 1 },
+      { graph: 'a_graph', nodeCount: 1, colors: [] },
+      { graph: 'z_graph', nodeCount: 1, colors: [] },
     ]);
   });
 
   it('keeps candidates without visible nodes, ranked last', () => {
     expect(rankGraphCandidates(['empty_graph', 'full_graph'], [node('full_graph')])).toEqual([
-      { graph: 'full_graph', nodeCount: 1 },
-      { graph: 'empty_graph', nodeCount: 0 },
+      { graph: 'full_graph', nodeCount: 1, colors: [] },
+      { graph: 'empty_graph', nodeCount: 0, colors: [] },
     ]);
   });
 
   it('ignores nodes from other graphs and malformed node data', () => {
-    const stray = node('other_graph');
+    const stray = node('other_graph', 'other_graph', { color: '#8ACCFF', type: 'player' });
     const malformed = { id: 'malformed', data: { value: {} } } as NodeObject;
-    expect(rankGraphCandidates(['graph_a'], [node('graph_a'), stray, malformed])).toEqual([
-      { graph: 'graph_a', nodeCount: 1 },
-    ]);
+    expect(
+      rankGraphCandidates(['graph_a'], [node('graph_a', 'a-1', { color: '#F8CE60', type: 'team' }), stray, malformed])
+    ).toEqual([{ graph: 'graph_a', nodeCount: 1, colors: [{ color: '#F8CE60', types: ['team'] }] }]);
   });
 
   it('returns an empty list when the result has no graph', () => {
     expect(rankGraphCandidates([], [node('graph_a')])).toEqual([]);
+  });
+
+  it('lists each graph node colors, most used first', () => {
+    expect(
+      rankGraphCandidates(
+        ['graph_b', 'graph_a'],
+        [
+          node('graph_a', 'a-1', { color: '#8ACCFF', type: 'player' }),
+          node('graph_a', 'a-2', { color: '#8ACCFF', type: 'player' }),
+          node('graph_a', 'a-3', { color: '#F8CE60', type: 'team' }),
+          node('graph_a', 'a-4', { color: '#F8CE60', type: 'coach' }),
+          node('graph_b', 'b-1', { color: '#F78888', type: 'movie' }),
+        ]
+      )
+    ).toEqual([
+      {
+        graph: 'graph_a',
+        nodeCount: 4,
+        colors: [
+          { color: '#8ACCFF', types: ['player'] },
+          { color: '#F8CE60', types: ['team', 'coach'] },
+        ],
+      },
+      { graph: 'graph_b', nodeCount: 1, colors: [{ color: '#F78888', types: ['movie'] }] },
+    ]);
+  });
+
+  it('keeps the first painted order for equally used colors and node types', () => {
+    // Colors are keyed by node type (tag), so a graph with several tags reports several colors.
+    expect(
+      rankGraphCandidates(
+        ['graph_a'],
+        [
+          node('graph_a', 'a-1', { color: '#8ACCFF', type: 'player' }),
+          node('graph_a', 'a-2', { color: '#F8CE60', type: 'team' }),
+        ]
+      )
+    ).toEqual([
+      {
+        graph: 'graph_a',
+        nodeCount: 2,
+        colors: [
+          { color: '#8ACCFF', types: ['player'] },
+          { color: '#F8CE60', types: ['team'] },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps colors without a node type, so their tooltip stays empty', () => {
+    expect(rankGraphCandidates(['graph_a'], [node('graph_a', 'a-1', { color: '#8ACCFF' })])).toEqual([
+      { graph: 'graph_a', nodeCount: 1, colors: [{ color: '#8ACCFF', types: [] }] },
+    ]);
   });
 });
 

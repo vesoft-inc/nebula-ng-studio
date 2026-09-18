@@ -2,10 +2,24 @@ import type { NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphItem, GraphTypeElement } from '@studio/interfaces';
 import type { SnapshotData } from '@studio/interfaces/explorer/explorer';
 
+/**
+ * Node color of a graph's visible nodes together with the node types (tags) painted with it.
+ *
+ * Colors are keyed by node type (tag), not by graph, so the same tag name in different graphs
+ * shares one color, while a graph with several tags shows several colors.
+ */
+export interface GraphColorUsage {
+  color: string;
+  /** Node types painted with this color in this graph, most used first. */
+  types: string[];
+}
+
 /** Console result handoff: graph candidate with its visible node count in the current workspace. */
 export interface GraphCandidate {
   graph: string;
   nodeCount: number;
+  /** Node colors of this graph's visible nodes, most used first. See `GraphColorUsage`. */
+  colors: GraphColorUsage[];
 }
 
 /** Serializable payload posted to `POST /api-studio/explorer/snapshots`. */
@@ -39,9 +53,19 @@ type HandoffSerializer = {
   exportSnapshotTransfer: (data: SnapshotData) => unknown;
 };
 
-const getNodeGraph = (node: NodeObject): string | undefined => {
-  const value = (node.data as { value?: { graph?: unknown } } | undefined)?.value;
-  return typeof value?.graph === 'string' ? value.graph : undefined;
+/** Graph and node type (tag) of a parsed node; both are `undefined` for malformed node data. */
+const getNodeMeta = (node: NodeObject): { graph?: string; type?: string } => {
+  const value = (node.data as { value?: { graph?: unknown; type?: unknown } } | undefined)?.value;
+  return {
+    graph: typeof value?.graph === 'string' ? value.graph : undefined,
+    type: typeof value?.type === 'string' && value.type ? value.type : undefined,
+  };
+};
+
+/** Color painted by the workspace color picker, keyed by the node type (tag) name. */
+const getNodeColor = (node: NodeObject): string | undefined => {
+  const color = (node as { color?: unknown }).color;
+  return typeof color === 'string' && color ? color : undefined;
 };
 
 const compareGraphName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -52,24 +76,51 @@ const compareGraphName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
  * - Duplicated `usedGraphs` entries collapse into one candidate.
  * - Candidates with 0 visible nodes are kept (ranked last) so the menu still lists them.
  * - Order: node count desc, then graph name asc for deterministic defaults.
+ * - Each candidate also reports the node colors it paints on the canvas (most used first),
+ *   together with the node types (tags) each color belongs to.
  */
 export const rankGraphCandidates = (usedGraphs: string[], nodes: Iterable<NodeObject>): GraphCandidate[] => {
   const countMap = new Map<string, number>();
+  /** Per graph: node color → visible node count and the node types painted with it. */
+  const colorUsageMap = new Map<string, Map<string, { count: number; types: Map<string, number> }>>();
   usedGraphs.forEach((graph) => {
     if (!countMap.has(graph)) {
       countMap.set(graph, 0);
+      colorUsageMap.set(graph, new Map());
     }
   });
 
   for (const node of nodes) {
-    const graph = getNodeGraph(node);
-    if (graph && countMap.has(graph)) {
-      countMap.set(graph, countMap.get(graph)! + 1);
+    const { graph, type } = getNodeMeta(node);
+    if (!graph || !countMap.has(graph)) continue;
+    countMap.set(graph, countMap.get(graph)! + 1);
+
+    const color = getNodeColor(node);
+    if (color) {
+      const colorUsages = colorUsageMap.get(graph)!;
+      const usage = colorUsages.get(color) ?? { count: 0, types: new Map<string, number>() };
+      usage.count += 1;
+      if (type) {
+        usage.types.set(type, (usage.types.get(type) ?? 0) + 1);
+      }
+      colorUsages.set(color, usage);
     }
   }
 
   return Array.from(countMap.entries())
-    .map(([graph, nodeCount]) => ({ graph, nodeCount }))
+    .map(([graph, nodeCount]) => ({
+      graph,
+      nodeCount,
+      // `Map` keeps insertion order, so the sorts stay stable for equally used colors and types.
+      colors: Array.from(colorUsageMap.get(graph)!.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([color, usage]) => ({
+          color,
+          types: Array.from(usage.types.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([type]) => type),
+        })),
+    }))
     .sort((a, b) => b.nodeCount - a.nodeCount || compareGraphName(a.graph, b.graph));
 };
 

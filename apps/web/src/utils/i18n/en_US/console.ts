@@ -21,7 +21,6 @@ export default {
   exploreSelectGraph: 'Select a graph to explore',
   exploreNodeCount_one: '{{count}} node',
   exploreNodeCount_other: '{{count}} nodes',
-  exploreRecommended: 'Recommended',
   exploreFailed: 'Failed to open Explorer',
   rows: 'Rows:',
   clear: 'Clear',

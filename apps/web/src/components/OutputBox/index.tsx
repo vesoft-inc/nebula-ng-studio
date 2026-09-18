@@ -115,6 +115,8 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
   const navigate = useNavigate();
   const { message } = useModal();
   const [handoffPending, setHandoffPending] = useState(false);
+  const [exploreTipOpen, setExploreTipOpen] = useState(false);
+  const [graphPickerOpen, setGraphPickerOpen] = useState(false);
 
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
 
@@ -669,12 +671,20 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
 
                     {/* Explore current graph result in Explorer */}
                     {activeMenu === OutputMenu.ExplorerData && !isGuiTarget && (
-                      <Tooltip title={handoffTip}>
+                      <Tooltip
+                        title={handoffTip}
+                        // The graph picker opens right below the trigger, so drop the hint while it is
+                        // open: the tooltip would otherwise cover the first menu item.
+                        open={exploreTipOpen && !graphPickerOpen}
+                        onOpen={() => setExploreTipOpen(true)}
+                        onClose={() => setExploreTipOpen(false)}
+                      >
                         <Box component="span" sx={{ display: 'inline-flex' }}>
                           {isMultiGraphHandoff && !handoffDisabled && !shouldOpenExisting ? (
                             <Dropdown
                               trigger="click"
-                              items={handoffCandidates.map((candidate, index) => ({
+                              onOpenChange={setGraphPickerOpen}
+                              items={handoffCandidates.map((candidate) => ({
                                 key: candidate.graph,
                                 label: (
                                   <Stack direction="row" alignItems="center" gap="8px">
@@ -682,10 +692,38 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
                                     <Typography fontSize={12} color="text.secondary">
                                       {t('exploreNodeCount', { ns: 'console', count: candidate.nodeCount })}
                                     </Typography>
-                                    {index === 0 && (
-                                      <Typography fontSize={12} color="primary.main">
-                                        {t('exploreRecommended', { ns: 'console' })}
-                                      </Typography>
+                                    {candidate.colors.length > 0 && (
+                                      <Stack direction="row" alignItems="center">
+                                        {candidate.colors.map(({ color, types }, index) => (
+                                          <Tooltip
+                                            key={color}
+                                            title={types.join(', ')}
+                                            placement="top"
+                                            // MUI keeps 14px between a tooltip and its anchor; that reads as too
+                                            // far for 12px color dots, so tighten the vertical distance.
+                                            slotProps={{
+                                              tooltip: {
+                                                sx: {
+                                                  '.MuiTooltip-popper[data-popper-placement*="top"] &': { mb: '6px' },
+                                                },
+                                              },
+                                            }}
+                                          >
+                                            <Box
+                                              sx={{
+                                                width: 12,
+                                                height: 12,
+                                                borderRadius: '50%',
+                                                backgroundColor: color,
+                                                border: (theme) => `1px solid ${theme.palette.divider}`,
+                                                // Stacked dots: the first (most used) color stays on top.
+                                                ml: index === 0 ? 0 : '-5px',
+                                                zIndex: candidate.colors.length - index,
+                                              }}
+                                            />
+                                          </Tooltip>
+                                        ))}
+                                      </Stack>
                                     )}
                                   </Stack>
                                 ),

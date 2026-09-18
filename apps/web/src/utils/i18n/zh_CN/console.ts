@@ -19,7 +19,6 @@ export default {
   exploreSelectGraph: '选择要探索的图',
   exploreNodeCount_one: '{{count}} 个节点',
   exploreNodeCount_other: '{{count}} 个节点',
-  exploreRecommended: '推荐',
   exploreFailed: '进入 Explorer 失败',
   rows: '行数：',
   clear: '清空',
