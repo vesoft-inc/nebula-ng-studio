@@ -444,7 +444,7 @@ jobs:
           draft=$(jq -r .draft "${release_json}")
           if [ "${draft}" = true ]; then
             notes="${RUNNER_TEMP}/release-notes.md"
-            prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TARGET_SHA}^" 2>/dev/null || true)
+            prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*-*' "${TARGET_SHA}^" 2>/dev/null || true)
             {
               echo '## Changes'
               echo
