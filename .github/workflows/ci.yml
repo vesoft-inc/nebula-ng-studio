@@ -51,6 +51,9 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Test the release channel policy
+        run: pnpm test:release-policy
+
       - name: Lint repository
         run: pnpm lint
 

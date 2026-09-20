@@ -52,6 +52,7 @@ Use the narrowest relevant command while developing, then run the full repositor
 pnpm format:check
 pnpm lint
 pnpm -r --if-present lint:types
+pnpm test:release-policy
 pnpm test
 go -C apps/server test ./...
 ```
