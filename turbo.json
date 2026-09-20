@@ -20,6 +20,7 @@
     "nebula-studio#build": {
       "dependsOn": [],
       "cache": false,
+      "env": ["STUDIO_BRAND_*", "STUDIO_DEFAULT_LANGUAGE", "STUDIO_VERSION"],
       "outputs": ["dist/**"]
     },
     "@vesoft-inc/ui-components#dev": {
@@ -33,6 +34,7 @@
     "nebula-gui#build": {
       "dependsOn": [],
       "cache": false,
+      "env": ["STUDIO_BRAND_*", "STUDIO_DEFAULT_LANGUAGE"],
       "outputs": ["dist/**"]
     },
     "@vesoft-inc/utils#build": {

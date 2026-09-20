@@ -7,20 +7,20 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        STUDIO_VERSION: ${STUDIO_VERSION:-dev}
-        GIT_HASH: ${GIT_HASH:-unknown}
-        GIT_REF: ${GIT_REF:-unknown}
-        NEBULA_STUDIO_BRAND_NAME: ${NEBULA_STUDIO_BRAND_NAME-NebulaGraph}
-        NEBULA_STUDIO_BRAND_NAME_ZH_CN: ${NEBULA_STUDIO_BRAND_NAME_ZH_CN-NebulaGraph}
-        NEBULA_STUDIO_BRAND_CONSOLE_NAME: ${NEBULA_STUDIO_BRAND_CONSOLE_NAME-NebulaGraph}
-        NEBULA_STUDIO_BRAND_CONSOLE_PROMPT: ${NEBULA_STUDIO_BRAND_CONSOLE_PROMPT-nebula}
-        NEBULA_STUDIO_BRAND_STUDIO_TITLE: ${NEBULA_STUDIO_BRAND_STUDIO_TITLE-NebulaGraph Studio}
-        NEBULA_STUDIO_BRAND_GUI_TITLE: ${NEBULA_STUDIO_BRAND_GUI_TITLE-NebulaGraph Console}
-        NEBULA_STUDIO_COPYRIGHT: ${NEBULA_STUDIO_COPYRIGHT-Copyright © vesoft inc.}
-        NEBULA_STUDIO_BRAND_HELP_URL_TEMPLATE: ${NEBULA_STUDIO_BRAND_HELP_URL_TEMPLATE-https://ent-docs.nebula-graph.io/{coreVersion}}
-        NEBULA_STUDIO_DEFAULT_LANGUAGE: ${NEBULA_STUDIO_DEFAULT_LANGUAGE-en_US}
-        SOURCE_URL: ${SOURCE_URL:-https://github.com/vesoft-inc/nebula-ng-studio}
-        LICENSES: ${LICENSES:-Apache-2.0}
+        - STUDIO_VERSION=${STUDIO_VERSION:-dev}
+        - GIT_HASH=${GIT_HASH:-unknown}
+        - GIT_REF=${GIT_REF:-unknown}
+        - STUDIO_BRAND_NAME
+        - STUDIO_BRAND_NAME_ZH_CN
+        - STUDIO_BRAND_CONSOLE_NAME
+        - STUDIO_BRAND_CONSOLE_PROMPT
+        - STUDIO_BRAND_STUDIO_TITLE
+        - STUDIO_BRAND_GUI_TITLE
+        - STUDIO_BRAND_COPYRIGHT
+        - STUDIO_BRAND_HELP_URL_TEMPLATE
+        - STUDIO_DEFAULT_LANGUAGE
+        - SOURCE_URL=${SOURCE_URL:-https://github.com/vesoft-inc/nebula-ng-studio}
+        - LICENSES=${LICENSES:-Apache-2.0}
     init: true
     extra_hosts:
       - 'host.docker.internal:host-gateway'

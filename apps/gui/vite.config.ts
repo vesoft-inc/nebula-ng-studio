@@ -7,15 +7,15 @@ import pkg from './package.json';
 const TARGET_URL = process.env.GUI_API_TARGET || 'http://127.0.0.1:19669';
 
 const CLIENT_BRAND_DEFAULTS = {
-  NEBULA_STUDIO_BRAND_NAME: 'NebulaGraph',
-  NEBULA_STUDIO_BRAND_NAME_ZH_CN: 'NebulaGraph',
-  NEBULA_STUDIO_BRAND_CONSOLE_NAME: 'NebulaGraph',
-  NEBULA_STUDIO_BRAND_CONSOLE_PROMPT: 'nebula',
-  NEBULA_STUDIO_BRAND_STUDIO_TITLE: 'NebulaGraph Studio',
-  NEBULA_STUDIO_BRAND_GUI_TITLE: 'NebulaGraph Console',
-  NEBULA_STUDIO_COPYRIGHT: 'Copyright © vesoft inc.',
-  NEBULA_STUDIO_BRAND_HELP_URL_TEMPLATE: 'https://ent-docs.nebula-graph.io/{coreVersion}',
-  NEBULA_STUDIO_DEFAULT_LANGUAGE: 'en_US',
+  STUDIO_BRAND_NAME: 'NebulaGraph',
+  STUDIO_BRAND_NAME_ZH_CN: 'NebulaGraph',
+  STUDIO_BRAND_CONSOLE_NAME: 'NebulaGraph',
+  STUDIO_BRAND_CONSOLE_PROMPT: 'nebula',
+  STUDIO_BRAND_STUDIO_TITLE: 'NebulaGraph Studio',
+  STUDIO_BRAND_GUI_TITLE: 'NebulaGraph Console',
+  STUDIO_BRAND_COPYRIGHT: 'Copyright © vesoft inc.',
+  STUDIO_BRAND_HELP_URL_TEMPLATE: 'https://ent-docs.nebula-graph.io/{coreVersion}',
+  STUDIO_DEFAULT_LANGUAGE: 'en_US',
 } as const;
 
 const resolveBrandEnv = (mode: string) => {
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, brandEnv);
 
   return {
-    envPrefix: 'NEBULA_STUDIO_',
+    envPrefix: ['STUDIO_BRAND_', 'STUDIO_DEFAULT_LANGUAGE'],
     plugins: [
       react(),
       ViteEjsPlugin(() => {
