@@ -8,6 +8,8 @@ The archive is tested on CentOS 7 and CentOS 8, and on Ubuntu 20.04, 22.04 and 2
 
 ```text
 nebula-studio-<version>
+├── LICENSE  # Apache License 2.0 text
+├── README.md
 ├── assets   # static frontend served by the Server
 ├── bin      # studio Server binary
 ├── etc      # default configuration
@@ -52,7 +54,9 @@ sudo ./scripts/studio.service restart studio
 | `stop`    | Sends `SIGTERM`, waits up to 30 seconds for the process to exit, then removes `pids/studio.pid`.                                                         |
 | `restart` | `stop` followed by `start`.                                                                                                                              |
 
-`./scripts/studio.service -v` prints the Server version, and `-h` prints the usage. If the Server does not become healthy, `start` prints the last lines of `logs/studio.log` and exits non-zero. When the Server listens somewhere other than its default address, point the startup check at that address with `STUDIO_HEALTHCHECK_URL`.
+`./scripts/studio.service -v` prints the Server version, and `-h` prints the usage. If the Server does not become healthy, `start` prints the last lines of `logs/studio.log` and exits non-zero. The startup gate uses the unauthenticated liveness endpoint at `/api-studio/health`. When the Server listens somewhere other than its default address, point the startup check at that endpoint with `STUDIO_HEALTHCHECK_URL`.
+
+Use `/api-studio/health/ready` when deployment automation also needs to verify the metadata database connection and migrations. It does not check Graphd because Graphd is selected separately for each login session.
 
 Open <http://127.0.0.1:7001>.
 
@@ -83,8 +87,6 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now nebula-studio.service
 sudo systemctl status nebula-studio.service
 ```
-
-Add `User=` and `Group=` to the unit to run Studio as a dedicated account, and make the whole install directory writable by that account so `pids/`, `logs/` and `data/` can be created.
 
 ## Run in the foreground
 

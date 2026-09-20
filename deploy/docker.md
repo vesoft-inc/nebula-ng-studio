@@ -34,6 +34,19 @@ docker compose logs -f studio
 docker compose down
 ```
 
+`docker compose logs` shows the container's stdout and stderr, including early startup failures. Studio's rotating application logs remain under `/app/logs`; that directory is ephemeral by default and is discarded when Compose replaces the container.
+
+If file logs must survive container replacement, add a deployment-owned Compose override. A host bind mount is the simplest choice when an operator or log collector needs direct file access:
+
+```yaml
+services:
+  studio:
+    volumes:
+      - ./studio-logs:/app/logs
+```
+
+The host directory must be writable by UID/GID 10001. A named volume mounted at `/app/logs` is also valid when only container-independent retention is needed. Logs are operational data and should not share the `studio-data` database volume.
+
 `docker compose down` keeps the named volume. Do not add `--volumes` unless the database has been backed up and permanent deletion is intended.
 
 ## Ports and Graphd connectivity
@@ -73,18 +86,22 @@ Compose requires that file to exist and mounts it at `/app/etc/config-release.ya
 
 ## Health probe and scaling
 
-The image's built-in health probe only checks that the Server process answers on its HTTP listener. It never touches the metadata database or Graphd, so the container reports healthy while the database is missing, unmigrated or unreachable: treat it as a liveness signal, not as a readiness gate. A deployment that terminates TLS in Studio sets `STUDIO_HEALTHCHECK_URL` to its HTTPS URL so the probe follows the listener scheme.
+The image's built-in probe calls `GET /api-studio/health`. This unauthenticated liveness endpoint returns `200` when the Server can answer HTTP requests and never checks the metadata database or Graphd.
+
+Use `GET /api-studio/health/ready` as an external readiness gate. It returns `200` when the metadata database is disabled or when the connection and all known migrations are ready; it returns `503` when the database is unavailable or not fully migrated. Graphd is selected per login session and does not affect either probe.
+
+Both endpoints also support `HEAD` and send `Cache-Control: no-store`. A deployment that terminates TLS in Studio can override the built-in liveness URL by passing `STUDIO_HEALTHCHECK_URL=https://127.0.0.1:7001/api-studio/health`; the checked-in Compose file forwards this variable to the container. The certificate must be trusted inside the container.
 
 Run one Studio instance. Login sessions and Graphd credentials live in the Server process that created them; the metadata database stores application data, not sessions. A second instance behind a load balancer therefore rejects the first instance's session cookie with a session error even when both share identical secrets and database, so horizontal scaling is not supported in this release line.
 
 ## Data and upgrades
 
-The image runs as the non-root `studio` user (UID/GID 10001) and writes only under `/app/data` and `/app/logs`. The Compose volume mounts `/app/data`; keep the default `/app/data/studio.db` path.
+The image runs as the non-root `studio` user (UID/GID 10001) and writes only under `/app/data` and `/app/logs`. Compose persists `/app/data` but leaves `/app/logs` ephemeral by default; keep the default `/app/data/studio.db` path.
 
 Before changing Studio versions:
 
 1. Stop Studio and back up the SQLite volume or MySQL database.
 2. Rebuild or pull the exact target version and start it against a copy first.
-3. Confirm the health endpoint and migration records before upgrading production.
+3. Confirm both health endpoints before upgrading production.
 
 Deploying an earlier image does not reverse database migrations: migrations are forward-only, so restoring the matching pre-upgrade backup is the only way back.

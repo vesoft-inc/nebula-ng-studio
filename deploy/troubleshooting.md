@@ -10,7 +10,7 @@ Server logs record the secret source (`environment`, `config`, or `generated`) b
 
 ## The container restarts in a loop
 
-An invalid secret stops startup: an explicitly configured encryption passphrase must be exactly 16, 24 or 32 bytes, and an empty secret environment variable is rejected rather than ignored. Under `restart: unless-stopped` the container then restarts indefinitely, so `docker compose ps` shows a repeatedly growing uptime instead of a failure. Read the first line of `docker compose logs studio`.
+An invalid secret stops startup: an explicitly configured encryption passphrase must be exactly 16, 24 or 32 bytes, and an empty secret environment variable is rejected rather than ignored. Under `restart: unless-stopped` the container then restarts indefinitely, so `docker compose ps` usually shows `Restarting` or an uptime that repeatedly resets to a few seconds. Use `docker compose logs studio` to find the repeated initialization error.
 
 ## Cannot connect to Graphd
 
