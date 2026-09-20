@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -57,6 +58,35 @@ func ApplySchemaMigrations(database *gorm.DB) error {
 			return transaction.Create(&SchemaMigration{ID: item.id, AppliedAt: time.Now()}).Error
 		}); err != nil {
 			return fmt.Errorf("apply schema migration %s: %w", item.id, err)
+		}
+	}
+
+	return nil
+}
+
+// CheckSchemaMigrations verifies that the database connection is usable and
+// every migration known to this binary has been applied. It never mutates the
+// database.
+func CheckSchemaMigrations(ctx context.Context, database *gorm.DB) error {
+	if database == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	sqlDB, err := database.DB()
+	if err != nil {
+		return fmt.Errorf("get database connection: %w", err)
+	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping database: %w", err)
+	}
+
+	for _, item := range schemaMigrations {
+		var applied int64
+		if err := database.WithContext(ctx).Model(&SchemaMigration{}).Where("id = ?", item.id).Count(&applied).Error; err != nil {
+			return fmt.Errorf("check schema migration %s: %w", item.id, err)
+		}
+		if applied == 0 {
+			return fmt.Errorf("schema migration %s is not applied", item.id)
 		}
 	}
 

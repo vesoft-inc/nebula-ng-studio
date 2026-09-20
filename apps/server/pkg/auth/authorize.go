@@ -57,6 +57,8 @@ var CtxUserInfoMap map[string]AuthData = make(map[string]AuthData)
 const GraphServiceTimeout = 8 * time.Hour
 
 var NoApiAuthRoutes = []string{
+	"/api-studio/health",
+	"/api-studio/health/ready",
 	"/api-studio/db/connect",
 	"/api-studio/db/oauth2-config",
 	"/api-studio/db/oauth2-connect",

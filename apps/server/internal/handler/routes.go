@@ -10,6 +10,7 @@ import (
 	explorericon_group "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/handler/explorer/icon_group"
 	explorersnapshot "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/handler/explorer/snapshot"
 	gateway "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/handler/gateway"
+	health "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/handler/health"
 	sketches "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/handler/sketches"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/svc"
 
@@ -219,6 +220,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: gateway.GetUserInfoHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// Liveness
+				Method:  http.MethodGet,
+				Path:    "/health",
+				Handler: health.HealthHandler(serverCtx),
+			},
+			{
+				// Liveness
+				Method:  http.MethodHead,
+				Path:    "/health",
+				Handler: health.HealthHeadHandler(serverCtx),
+			},
+			{
+				// Readiness
+				Method:  http.MethodGet,
+				Path:    "/health/ready",
+				Handler: health.ReadinessHandler(serverCtx),
+			},
+			{
+				// Readiness
+				Method:  http.MethodHead,
+				Path:    "/health/ready",
+				Handler: health.ReadinessHeadHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api-studio"),
 	)
 
 	server.AddRoutes(

@@ -1,0 +1,32 @@
+syntax = "v1"
+
+type (
+	HealthResp {
+		Status string `json:"status"`
+	}
+	ReadinessResp {
+		Database string `json:"database"`
+	}
+)
+
+@server (
+	group:  health
+	prefix: /api-studio
+)
+service studio-api {
+	@doc "Liveness"
+	@handler Health
+	get /health returns (HealthResp)
+
+	@doc "Liveness"
+	@handler HealthHead
+	head /health returns (HealthResp)
+
+	@doc "Readiness"
+	@handler Readiness
+	get /health/ready returns (ReadinessResp)
+
+	@doc "Readiness"
+	@handler ReadinessHead
+	head /health/ready returns (ReadinessResp)
+}

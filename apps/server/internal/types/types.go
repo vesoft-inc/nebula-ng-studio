@@ -149,6 +149,10 @@ type GlobalConfigItem struct {
 	UpdatedAt int64  `json:"updated_at"`
 }
 
+type HealthResp struct {
+	Status string `json:"status"`
+}
+
 type IconActionResult struct {
 	ID string `json:"id"`
 }
@@ -193,6 +197,10 @@ type Oauth2ConnectReq struct {
 type Oauth2ConnectResp struct {
 	AuthURL  string `json:"redirect"`
 	ClientID string `json:"clientID"`
+}
+
+type ReadinessResp struct {
+	Database string `json:"database"`
 }
 
 type Sketch struct {

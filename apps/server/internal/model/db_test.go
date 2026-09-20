@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,36 @@ func TestApplySchemaMigrationsCreatesOnlyCanonicalTables(t *testing.T) {
 	require.NoError(t, database.Model(&Snapshot{}).Count(&snapshotCount).Error)
 	require.EqualValues(t, 1, migrationCount)
 	require.EqualValues(t, 1, snapshotCount)
+}
+
+func TestCheckSchemaMigrations(t *testing.T) {
+	t.Run("all migrations applied", func(t *testing.T) {
+		database, err := gorm.Open(sqlite.Open("file:readiness-ready?mode=memory&cache=shared"), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		require.NoError(t, err)
+		require.NoError(t, ApplySchemaMigrations(database))
+		require.NoError(t, CheckSchemaMigrations(context.Background(), database))
+	})
+
+	t.Run("migration missing", func(t *testing.T) {
+		database, err := gorm.Open(sqlite.Open("file:readiness-unmigrated?mode=memory&cache=shared"), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		require.NoError(t, err)
+		require.Error(t, CheckSchemaMigrations(context.Background(), database))
+	})
+
+	t.Run("database unavailable", func(t *testing.T) {
+		database, err := gorm.Open(sqlite.Open("file:readiness-closed?mode=memory&cache=shared"), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent),
+		})
+		require.NoError(t, err)
+		sqlDB, err := database.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+		require.Error(t, CheckSchemaMigrations(context.Background(), database))
+	})
 }
 
 func TestParseDSNUsesDatabaseSettings(t *testing.T) {

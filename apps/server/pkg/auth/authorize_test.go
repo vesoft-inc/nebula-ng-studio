@@ -191,6 +191,8 @@ func TestSetRefreshedOAuth2AuthCookieClearsAccessToken(t *testing.T) {
 
 func TestStudioSharedPublicAndProtectedRoutes(t *testing.T) {
 	publicRoutes := []string{
+		"/api-studio/health",
+		"/api-studio/health/ready",
 		"/api-studio/db/connect",
 		"/api-studio/db/oauth2-config",
 		"/api-studio/db/oauth2-connect",

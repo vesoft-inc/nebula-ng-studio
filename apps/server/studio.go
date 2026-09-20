@@ -101,14 +101,19 @@ func main() {
 }
 
 func runHealthcheck(url string) error {
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	response, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("Studio healthcheck failed: %w", err)
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusBadRequest {
+	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("Studio healthcheck returned HTTP %d", response.StatusCode)
 	}
 	return nil
