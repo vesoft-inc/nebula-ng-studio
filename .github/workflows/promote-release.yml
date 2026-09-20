@@ -85,14 +85,35 @@ jobs:
           node scripts/release-channel-policy.mjs classify "${version}" "${is_prerelease}" > "${policy_json}"
           test "${release_tag}" = "v$(jq -r .version "${policy_json}")"
 
-          git fetch --force --no-tags origin "refs/tags/${release_tag}:refs/tags/${release_tag}"
-          test "$(git cat-file -t "refs/tags/${release_tag}")" = tag || {
+          tag_ref_json="${RUNNER_TEMP}/release-tag-ref.json"
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" > "${tag_ref_json}"
+          jq -e --arg ref "refs/tags/${release_tag}" '
+            .ref == $ref
+            and .object.type == "tag"
+            and (.object.sha | test("^[0-9a-f]{40}$"))
+          ' "${tag_ref_json}" >/dev/null || {
             echo "${release_tag} must be an annotated tag." >&2
             exit 1
           }
-          target_sha=$(git rev-list -n 1 "refs/tags/${release_tag}")
+
+          tag_object_sha=$(jq -r .object.sha "${tag_ref_json}")
+          tag_object_json="${RUNNER_TEMP}/release-tag-object.json"
+          gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" > "${tag_object_json}"
+          jq -e --arg tag "${release_tag}" '
+            .tag == $tag
+            and .object.type == "commit"
+            and (.object.sha | test("^[0-9a-f]{40}$"))
+          ' "${tag_object_json}" >/dev/null || {
+            echo "${release_tag} must point directly to a commit." >&2
+            exit 1
+          }
+          target_sha=$(jq -r .object.sha "${tag_object_json}")
           [[ "${target_sha}" =~ ^[0-9a-f]{40}$ ]]
-          manifest_version=$(git show "${target_sha}:apps/web/package.json" | jq -r '.version // empty')
+
+          manifest_json="${RUNNER_TEMP}/release-manifest.json"
+          gh api "repos/${GITHUB_REPOSITORY}/contents/apps/web/package.json?ref=${target_sha}" > "${manifest_json}"
+          jq -e '.type == "file" and .encoding == "base64"' "${manifest_json}" >/dev/null
+          manifest_version=$(jq -r .content "${manifest_json}" | base64 --decode | jq -r '.version // empty')
           test "${manifest_version}" = "${version}" || {
             echo "${release_tag} points to ${target_sha}, whose Web package version is '${manifest_version}'." >&2
             exit 1
