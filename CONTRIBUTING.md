@@ -21,9 +21,9 @@ Thank you for contributing to NebulaGraph Studio.
 
 ## Prerequisites
 
-- Node.js 22 or later, matching the root `engines` declaration. CI and release containers use Node.js 24.21.0 by default.
+- Node.js 22 or later, matching the root `engines` declaration. CI uses Node.js 24.21.0 by default.
 - pnpm 9.12.2, matching the root `packageManager` field.
-- Go 1.25.0 or later for Server work; the module selects the Go 1.25.14 toolchain used by CI and release builds.
+- Go 1.25.0 or later for Server work; the module selects the Go 1.25.14 toolchain used by CI.
 - Docker Engine 20.10+ and Docker Compose v2.20+ only when working on the container path.
 
 Install locked dependencies without running repository-specific generators:
@@ -52,7 +52,6 @@ Use the narrowest relevant command while developing, then run the full repositor
 pnpm format:check
 pnpm lint
 pnpm -r --if-present lint:types
-pnpm test:release-policy
 pnpm test
 go -C apps/server test ./...
 ```
@@ -74,7 +73,7 @@ pnpm build:server
 
 ## Integration profile
 
-A release environment with Graphd credentials can run the opt-in integration profile against an already healthy Studio Server:
+An environment with Graphd credentials can run the opt-in integration profile against an already healthy Studio Server:
 
 ```bash
 STUDIO_INTEGRATION_BASE_URL=http://127.0.0.1:7001 \
@@ -85,10 +84,6 @@ pnpm test:integration:graphd
 ```
 
 The profile validates login/session creation, user info, Query, Schema, Explorer Graphd and Snapshot API access, logout, and rejection of the old session. Missing variables fail the explicit profile instead of silently skipping it.
-
-## Release artifacts
-
-Linux `amd64` and `arm64` archives are built and runtime-tested by the shared Studio archive workflow used by both CI and releases. Packaging is intentionally kept out of local package scripts so the native runner, version metadata and artifact contract cannot drift between those paths.
 
 ## Server API generation
 
@@ -105,6 +100,4 @@ Review the full generated diff and copy back only the intended change — routes
 - Create a focused branch and keep commits scoped to one concern; do not mix generated caches or unrelated formatting into a commit.
 - Update the relevant docs and lockfile with behavior or dependency changes.
 - Explain compatibility, database migration, configuration, and user-visible effects in the PR description.
-- Never commit credentials, deployment-owned configuration, private endpoints, or generated release artifacts.
-
-Release workflows, tags, images, and GitHub Releases require separate maintainer authorization. A source contribution must not trigger or simulate a production release.
+- Never commit credentials, deployment-owned configuration, private endpoints, or generated artifacts.

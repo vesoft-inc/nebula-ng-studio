@@ -20,6 +20,7 @@ concurrency:
 env:
   CI: true
   HUSKY: 0
+  NODE_VERSION: '24.21.0'
   STUDIO_IMAGE: ghcr.io/${{ github.repository_owner }}/nebula-studio
 
 jobs:
@@ -33,15 +34,25 @@ jobs:
       target_sha: ${{ steps.request.outputs.target_sha }}
       release_source: ${{ steps.request.outputs.release_source }}
       is_prerelease: ${{ steps.request.outputs.is_prerelease }}
-      is_stable: ${{ steps.request.outputs.is_stable }}
+      release_kind: ${{ steps.request.outputs.release_kind }}
       image: ${{ steps.request.outputs.image }}
       release_state: ${{ steps.request.outputs.release_state }}
       tag_exists: ${{ steps.request.outputs.tag_exists }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install the release policy dependency
+        run: pnpm install --filter nebula-ng-studio-workspace --frozen-lockfile --ignore-scripts
 
       - name: Resolve the immutable release request
         id: request
@@ -94,22 +105,9 @@ jobs:
               exit 1
             }
           fi
-          [[ "${studio_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(rc|beta)\.(0|[1-9][0-9]*))?$ ]] || {
-            echo "${manifest} at ${target_sha} declares '${studio_version}', which is not a releasable X.Y.Z or X.Y.Z-(rc|beta).N version." >&2
-            exit 1
-          }
-          if [[ "${studio_version}" == *-* ]]; then
-            is_prerelease=true
-            is_stable=false
-          else
-            is_prerelease=false
-            is_stable=true
-          fi
-
-          release_kind=stable
-          if [ "${is_prerelease}" = true ]; then
-            release_kind=prerelease
-          fi
+          policy_json=$(node scripts/release-channel-policy.mjs classify "${studio_version}")
+          is_prerelease=$(jq -r .isPrerelease <<< "${policy_json}")
+          release_kind=$(jq -r .kind <<< "${policy_json}")
           echo "::notice::Releasing ${studio_version} (${release_kind}) from ${manifest} at ${target_sha}."
 
           tag_name="v${studio_version}"
@@ -172,7 +170,7 @@ jobs:
             echo "target_sha=${target_sha}"
             echo "release_source=${release_source}"
             echo "is_prerelease=${is_prerelease}"
-            echo "is_stable=${is_stable}"
+            echo "release_kind=${release_kind}"
             echo "image=${image}"
             echo "release_state=${release_state}"
             echo "tag_exists=${tag_exists}"
@@ -222,7 +220,7 @@ jobs:
           STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
           TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
           TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
-          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
+          RELEASE_KIND: ${{ needs.preflight.outputs.release_kind }}
           IMAGE: ${{ needs.preflight.outputs.image }}
           RELEASE_STATE: ${{ needs.preflight.outputs.release_state }}
           TAG_EXISTS: ${{ needs.preflight.outputs.tag_exists }}
@@ -238,15 +236,10 @@ jobs:
           done
           test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4
 
-          if [ "${IS_PRERELEASE}" = true ]; then
-            release_kind=prerelease
-          else
-            release_kind=stable
-          fi
           {
             echo '## Studio release approval preview'
             echo
-            echo "- Version: \`${STUDIO_VERSION}\` (${release_kind})"
+            echo "- Version: \`${STUDIO_VERSION}\` (${RELEASE_KIND})"
             echo '- Version source: `apps/web/package.json` at the target commit'
             echo "- Annotated tag: \`${TAG_NAME}\` (already exists: \`${TAG_EXISTS}\`)"
             echo "- Source commit: \`${TARGET_SHA}\`"
@@ -258,7 +251,8 @@ jobs:
               echo "- Checksum: \`$(cat "${checksum_file}")\`"
             done
             echo
-            echo 'The publish job requires approval from the protected `release` environment; it leaves the Release as a draft. Publish the draft manually, then re-run this workflow with the same target to move the stable channels.'
+            echo 'The publish job runs in the `release` environment and leaves the GitHub Release as a draft for review.'
+            echo 'Publishing the draft in GitHub automatically promotes the immutable image digest to the applicable channels.'
           } >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
@@ -347,7 +341,20 @@ jobs:
           image_ref="${IMAGE}:${STUDIO_VERSION}"
           if docker buildx imagetools inspect "${image_ref}" > "${RUNNER_TEMP}/image.txt" 2> "${RUNNER_TEMP}/image-error.txt"; then
             docker buildx imagetools inspect "${image_ref}" --raw > "${RUNNER_TEMP}/image.json"
+            jq -e '
+              (.manifests | type) == "array"
+              and ([.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") != null)
+              and ([.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/arm64") != null)
+            ' "${RUNNER_TEMP}/image.json" >/dev/null || {
+              echo "${image_ref} is not the required linux/amd64 and linux/arm64 image index." >&2
+              exit 1
+            }
+            image_version=$(jq -r '.annotations["org.opencontainers.image.version"] // empty' "${RUNNER_TEMP}/image.json")
             revision=$(jq -r '.annotations["org.opencontainers.image.revision"] // empty' "${RUNNER_TEMP}/image.json")
+            test "${image_version}" = "${STUDIO_VERSION}" || {
+              echo "${image_ref} already exists with version ${image_version:-missing}." >&2
+              exit 1
+            }
             test "${revision}" = "${TARGET_SHA}" || {
               echo "${image_ref} already exists with revision ${revision:-missing}." >&2
               exit 1
@@ -578,34 +585,14 @@ jobs:
           set -euo pipefail
           if [ "${RELEASE_DRAFT}" = true ]; then
             echo 'published=false' >> "${GITHUB_OUTPUT}"
-            echo "::notice::${TAG_NAME} stays a draft. Review the release notes, publish the Release in the GitHub UI, then re-run this workflow with the same target to move the stable channels."
+            echo "::notice::${TAG_NAME} stays a draft. Review and publish it in the GitHub UI."
+            echo 'The published-release workflow will then promote the immutable image digest automatically.'
             echo "Draft ready for review: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG_NAME}"
             exit 0
           fi
           echo 'published=true' >> "${GITHUB_OUTPUT}"
           gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --jq 'select(.draft == false) | .html_url'
-
-      - name: Update stable OCI channels last
-        if: needs.preflight.outputs.is_stable == 'true' && steps.release-state.outputs.published == 'true'
-        env:
-          IMAGE: ${{ needs.preflight.outputs.image }}
-          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
-          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
-        run: |
-          set -euo pipefail
-          IFS=. read -r major minor patch <<< "${STUDIO_VERSION}"
-          test -n "${major}" && test -n "${minor}" && test -n "${patch}"
-          channels=("${major}.${minor}" "${major}" latest)
-          tag_args=()
-          for channel in "${channels[@]}"; do
-            tag_args+=(--tag "${IMAGE}:${channel}")
-          done
-          docker buildx imagetools create "${tag_args[@]}" "${IMAGE}@${IMAGE_DIGEST}"
-          for channel in "${channels[@]}"; do
-            channel_digest=$(docker buildx imagetools inspect "${IMAGE}:${channel}" | awk '$1 == "Digest:" { print $2; exit }')
-            test "${channel_digest}" = "${IMAGE_DIGEST}"
-          done
 
       - name: Summarize the release state
         env:
@@ -614,7 +601,6 @@ jobs:
           TAG_NAME: ${{ needs.preflight.outputs.tag_name }}
           IMAGE: ${{ needs.preflight.outputs.image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
-          IS_STABLE: ${{ needs.preflight.outputs.is_stable }}
           PUBLISHED: ${{ steps.release-state.outputs.published }}
         run: |
           {
@@ -628,10 +614,10 @@ jobs:
             echo "- Source: \`${TARGET_SHA}\`"
             echo "- Image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
             if [ "${PUBLISHED}" = true ]; then
-              echo "- Stable channels updated: \`${IS_STABLE}\`"
+              echo '- Channel promotion: handled independently by the published-release workflow.'
             else
-              echo '- Stable channels updated: `false` (draft)'
-              echo '- Next: review and publish the draft Release, then re-run this workflow with the same target to move the stable channels.'
+              echo '- Channel promotion: waiting for the draft Release to be published.'
+              echo '- Next: review and publish the draft Release; promotion then runs automatically.'
               echo "- Draft: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG_NAME}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"

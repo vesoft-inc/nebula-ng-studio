@@ -62,7 +62,8 @@ jobs:
           ARTIFACT_SUFFIX: ${{ inputs.artifact_suffix }}
         run: |
           test "$(uname -m)" = '${{ matrix.machine }}'
-          [[ "${STUDIO_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-(rc|beta)\.[0-9]+)?|0\.0\.0-dev\+[0-9a-f]{7,40})$ ]]
+          test "${#STUDIO_VERSION}" -le 128
+          [[ "${STUDIO_VERSION}" =~ ^[A-Za-z0-9][A-Za-z0-9.+-]{0,127}$ ]]
           [[ "${GIT_HASH}" =~ ^[0-9a-f]{7,40}$ ]]
           [[ "${GIT_REF}" =~ ^[A-Za-z0-9._/@+-]{1,255}$ ]]
           [[ "${ARTIFACT_SUFFIX}" =~ ^[a-z0-9-]{1,32}$ ]]

@@ -14,7 +14,7 @@ docker run -d --name nebula-studio \
   ghcr.io/vesoft-inc/nebula-studio:latest
 ```
 
-Every release publishes `ghcr.io/vesoft-inc/nebula-studio:<version>`; stable releases also move the `X.Y`, `X`, and `latest` channels, while prereleases keep only their exact version tag. On Linux, add `--add-host host.docker.internal:host-gateway` to reach Graphd running on the Docker host.
+Every release publishes `ghcr.io/vesoft-inc/nebula-studio:<version>`. Publishing the GitHub Release automatically promotes the immutable image digest: stable releases move the `X.Y`, `X`, and `latest` channels, release candidates in the exact `X.Y.Z-rc.N` form move `X.Y-rc` and `rc`, and exact `X.Y.Z-beta.N` releases move `X.Y-beta` and `beta`. Alpha and other valid prereleases keep only their immutable version tag. Each channel only moves forward, and prerelease channels never affect stable channels. Release versions must be canonical SemVer without build metadata (`+...`) and must fit the 128-character OCI tag limit. On Linux, add `--add-host host.docker.internal:host-gateway` to reach Graphd running on the Docker host.
 
 Or build and start the checked-in Compose project from the repository root:
 
