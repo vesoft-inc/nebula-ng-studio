@@ -156,7 +156,7 @@ EXPOSE 7001
 # The probe follows the listener scheme: a deployment that terminates TLS in Studio
 # overrides STUDIO_HEALTHCHECK_URL with its https URL, as scripts/studio.service does.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ./studio -healthcheck "${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/db/oauth2-config}"
+  CMD ./studio -healthcheck "${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/health}"
 
 STOPSIGNAL SIGTERM
 

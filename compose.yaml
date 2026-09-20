@@ -29,6 +29,7 @@ services:
     environment:
       - STUDIO_TOKEN_SECRET
       - STUDIO_ENCRYPT_PASSPHRASE
+      - STUDIO_HEALTHCHECK_URL
     volumes:
       - studio-data:/app/data
       - type: bind

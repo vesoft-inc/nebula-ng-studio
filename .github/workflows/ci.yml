@@ -212,6 +212,8 @@ jobs:
             fi
             sleep 1
           done
+          curl --fail --silent http://127.0.0.1:17001/api-studio/health | grep -Fqx '{"status":"ok"}'
+          curl --fail --silent http://127.0.0.1:17001/api-studio/health/ready | grep -Fqx '{"database":"ok"}'
           curl --fail --silent http://127.0.0.1:17001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
           docker exec "${container}" ./studio -v | grep -F "V0.0.0-dev+${SOURCE_SHA}"
           docker exec "${container}" /usr/bin/id -u | grep -Fx 10001

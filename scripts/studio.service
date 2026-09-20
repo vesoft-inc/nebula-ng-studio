@@ -142,7 +142,7 @@ STUDIO_BIN_PATH=${ROOT_PATH}/bin/studio
 STUDIO_DAEMON_NAME=studio-server
 STUDIO_PID_FILE=${ROOT_PATH}/pids/studio.pid
 STUDIO_LOG_FILE=${ROOT_PATH}/logs/studio.log
-STUDIO_HEALTHCHECK_URL=${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/db/oauth2-config}
+STUDIO_HEALTHCHECK_URL=${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/health}
 
 function start_daemon {
     local executable_file="${STUDIO_BIN_PATH}"

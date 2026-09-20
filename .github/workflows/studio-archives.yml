@@ -157,6 +157,8 @@ jobs:
           ./scripts/studio.service status studio
           test -s pids/studio.pid
           test -s logs/studio.log
+          curl --fail --silent http://127.0.0.1:7001/api-studio/health | grep -Fqx '{"status":"ok"}'
+          curl --fail --silent http://127.0.0.1:7001/api-studio/health/ready | grep -Fqx '{"database":"ok"}'
           curl --fail --silent http://127.0.0.1:7001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
           ./scripts/studio.service restart studio
           ./scripts/studio.service status studio
