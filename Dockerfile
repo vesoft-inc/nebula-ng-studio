@@ -1,11 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-ARG NODE_VERSION=22
 ARG GO_VERSION=1.25.14
 ARG GO_SHA256_AMD64=a21ae5633a269bcd7e90cf767e48225633795e99d831742cbf3397064fee7712
 ARG GO_SHA256_ARM64=9bf234ea70ffec9347fdf6b22ce4add51717d3386a38a441e8c8743fceb5eaee
 ARG GO_BUILDER_IMAGE=oraclelinux:7-slim@sha256:1add6ed8602ea996528110fe75f4b03c2ca7ffdbe9497148dbb46c3cc9ce6acd
-ARG DEBIAN_VERSION=bookworm
 ARG STUDIO_VERSION=dev
 ARG GIT_HASH=unknown
 ARG GIT_REF=unknown
@@ -21,7 +19,7 @@ ARG NEBULA_STUDIO_DEFAULT_LANGUAGE=en_US
 ARG SOURCE_URL=https://github.com/vesoft-inc/nebula-ng-studio
 ARG LICENSES=Apache-2.0
 
-FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-${DEBIAN_VERSION}-slim AS web-builder
+FROM --platform=$BUILDPLATFORM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS web-builder
 
 ARG STUDIO_VERSION
 ARG NEBULA_STUDIO_BRAND_NAME
@@ -118,7 +116,7 @@ FROM scratch AS archive-export
 COPY --from=server-builder /out/studio /studio
 COPY --from=server-builder /workspace/apps/server/assets/public /assets/public
 
-FROM --platform=$TARGETPLATFORM debian:${DEBIAN_VERSION}-slim AS runtime
+FROM --platform=$TARGETPLATFORM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS runtime
 
 ARG STUDIO_VERSION
 ARG GIT_HASH

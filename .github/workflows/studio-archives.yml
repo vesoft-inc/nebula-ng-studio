@@ -29,7 +29,7 @@ permissions:
 # and runs that binary on the oldest distribution that provides it.
 env:
   GLIBC_FLOOR: '2.17'
-  GLIBC_FLOOR_IMAGE: oraclelinux:7-slim
+  GLIBC_FLOOR_IMAGE: oraclelinux:7-slim@sha256:1add6ed8602ea996528110fe75f4b03c2ca7ffdbe9497148dbb46c3cc9ce6acd
 
 jobs:
   archive:
@@ -47,12 +47,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.git_hash }}
           persist-credentials: false
 
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Validate archive inputs and native runner
         env:
@@ -195,13 +195,13 @@ jobs:
           smoke_root="${RUNNER_TEMP}/archive-smoke/${archive_root}"
           # Native runner platform matches the archive architecture, so no --platform
           # override is needed. The loader refuses to start a binary whose symbol
-          # versions exceed this distribution's glibc (2.34), which is exactly the
+          # versions exceed this distribution's glibc (2.17), which is exactly the
           # declared floor.
           container_version=$(docker run --rm -v "${smoke_root}:/work:ro" -w /work "${GLIBC_FLOOR_IMAGE}" ./bin/studio -v)
           grep -F "V${STUDIO_VERSION}" <<< "${container_version}"
           echo "${GLIBC_FLOOR_IMAGE} (glibc ${GLIBC_FLOOR}) ran the archive binary successfully."
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: studio-linux-${{ matrix.arch }}-${{ inputs.artifact_suffix }}
           path: |

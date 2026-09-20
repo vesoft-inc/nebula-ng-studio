@@ -27,7 +27,7 @@ importers:
         version: 10.4.21(postcss@8.5.5)
       commitlint:
         specifier: ^19.5.0
-        version: 19.8.1(@types/node@20.19.0)(typescript@5.8.3)
+        version: 19.8.1(@types/node@22.20.4)(typescript@5.8.3)
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -120,8 +120,8 @@ importers:
         version: 6.28.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     devDependencies:
       '@types/node':
-        specifier: ^20.11.6
-        version: 20.19.0
+        specifier: ^22
+        version: 22.20.4
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.7
@@ -130,13 +130,13 @@ importers:
         version: 19.1.6(@types/react@19.2.7)
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.10.2(vite@5.4.19(@types/node@20.19.0))
+        version: 3.10.2(vite@5.4.19(@types/node@22.20.4))
       vite:
         specifier: ^5.2.6
-        version: 5.4.19(@types/node@20.19.0)
+        version: 5.4.19(@types/node@22.20.4)
       vite-plugin-ejs:
         specifier: ^1.7.0
-        version: 1.7.0(vite@5.4.19(@types/node@20.19.0))
+        version: 1.7.0(vite@5.4.19(@types/node@22.20.4))
 
   apps/web:
     dependencies:
@@ -301,8 +301,8 @@ importers:
         specifier: ^4.17.10
         version: 4.17.17
       '@types/node':
-        specifier: ^20.11.6
-        version: 20.19.0
+        specifier: ^22
+        version: 22.20.4
       '@types/randomcolor':
         specifier: ^0.5.9
         version: 0.5.9
@@ -329,16 +329,16 @@ importers:
         version: 8.3.4
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.10.2(vite@5.4.19(@types/node@20.19.0))
+        version: 3.10.2(vite@5.4.19(@types/node@22.20.4))
       vite:
         specifier: ^5.2.6
-        version: 5.4.19(@types/node@20.19.0)
+        version: 5.4.19(@types/node@22.20.4)
       vite-plugin-ejs:
         specifier: ^1.7.0
-        version: 1.7.0(vite@5.4.19(@types/node@20.19.0))
+        version: 1.7.0(vite@5.4.19(@types/node@22.20.4))
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@20.19.0)(jsdom@25.0.1)
+        version: 2.1.9(@types/node@22.20.4)(jsdom@25.0.1)
 
   packages/force-graph:
     dependencies:
@@ -387,7 +387,7 @@ importers:
         version: 25.0.1
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@20.19.0)(jsdom@25.0.1)
+        version: 2.1.9(@types/node@22.20.4)(jsdom@25.0.1)
 
   packages/ui-components:
     dependencies:
@@ -499,8 +499,8 @@ importers:
         specifier: ^4.17.10
         version: 4.17.17
       '@types/node':
-        specifier: ^20.11.6
-        version: 20.19.0
+        specifier: ^22
+        version: 22.20.4
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.7
@@ -521,7 +521,7 @@ importers:
         version: 6.28.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@types/node@20.19.0)(jsdom@25.0.1)
+        version: 2.1.9(@types/node@22.20.4)(jsdom@25.0.1)
 
 packages:
 
@@ -735,7 +735,7 @@ packages:
     resolution: {integrity: sha512-O000MLDBDdk/EohJPFUqvnp4qnHeYkVP5B0xEG0D/L7cOKP9kefu2DXn8dj74cQfsEzUqh+sr1RzFqiL1o+PpA==}
     peerDependencies:
       '@types/react': '*'
-      react: ^19.0.0
+      react: '>=16.8.0'
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -947,7 +947,7 @@ packages:
   '@icons/material@0.2.4':
     resolution: {integrity: sha512-QPcGmICAPbGLGb6F/yNf/KzKqvFx8z5qx3D1yFqVAjoFmXK35EgyW+cJ57Te3CNsmzblwtzakLGFqHPqrfb4Tw==}
     peerDependencies:
-      react: ^19.0.0
+      react: '*'
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -987,8 +987,8 @@ packages:
     resolution: {integrity: sha512-cyzXQCtO47ydzxpQtCGSQGOC8Gk3ZUeBXFAxD+CWXYFo5OqZyZUonFl0DwUlTyAfRHntBfw2p3w4s9R6oe1eCA==}
     peerDependencies:
       monaco-editor: '>= 0.25.0 < 1'
-      react: ^19.0.0
-      react-dom: ^19.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@mui/core-downloads-tracker@7.1.1':
     resolution: {integrity: sha512-yBckQs4aQ8mqukLnPC6ivIRv6guhaXi8snVl00VtyojBbm+l6VbVhyTSZ68Abcx7Ah8B+GZhrB7BOli+e+9LkQ==}
@@ -1029,12 +1029,12 @@ packages:
     resolution: {integrity: sha512-mTpdmdZCaHCGOH3SrYM41+XKvNL0iQfM9KlYgpSjgadXx/fEKhhvOktxm8++Xw6FFeOHoOiV+lzOI8X1rsv71A==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      '@emotion/react': ^11.14.0
-      '@emotion/styled': ^11.14.0
+      '@emotion/react': ^11.5.0
+      '@emotion/styled': ^11.3.0
       '@mui/material-pigment-css': ^7.1.1
       '@types/react': ^17.0.0 || ^18.0.0 || ^19.0.0
-      react: ^19.0.0
-      react-dom: ^19.0.0
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
       '@emotion/react':
         optional: true
@@ -1480,8 +1480,8 @@ packages:
   '@types/lodash@4.17.17':
     resolution: {integrity: sha512-RRVJ+J3J+WmyOTqnz3PiBLA501eKwXl2noseKOrNo/6+XEHjTAxO4xHvxQB6QuNm+s4WRbn6rSiap8+EA+ykFQ==}
 
-  '@types/node@20.19.0':
-    resolution: {integrity: sha512-hfrc+1tud1xcdVTABC2JiomZJEklMcXYNTVtZLAeqTVWD+qL5jkHKT+1lOtqDdGxt+mB53DTtiz673vfjU8D1Q==}
+  '@types/node@22.20.4':
+    resolution: {integrity: sha512-zJRE40jpHtKqE/C4fgHrAKQLJuSpzEnP9ff9Y7YtoR3Wd2pwqzlekDeEuUQXjRd+QCYnVnNwuJYmhdk9XV8gvA==}
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -1597,8 +1597,8 @@ packages:
   '@vesoft-inc/icons@2.3.0':
     resolution: {integrity: sha512-fC7L3c8nJIcCboHpDBka3BesChc5Gix0fwI/xEDJXJZcrb314Mf7Oo1y2/gY5EqKwQf8kr9U94++oKAeQKPlDg==}
     peerDependencies:
-      react: ^19.0.0
-      react-dom: ^19.0.0
+      react: '>=18'
+      react-dom: '>=18'
 
   '@vitejs/plugin-react-swc@3.10.2':
     resolution: {integrity: sha512-xD3Rdvrt5LgANug7WekBn1KhcvLn1H3jNBfJRL3reeOIua/WnZOEV5qi5qIBq5T8R0jUDmRtxuvk4bPhzGHDWw==}
@@ -1637,8 +1637,8 @@ packages:
   '@xyflow/react@12.7.0':
     resolution: {integrity: sha512-U6VMEbYjiCg1byHrR7S+b5ZdHTjgCFX4KpBc634G/WtEBUvBLoMQdlCD6uJHqodnOAxpt3+G2wiDeTmXAFJzgQ==}
     peerDependencies:
-      react: ^19.0.0
-      react-dom: ^19.0.0
+      react: '>=17'
+      react-dom: '>=17'
 
   '@xyflow/system@0.0.62':
     resolution: {integrity: sha512-Z2ufbnvuYxIOCGyzE/8eX8TAEM8Lpzc/JafjD1Tzy6ZJs/E7KGVU17Q1F5WDHVW+dbztJAdyXMG0ejR9bwSUAA==}
@@ -1924,6 +1924,9 @@ packages:
   cssstyle@4.6.0:
     resolution: {integrity: sha512-2z+rWdzbbSZv6/rhtvzvqeZQHrBaqgogqt85sqFNbabZOuFbCVFb8kPeEtZjiKkbrm395irpNKiYeFeLiQnFPg==}
     engines: {node: '>=18'}
+
+  csstype@3.1.3:
+    resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
@@ -3790,11 +3793,11 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@commitlint/cli@19.8.1(@types/node@20.19.0)(typescript@5.8.3)':
+  '@commitlint/cli@19.8.1(@types/node@22.20.4)(typescript@5.8.3)':
     dependencies:
       '@commitlint/format': 19.8.1
       '@commitlint/lint': 19.8.1
-      '@commitlint/load': 19.8.1(@types/node@20.19.0)(typescript@5.8.3)
+      '@commitlint/load': 19.8.1(@types/node@22.20.4)(typescript@5.8.3)
       '@commitlint/read': 19.8.1
       '@commitlint/types': 19.8.1
       tinyexec: 1.0.1
@@ -3841,7 +3844,7 @@ snapshots:
       '@commitlint/rules': 19.8.1
       '@commitlint/types': 19.8.1
 
-  '@commitlint/load@19.8.1(@types/node@20.19.0)(typescript@5.8.3)':
+  '@commitlint/load@19.8.1(@types/node@22.20.4)(typescript@5.8.3)':
     dependencies:
       '@commitlint/config-validator': 19.8.1
       '@commitlint/execute-rule': 19.8.1
@@ -3849,7 +3852,7 @@ snapshots:
       '@commitlint/types': 19.8.1
       chalk: 5.4.1
       cosmiconfig: 9.0.0(typescript@5.8.3)
-      cosmiconfig-typescript-loader: 6.1.0(@types/node@20.19.0)(cosmiconfig@9.0.0(typescript@5.8.3))(typescript@5.8.3)
+      cosmiconfig-typescript-loader: 6.1.0(@types/node@22.20.4)(cosmiconfig@9.0.0(typescript@5.8.3))(typescript@5.8.3)
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       lodash.uniq: 4.5.0
@@ -4208,7 +4211,7 @@ snapshots:
       '@popperjs/core': 2.11.8
       '@types/react-transition-group': 4.4.12(@types/react@19.2.7)
       clsx: 2.1.1
-      csstype: 3.2.3
+      csstype: 3.1.3
       prop-types: 15.8.1
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
@@ -4501,7 +4504,7 @@ snapshots:
 
   '@types/conventional-commits-parser@5.0.1':
     dependencies:
-      '@types/node': 20.19.0
+      '@types/node': 22.20.4
 
   '@types/d3-color@3.1.3': {}
 
@@ -4544,7 +4547,7 @@ snapshots:
 
   '@types/lodash@4.17.17': {}
 
-  '@types/node@20.19.0':
+  '@types/node@22.20.4':
     dependencies:
       undici-types: 6.21.0
 
@@ -4693,11 +4696,11 @@ snapshots:
       - '@mui/material-pigment-css'
       - '@types/react'
 
-  '@vitejs/plugin-react-swc@3.10.2(vite@5.4.19(@types/node@20.19.0))':
+  '@vitejs/plugin-react-swc@3.10.2(vite@5.4.19(@types/node@22.20.4))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.11
       '@swc/core': 1.12.0
-      vite: 5.4.19(@types/node@20.19.0)
+      vite: 5.4.19(@types/node@22.20.4)
     transitivePeerDependencies:
       - '@swc/helpers'
 
@@ -4708,13 +4711,13 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 1.2.0
 
-  '@vitest/mocker@2.1.9(vite@5.4.19(@types/node@20.19.0))':
+  '@vitest/mocker@2.1.9(vite@5.4.19(@types/node@22.20.4))':
     dependencies:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 5.4.19(@types/node@20.19.0)
+      vite: 5.4.19(@types/node@22.20.4)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -4969,9 +4972,9 @@ snapshots:
 
   commander@4.1.1: {}
 
-  commitlint@19.8.1(@types/node@20.19.0)(typescript@5.8.3):
+  commitlint@19.8.1(@types/node@22.20.4)(typescript@5.8.3):
     dependencies:
-      '@commitlint/cli': 19.8.1(@types/node@20.19.0)(typescript@5.8.3)
+      '@commitlint/cli': 19.8.1(@types/node@22.20.4)(typescript@5.8.3)
       '@commitlint/types': 19.8.1
     transitivePeerDependencies:
       - '@types/node'
@@ -5005,9 +5008,9 @@ snapshots:
     dependencies:
       toggle-selection: 1.0.6
 
-  cosmiconfig-typescript-loader@6.1.0(@types/node@20.19.0)(cosmiconfig@9.0.0(typescript@5.8.3))(typescript@5.8.3):
+  cosmiconfig-typescript-loader@6.1.0(@types/node@22.20.4)(cosmiconfig@9.0.0(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
-      '@types/node': 20.19.0
+      '@types/node': 22.20.4
       cosmiconfig: 9.0.0(typescript@5.8.3)
       jiti: 2.4.2
       typescript: 5.8.3
@@ -5041,6 +5044,8 @@ snapshots:
     dependencies:
       '@asamuzakjp/css-color': 3.2.0
       rrweb-cssom: 0.8.0
+
+  csstype@3.1.3: {}
 
   csstype@3.2.3: {}
 
@@ -6531,13 +6536,13 @@ snapshots:
 
   uuid@8.3.2: {}
 
-  vite-node@2.1.9(@types/node@20.19.0):
+  vite-node@2.1.9(@types/node@22.20.4):
     dependencies:
       cac: 6.7.14
       debug: 4.4.1
       es-module-lexer: 1.7.0
       pathe: 1.1.2
-      vite: 5.4.19(@types/node@20.19.0)
+      vite: 5.4.19(@types/node@22.20.4)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -6549,24 +6554,24 @@ snapshots:
       - supports-color
       - terser
 
-  vite-plugin-ejs@1.7.0(vite@5.4.19(@types/node@20.19.0)):
+  vite-plugin-ejs@1.7.0(vite@5.4.19(@types/node@22.20.4)):
     dependencies:
       ejs: 3.1.10
-      vite: 5.4.19(@types/node@20.19.0)
+      vite: 5.4.19(@types/node@22.20.4)
 
-  vite@5.4.19(@types/node@20.19.0):
+  vite@5.4.19(@types/node@22.20.4):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.5.5
       rollup: 4.43.0
     optionalDependencies:
-      '@types/node': 20.19.0
+      '@types/node': 22.20.4
       fsevents: 2.3.3
 
-  vitest@2.1.9(@types/node@20.19.0)(jsdom@25.0.1):
+  vitest@2.1.9(@types/node@22.20.4)(jsdom@25.0.1):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.19(@types/node@20.19.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.19(@types/node@22.20.4))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -6582,11 +6587,11 @@ snapshots:
       tinyexec: 0.3.2
       tinypool: 1.1.1
       tinyrainbow: 1.2.0
-      vite: 5.4.19(@types/node@20.19.0)
-      vite-node: 2.1.9(@types/node@20.19.0)
+      vite: 5.4.19(@types/node@22.20.4)
+      vite-node: 2.1.9(@types/node@22.20.4)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 20.19.0
+      '@types/node': 22.20.4
       jsdom: 25.0.1
     transitivePeerDependencies:
       - less

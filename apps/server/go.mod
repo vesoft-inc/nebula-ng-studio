@@ -2,6 +2,8 @@ module github.com/vesoft-inc/nebula-ng-studio/apps/server
 
 go 1.25.0
 
+toolchain go1.25.14
+
 require (
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/golang/mock v1.6.0

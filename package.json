@@ -2,6 +2,9 @@
   "private": true,
   "name": "nebula-ng-studio-workspace",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "turbo run nebula-studio#dev",
     "dev:server": "go -C apps/server run .",

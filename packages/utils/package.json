@@ -37,7 +37,7 @@
   "devDependencies": {
     "@types/json-bigint": "^1.0.4",
     "@types/lodash": "^4.17.10",
-    "@types/node": "^20.11.6",
+    "@types/node": "^22",
     "@types/react": "^19.0.0",
     "@types/sm-crypto": "^0.3.4",
     "@types/uuid": "^8.3.4",

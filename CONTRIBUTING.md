@@ -21,9 +21,9 @@ Thank you for contributing to NebulaGraph Studio.
 
 ## Prerequisites
 
-- Node.js 22 or later; `.node-version` pins 22 for CI and release builds.
+- Node.js 22 or later, matching the root `engines` declaration. CI and release containers use Node.js 24.21.0 by default.
 - pnpm 9.12.2, matching the root `packageManager` field.
-- Go 1.25.x for Server work.
+- Go 1.25.0 or later for Server work; the module selects the Go 1.25.14 toolchain used by CI and release builds.
 - Docker Engine 20.10+ and Docker Compose v2.20+ only when working on the container path.
 
 Install locked dependencies without running repository-specific generators:
