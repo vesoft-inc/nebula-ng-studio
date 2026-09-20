@@ -149,14 +149,6 @@ function GQLEditor({
       window.dispatchEvent(commandEvent4RunGql);
     });
 
-    // open quick action modal
-    editor?.onKeyDown((e) => {
-      if (e.metaKey && e.code === 'KeyK') {
-        e.preventDefault();
-        rootStore?.consoleStore?.setQuickActionModalOpen(true);
-      }
-    });
-
     // Add context menu action for "Clear"
     const clearAction = editor?.addAction({
       id: 'clear',

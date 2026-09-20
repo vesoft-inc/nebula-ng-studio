@@ -8,7 +8,6 @@ import { VectorTriangle, Fullscreen, FullscreenExit, SettingsOutlined } from '@v
 import { useStore } from '@studio/stores';
 import Results from './Results';
 import GQLEditor from './GQLEditor';
-import QuickActionModal from './QuickActionModal';
 import { EditorWrapper, InputArea, StyledSider, SiderItem, ActionButtonsWrapper } from './styles';
 import SiderMenu from '@studio/components/SiderMenu';
 import SchemaTree from '@studio/components/SchemaTree';
@@ -60,10 +59,7 @@ function Console() {
   );
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.metaKey && e.key === 'k') {
-      e.preventDefault();
-      consoleStore.setQuickActionModalOpen(true);
-    } else if (e.key === '/') {
+    if (e.key === '/') {
       const tagName = document.activeElement?.tagName;
       if (tagName !== 'TEXTAREA' && tagName !== 'INPUT') {
         e.preventDefault();
@@ -261,8 +257,6 @@ function Console() {
       <SettingsDrawer open={isSettingsDrawerOpen} onClose={() => setIsSettingsDrawerOpen(false)} loading={isPending}>
         {!isPending && <SettingsContent initialData={settings} onChange={upsertSettings} />}
       </SettingsDrawer>
-
-      <QuickActionModal />
     </Box>
   );
 }

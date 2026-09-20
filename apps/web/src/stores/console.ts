@@ -20,7 +20,6 @@ export default class ConsoleStore {
   editorRef?: editor.IStandaloneCodeEditor = undefined;
   editorValue = '';
   editorRunning = false;
-  quickActionModalOpen = false;
   results = observable.array<ConsoleResult>([], { deep: false });
   graphs: GraphItem[] = [];
   graphWorkspaces = observable.map<string, GraphWorkspaceStore>({}, { deep: false });
@@ -37,7 +36,6 @@ export default class ConsoleStore {
       editorValue: observable,
       editorRowCount: observable,
       editorRunning: observable,
-      quickActionModalOpen: observable,
       results: observable.shallow,
       graphs: observable.shallow,
 
@@ -48,7 +46,6 @@ export default class ConsoleStore {
       updateResults: action,
       addResult: action,
       removeResult: action,
-      setQuickActionModalOpen: action,
       setEditorRef: action,
       updateEditorRowCount: action,
     });
@@ -82,7 +79,6 @@ export default class ConsoleStore {
   };
 
   clearResultSnapshots = () => this.resultSnapshots.clear();
-  setQuickActionModalOpen = (open: boolean) => (this.quickActionModalOpen = open);
   setEditorRef = (ref?: editor.IStandaloneCodeEditor) => {
     this.editorRef = ref;
   };
