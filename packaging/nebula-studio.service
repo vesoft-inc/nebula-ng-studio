@@ -1,0 +1,20 @@
+[Unit]
+Description=NebulaGraph Studio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nebula-studio
+Group=nebula-studio
+WorkingDirectory=/usr/lib/nebula-studio
+EnvironmentFile=-/etc/nebula-studio/studio.env
+ExecStart=/usr/lib/nebula-studio/bin/studio -f /etc/nebula-studio/config.yaml
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

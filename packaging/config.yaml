@@ -1,0 +1,54 @@
+Name: studio-api
+Host: 0.0.0.0
+Port: 7001
+Timeout: 30000
+DefaultHost: '' # Optional default NebulaGraph domain shown on the login page, for example "graph0"
+DefaultPort: '' # Optional default NebulaGraph port shown on the login page, for example "9669"
+Log:
+  Mode: file
+  Path: /var/log/nebula-studio
+  Level: info
+  KeepDays: 7
+Assets:
+  Gzip: true
+Auth:
+  TokenName: 'studio_token'
+  TokenSecret: '${STUDIO_TOKEN_SECRET}' # Set a stable deployment secret to preserve sessions across restarts
+  EncryptPassphrase: '${STUDIO_ENCRYPT_PASSPHRASE}' # Must be 16, 24, or 32 bytes when set
+  TokenMaxAge: 86400
+
+# SSO Configuration (optional)
+SSO:
+  Oauth2:
+    Enable: false # set to true to enable OAuth2 SSO
+    ServerName: '' # OAuth2 server name, must match the server configured in NebulaGraph
+    AuthURL: '' # OAuth2 authorization URL
+    AccessTokenURL: '' # OAuth2 token exchange URL
+    ClientID: '' # OAuth2 client ID
+    ClientSecret: '' # OAuth2 client secret
+    RedirectURL: '' # externally reachable Studio callback URL
+    UserInfoURL: '' # OIDC userinfo endpoint
+    Scope: 'openid profile email' # OAuth2 scopes to request (e.g., "openid profile email" for OIDC)
+    UsernameField: '' # optional field; empty uses the built-in fallback order
+
+Database:
+  Enable: true
+  # Database: mysql, sqlite3
+  Dialect: sqlite3
+  AutoMigrate: true
+  Host: 127.0.0.1 # database host
+  Port: 3306 # database port
+  Username: '' # required only for MySQL
+  Password: '' # required only for MySQL; inject through deployment-owned config
+  Name: studio # database name
+  # Silent(1), Error(2), Warn(3), Info(4)
+  LogLevel: 4
+  SqliteFilePath: '/var/lib/nebula-studio/studio.db' # only sqlite3 need this config
+Nebula:
+  ClientMaxNum: 200 # The maximum number of different user that can be connected
+  ClientPoolMaxWait: 10 # The maximum wait time for the client connection pool, unit: second
+  ClientPoolConnsMaxOpen: 100 # The maximum number of connections that can be created in a single connection pool
+  ClientPoolConnsMinOpen: 1 # The minimum number of connections that can be created in a single connection pool
+  ClientMaxIdleConns: 5 # The maximum number of idle connections in a single connection pool
+  ClientExpiredDuration: 14400 # The expire duration time in single client, system will check every 24 hour; unit: minute
+  ClientRequestTimeout: 10 # The timeout of the client connection, default is 10, unit: second

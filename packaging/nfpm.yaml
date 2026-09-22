@@ -1,0 +1,95 @@
+name: nebula-studio
+arch: ${PACKAGE_ARCH}
+platform: linux
+version: ${PACKAGE_VERSION}
+version_schema: none
+release: '1'
+section: database
+priority: optional
+maintainer: Vesoft Inc. <support@vesoft.com>
+description: |-
+  NebulaGraph Studio web interface.
+  Studio provides browser-based visualization and querying for NebulaGraph.
+vendor: Vesoft Inc.
+homepage: https://github.com/vesoft-inc/nebula-ng-studio
+license: Apache-2.0
+conflicts:
+  - nebula-graph-studio
+contents:
+  - src: ${PACKAGE_ROOT}/studio
+    dst: /usr/lib/nebula-studio/bin/studio
+    expand: true
+    file_info:
+      mode: 0755
+  - src: ${PACKAGE_ROOT}/studio-migrate-helper
+    dst: /usr/lib/nebula-studio/bin/studio-migrate-helper
+    expand: true
+    file_info:
+      mode: 0755
+  - src: ${PACKAGE_ROOT}/assets/public
+    dst: /usr/lib/nebula-studio/assets/public
+    type: tree
+    expand: true
+  - src: packaging/config.yaml
+    dst: /etc/nebula-studio/config.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0640
+      owner: root
+      group: nebula-studio
+  - src: packaging/nebula-studio.service
+    dst: /lib/systemd/system/nebula-studio.service
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: packaging/nebula-studio.service
+    dst: /usr/lib/systemd/system/nebula-studio.service
+    packager: rpm
+    file_info:
+      mode: 0644
+  - src: deploy/linux-packages.md
+    dst: /usr/share/doc/nebula-studio/README.md
+    file_info:
+      mode: 0644
+  - src: LICENSE
+    dst: /usr/share/doc/nebula-studio/LICENSE
+    file_info:
+      mode: 0644
+  - dst: /var/lib/nebula-studio
+    type: dir
+    file_info:
+      mode: 0750
+      owner: nebula-studio
+      group: nebula-studio
+  - dst: /var/log/nebula-studio
+    type: dir
+    file_info:
+      mode: 0750
+      owner: nebula-studio
+      group: nebula-studio
+scripts:
+  preinstall: packaging/scripts/preinstall.sh
+  postinstall: packaging/scripts/postinstall.sh
+  preremove: packaging/scripts/preremove.sh
+  postremove: packaging/scripts/postremove.sh
+overrides:
+  deb:
+    depends:
+      - libc6 (>= 2.17)
+      - ca-certificates
+      - systemd
+  rpm:
+    depends:
+      - glibc >= 2.17
+      - ca-certificates
+      - systemd
+rpm:
+  compression: gzip:9
+  group: Applications/Databases
+  summary: NebulaGraph Studio web interface
+  packager: Vesoft Inc. <support@vesoft.com>
+  buildhost: nebula-studio-build
+deb:
+  compression: gzip:9
+  fields:
+    Bugs: https://github.com/vesoft-inc/nebula-ng-studio/issues

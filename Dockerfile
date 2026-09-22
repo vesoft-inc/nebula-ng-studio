@@ -4,18 +4,9 @@ ARG GO_VERSION=1.25.14
 ARG GO_SHA256_AMD64=a21ae5633a269bcd7e90cf767e48225633795e99d831742cbf3397064fee7712
 ARG GO_SHA256_ARM64=9bf234ea70ffec9347fdf6b22ce4add51717d3386a38a441e8c8743fceb5eaee
 ARG GO_BUILDER_IMAGE=oraclelinux:7-slim@sha256:1add6ed8602ea996528110fe75f4b03c2ca7ffdbe9497148dbb46c3cc9ce6acd
-ARG STUDIO_VERSION=dev
+ARG STUDIO_VERSION
 ARG GIT_HASH=unknown
 ARG GIT_REF=unknown
-ARG STUDIO_BRAND_NAME=NebulaGraph
-ARG STUDIO_BRAND_NAME_ZH_CN=NebulaGraph
-ARG STUDIO_BRAND_CONSOLE_NAME=NebulaGraph
-ARG STUDIO_BRAND_CONSOLE_PROMPT=nebula
-ARG STUDIO_BRAND_STUDIO_TITLE="NebulaGraph Studio"
-ARG STUDIO_BRAND_GUI_TITLE="NebulaGraph Console"
-ARG STUDIO_BRAND_COPYRIGHT="Copyright © vesoft inc."
-ARG STUDIO_BRAND_HELP_URL_TEMPLATE=https://ent-docs.nebula-graph.io/{coreVersion}
-ARG STUDIO_DEFAULT_LANGUAGE=en_US
 ARG SOURCE_URL=https://github.com/vesoft-inc/nebula-ng-studio
 ARG LICENSES=Apache-2.0
 
@@ -46,12 +37,16 @@ COPY packages/force-graph/package.json ./packages/force-graph/package.json
 COPY packages/ui-components/package.json ./packages/ui-components/package.json
 COPY packages/utils/package.json ./packages/utils/package.json
 
+RUN studio_version="${STUDIO_VERSION:-$(node -p "require('./apps/web/package.json').version")}" \
+    && test -n "${studio_version}" \
+    && printf '%s\n' "${studio_version}" > /tmp/studio-version
+
 RUN pnpm install --frozen-lockfile
 
 COPY apps ./apps
 COPY packages ./packages
 
-RUN STUDIO_VERSION=${STUDIO_VERSION} pnpm build
+RUN STUDIO_VERSION="$(cat /tmp/studio-version)" pnpm build
 
 # The server binary is built on a glibc 2.17 baseline so one archive runs on CentOS 7,
 # Ubuntu 22.04 and Ubuntu 24.04. No official golang image offers that baseline, so the
@@ -91,29 +86,42 @@ RUN go mod download
 
 COPY apps/server .
 COPY --from=web-builder /workspace/apps/server/assets/public ./assets/public
+COPY --from=web-builder /tmp/studio-version /tmp/studio-version
 
-ARG STUDIO_VERSION
 ARG GIT_HASH
 ARG GIT_REF
 ARG STUDIO_BRAND_STUDIO_TITLE
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN test "$(go env GOOS)" = "${TARGETOS}" \
+RUN studio_version="$(cat /tmp/studio-version)" \
+    && test -n "${studio_version}" \
+    && product_name_ldflag= \
+    && if [ "${STUDIO_BRAND_STUDIO_TITLE+x}" = x ]; then \
+      product_name_ldflag="-X 'github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.ProductName=${STUDIO_BRAND_STUDIO_TITLE}'"; \
+    fi \
+    && test "$(go env GOOS)" = "${TARGETOS}" \
     && test "$(go env GOARCH)" = "${TARGETARCH}" \
     && CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -trimpath \
     -ldflags="-s -w \
-      -X github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.Value=${STUDIO_VERSION} \
+      -X github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.Value=${studio_version} \
       -X github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.GitHash=${GIT_HASH} \
       -X github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.GitRef=${GIT_REF} \
-      -X 'github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/version.ProductName=${STUDIO_BRAND_STUDIO_TITLE}'" \
+      ${product_name_ldflag}" \
     -o /out/studio \
     .
+
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/studio-migrate-helper \
+    ./cmd/studio-migrate-helper
 
 FROM scratch AS archive-export
 
 COPY --from=server-builder /out/studio /studio
+COPY --from=server-builder /out/studio-migrate-helper /studio-migrate-helper
 COPY --from=server-builder /workspace/apps/server/assets/public /assets/public
 
 FROM --platform=$TARGETPLATFORM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS runtime

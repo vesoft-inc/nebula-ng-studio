@@ -13,7 +13,7 @@ const CLIENT_BRAND_DEFAULTS = {
   STUDIO_BRAND_CONSOLE_PROMPT: 'nebula',
   STUDIO_BRAND_STUDIO_TITLE: 'NebulaGraph Studio',
   STUDIO_BRAND_GUI_TITLE: 'NebulaGraph Console',
-  STUDIO_BRAND_COPYRIGHT: 'Copyright © vesoft inc.',
+  STUDIO_BRAND_COPYRIGHT: 'Copyright © Vesoft Inc.',
   STUDIO_BRAND_HELP_URL_TEMPLATE: 'https://ent-docs.nebula-graph.io/{coreVersion}',
   STUDIO_DEFAULT_LANGUAGE: 'en_US',
 } as const;
