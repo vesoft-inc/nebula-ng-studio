@@ -26,7 +26,7 @@
 
 ## 🚀 Quick start
 
-Studio is available as a multi-architecture OCI image, Linux tar archives, or source code.
+Studio is available as a multi-architecture OCI image, native Linux packages, or Linux tar archives.
 
 ```bash
 docker run -d --name nebula-studio \
@@ -38,21 +38,22 @@ docker run -d --name nebula-studio \
 
 Open <http://localhost:7001> and enter a Graphd address reachable from the container.
 
-Linux tar archives are available from [GitHub Releases](https://github.com/vesoft-inc/nebula-ng-studio/releases) ([`deploy/linux-tar.md`](deploy/linux-tar.md)). [`deploy/docker.md`](deploy/docker.md) covers image tags, Graphd connectivity, secrets, ports, custom configuration, and health probes.
+DEB, RPM, and Linux tar archives are available from [GitHub Releases](https://github.com/vesoft-inc/nebula-ng-studio/releases).
+
+See [`deploy/linux-packages.md`](deploy/linux-packages.md) for native package installation and upgrades, [`deploy/linux-tar.md`](deploy/linux-tar.md) for self-contained archives, and [`deploy/docker.md`](deploy/docker.md) for containers.
 
 ## ⚙️ Configuration
 
-Studio Server reads the YAML selected by its `-f <path>` flag. Local development defaults to `apps/server/etc/config.yaml`; the container defaults to `/app/etc/config-release.yaml`.
-
-Before YAML decoding, Studio expands environment references with Go's `os.ExpandEnv`: both `$VAR` and `${VAR}` are supported, undefined variables expand to an empty string, and YAML quoting does not disable expansion. For a sensitive value containing a literal `$`, pass the whole value through an environment variable instead of writing it in YAML. Normal field and value validation still runs after expansion.
+Studio Server reads the YAML selected by `-f <path>`. Configuration values may reference environment variables with `$VAR` or `${VAR}`. Use environment variables for secrets instead of storing them directly in YAML.
 
 ## 🧩 Compatibility
 
-| Area               | Release-qualified baseline                                                   | Boundary                                                                                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NebulaGraph/Graphd | NebulaGraph 5.x                                                              | NebulaGraph 3.x is not supported.                                                                                                                                           |
-| Native tar runtime | Linux amd64/arm64, glibc 2.17+                                               | Tested on CentOS 7/8 and Ubuntu 20.04/22.04/24.04; newer glibc systems are expected to work but are untested. Alpine and other musl distributions need the container image. |
-| Container runtime  | Linux containers on amd64/arm64, Docker Engine 20.10+, Docker Compose v2.20+ | macOS and Windows run the image through Docker Desktop or WSL2. Compose v1 is unsupported.                                                                                  |
+| Area               | Supported                                                                    | Notes                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| NebulaGraph/Graphd | NebulaGraph 5.x                                                              | NebulaGraph 3.x is not supported.                                                            |
+| Native DEB/RPM     | Ubuntu 22.04/24.04, Debian 12/13, Rocky Linux 9/10 on amd64/arm64            | Ubuntu 20.04, CentOS 7, RHEL and AlmaLinux are not fully tested.                             |
+| Native tar         | Linux amd64/arm64 with glibc 2.17+                                           | Alpine and other musl-based systems require the container image.                             |
+| Container          | Linux containers on amd64/arm64, Docker Engine 20.10+, Docker Compose v2.20+ | macOS and Windows are supported through Docker Desktop or WSL2. Compose v1 is not supported. |
 
 ## 🛠️ Troubleshooting
 

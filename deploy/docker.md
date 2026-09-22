@@ -14,7 +14,7 @@ docker run -d --name nebula-studio \
   ghcr.io/vesoft-inc/nebula-studio:latest
 ```
 
-Every release publishes `ghcr.io/vesoft-inc/nebula-studio:<version>`. Publishing the GitHub Release automatically promotes the immutable image digest: stable releases move the `X.Y`, `X`, and `latest` channels, release candidates in the exact `X.Y.Z-rc.N` form move `X.Y-rc` and `rc`, and exact `X.Y.Z-beta.N` releases move `X.Y-beta` and `beta`. Alpha and other valid prereleases keep only their immutable version tag. Each channel only moves forward, and prerelease channels never affect stable channels. Release versions must be canonical SemVer without build metadata (`+...`) and must fit the 128-character OCI tag limit. On Linux, add `--add-host host.docker.internal:host-gateway` to reach Graphd running on the Docker host.
+Use an exact version tag for reproducible deployments. `latest` tracks stable releases, while `rc` and `beta` track their respective prerelease channels. Other prereleases are available only by exact version. On Linux, add `--add-host host.docker.internal:host-gateway` to reach Graphd running on the Docker host.
 
 Or build and start the checked-in Compose project from the repository root:
 
@@ -22,10 +22,7 @@ Or build and start the checked-in Compose project from the repository root:
 docker compose up -d --build
 ```
 
-Open <http://127.0.0.1:7001>. The default SQLite database is stored in the `studio-data` named volume (fully qualified as `nebula-studio_studio-data`, since Compose prefixes volume names with the project name) and survives container replacement.
-
-Static text responses use gzip by default; set `Assets.Gzip: false` in a custom
-configuration when compression is provided by an upstream proxy.
+Open <http://127.0.0.1:7001>. The default SQLite database is stored in the `studio-data` volume and survives container replacement.
 
 Inspect or stop the deployment with:
 
@@ -34,9 +31,9 @@ docker compose logs -f studio
 docker compose down
 ```
 
-`docker compose logs` shows the container's stdout and stderr, including early startup failures. Studio's rotating application logs remain under `/app/logs`; that directory is ephemeral by default and is discarded when Compose replaces the container.
+`docker compose logs` shows stdout, stderr, and early startup failures. Rotating application logs are written under `/app/logs`, which is not persisted by default.
 
-If file logs must survive container replacement, add a deployment-owned Compose override. A host bind mount is the simplest choice when an operator or log collector needs direct file access:
+To retain file logs, add a Compose override such as:
 
 ```yaml
 services:
@@ -45,7 +42,7 @@ services:
       - ./studio-logs:/app/logs
 ```
 
-The host directory must be writable by UID/GID 10001. A named volume mounted at `/app/logs` is also valid when only container-independent retention is needed. Logs are operational data and should not share the `studio-data` database volume.
+The host directory must be writable by UID/GID 10001. A separate named volume is also supported.
 
 `docker compose down` keeps the named volume. Do not add `--volumes` unless the database has been backed up and permanent deletion is intended.
 
@@ -66,13 +63,11 @@ The Graphd address entered on the login page is resolved by the Studio Server co
 
 ## Secrets and custom configuration
 
-Without overrides, Compose mounts the checked-in `apps/server/etc/config-release.yaml` read-only. It contains no fixed authentication secrets, OAuth provider preset, or database password. Studio generates process-local authentication secrets on startup, so sessions do not survive a restart unless stable values are supplied.
-
-For stable sessions, provide both values through the deployment secret layer:
+Studio generates temporary authentication secrets when none are configured, so existing sessions become invalid after a restart. Provide stable values for persistent sessions:
 
 ```bash
 STUDIO_TOKEN_SECRET='<stable-random-value>' \
-STUDIO_ENCRYPT_PASSPHRASE='<16-24-or-32-byte-value>' \
+STUDIO_ENCRYPT_PASSPHRASE='<16-or-24-or-32-byte-value>' \
 docker compose up -d --build
 ```
 
@@ -82,21 +77,19 @@ Use an absolute host path to select a complete deployment-owned YAML file:
 STUDIO_CONFIG_FILE=/absolute/path/config.yaml docker compose up -d --build
 ```
 
-Compose requires that file to exist and mounts it at `/app/etc/config-release.yaml` read-only. Environment secret values override the selected YAML.
+The file must already exist. Environment secret values override values in the YAML file.
 
 ## Health probe and scaling
 
-The image's built-in probe calls `GET /api-studio/health`. This unauthenticated liveness endpoint returns `200` when the Server can answer HTTP requests and never checks the metadata database or Graphd.
+The built-in probe uses `/api-studio/health` to check that the Server can answer requests. Use `/api-studio/health/ready` when deployment automation must also verify the metadata database and migrations. Neither endpoint checks Graphd.
 
-Use `GET /api-studio/health/ready` as an external readiness gate. It returns `200` when the metadata database is disabled or when the connection and all known migrations are ready; it returns `503` when the database is unavailable or not fully migrated. Graphd is selected per login session and does not affect either probe.
+Set `STUDIO_HEALTHCHECK_URL` only when the built-in liveness URL must use a different scheme or address.
 
-Both endpoints also support `HEAD` and send `Cache-Control: no-store`. A deployment that terminates TLS in Studio can override the built-in liveness URL by passing `STUDIO_HEALTHCHECK_URL=https://127.0.0.1:7001/api-studio/health`; the checked-in Compose file forwards this variable to the container. The certificate must be trusted inside the container.
-
-Run one Studio instance. Login sessions and Graphd credentials live in the Server process that created them; the metadata database stores application data, not sessions. A second instance behind a load balancer therefore rejects the first instance's session cookie with a session error even when both share identical secrets and database, so horizontal scaling is not supported in this release line.
+Run one Studio instance. Login sessions are stored in the Server process, so horizontal scaling is not supported.
 
 ## Data and upgrades
 
-The image runs as the non-root `studio` user (UID/GID 10001) and writes only under `/app/data` and `/app/logs`. Compose persists `/app/data` but leaves `/app/logs` ephemeral by default; keep the default `/app/data/studio.db` path.
+The image runs as UID/GID 10001. Compose persists `/app/data`; keep the default `/app/data/studio.db` path unless a custom volume has the correct permissions.
 
 Before changing Studio versions:
 
