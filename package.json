@@ -12,7 +12,7 @@
     "build": "turbo run nebula-studio#build",
     "build:gui": "turbo run nebula-gui#build",
     "build:server": "pnpm build && go -C apps/server build -trimpath -o bin/studio .",
-    "test:release-policy": "node --test scripts/release-channel-policy.test.mjs",
+    "test:release-policy": "node --test scripts/release-channel-policy.test.mjs scripts/native-package-version.test.mjs",
     "test:server": "go -C apps/server test ./...",
     "test:integration:graphd": "go -C apps/server test -tags=integration ./integration -v",
     "test": "turbo test",

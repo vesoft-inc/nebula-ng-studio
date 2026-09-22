@@ -150,14 +150,18 @@ jobs:
               echo "Release ${tag_name} exists without the required annotated tag." >&2
               exit 1
             }
+            jq -e --arg tag "${tag_name}" '.tag_name == $tag' "${release_json}" >/dev/null || {
+              echo "Existing Release is bound to a different tag than ${tag_name}." >&2
+              exit 1
+            }
+            jq -e --argjson expected "${is_prerelease}" '.prerelease == $expected' "${release_json}" >/dev/null || {
+              echo "Release prerelease state conflicts with the requested version." >&2
+              exit 1
+            }
             if jq -e '.draft == true' "${release_json}" >/dev/null; then
               release_state=draft
             else
               release_state=published
-              jq -e --argjson expected "${is_prerelease}" '.prerelease == $expected' "${release_json}" >/dev/null || {
-                echo "Published release prerelease state conflicts with the requested version." >&2
-                exit 1
-              }
             fi
           fi
 
@@ -186,7 +190,7 @@ jobs:
       contents: read
 
   release-archives:
-    name: Release Linux archives
+    name: Release Linux delivery
     needs:
       - preflight
       - quality-gate
@@ -196,6 +200,7 @@ jobs:
       git_hash: ${{ needs.preflight.outputs.target_sha }}
       git_ref: ${{ needs.preflight.outputs.tag_name }}
       artifact_suffix: release
+      run_package_lifecycle_tests: false
     permissions:
       contents: read
 
@@ -228,13 +233,17 @@ jobs:
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}/release-assets"
-          for architecture in amd64 arm64; do
-            archive="nebula-studio-${STUDIO_VERSION}-linux-${architecture}.tar.gz"
-            test -f "${archive}"
-            test -f "${archive}.sha256"
-            sha256sum --check "${archive}.sha256"
-          done
-          test "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4
+          test -f assets-amd64.txt
+          test -f assets-arm64.txt
+          cat assets-amd64.txt assets-arm64.txt | sort -u > expected-assets.txt
+          test "$(wc -l < expected-assets.txt | tr -d ' ')" = 12
+          while IFS= read -r asset; do
+            test -f "${asset}"
+          done < expected-assets.txt
+          while IFS= read -r checksum; do
+            sha256sum --check "${checksum}"
+          done < <(grep -E '\.sha256$' expected-assets.txt)
+          test "$(find . -maxdepth 1 -type f ! -name 'assets-*.txt' ! -name expected-assets.txt | wc -l | tr -d ' ')" = 12
 
           {
             echo '## Studio release approval preview'
@@ -246,10 +255,11 @@ jobs:
             echo "- Release source: \`${RELEASE_SOURCE}\`"
             echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}\`"
             echo "- Existing Release state: \`${RELEASE_STATE}\`"
-            echo '- Linux archives: `amd64`, `arm64`'
-            for checksum_file in ./*.sha256; do
+            echo '- Linux delivery: tar.gz, DEB and RPM for `amd64` and `arm64`'
+            echo '- Source downloads: GitHub-generated `Source code (zip)` and `Source code (tar.gz)` for the annotated tag'
+            while IFS= read -r checksum_file; do
               echo "- Checksum: \`$(cat "${checksum_file}")\`"
-            done
+            done < <(grep -E '\.sha256$' expected-assets.txt)
             echo
             echo 'The publish job runs in the `release` environment and leaves the GitHub Release as a draft for review.'
             echo 'Publishing the draft in GitHub automatically promotes the immutable image digest to the applicable channels.'
@@ -447,6 +457,11 @@ jobs:
             fetch_release > "${release_json}"
           fi
 
+          jq -e --arg tag "${TAG_NAME}" '.tag_name == $tag' "${release_json}" >/dev/null || {
+            echo "Release is bound to a different tag than ${TAG_NAME}." >&2
+            exit 1
+          }
+
           release_id=$(jq -r .id "${release_json}")
           draft=$(jq -r .draft "${release_json}")
           if [ "${draft}" = true ]; then
@@ -495,7 +510,8 @@ jobs:
               echo "- Version: \`${STUDIO_VERSION}\`"
               echo "- Source commit: \`${TARGET_SHA}\`"
               echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
-              echo '- Linux archives: `amd64`, `arm64` (SHA-256 files attached)'
+              echo '- Linux delivery: tar.gz, DEB and RPM for `amd64` and `arm64` (SHA-256 files attached)'
+              echo '- Source downloads: GitHub-generated zip and tar.gz archives for this tag (no project-published checksum)'
               echo '- Upgrade note: back up the Studio database before deployment.'
             } > "${notes}"
             jq -n \
@@ -524,27 +540,26 @@ jobs:
         run: |
           set -euo pipefail
           assets_root="${RUNNER_TEMP}/release-assets"
-          release_json="${RUNNER_TEMP}/release-assets.json"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "${release_json}"
+          release_assets_json="${RUNNER_TEMP}/release-assets.json"
 
-          expected_assets=(
-            "nebula-studio-${STUDIO_VERSION}-linux-amd64.tar.gz"
-            "nebula-studio-${STUDIO_VERSION}-linux-amd64.tar.gz.sha256"
-            "nebula-studio-${STUDIO_VERSION}-linux-arm64.tar.gz"
-            "nebula-studio-${STUDIO_VERSION}-linux-arm64.tar.gz.sha256"
-          )
-          for asset_name in "${expected_assets[@]}"; do
+          expected_file="${RUNNER_TEMP}/expected-assets.txt"
+          cat "${assets_root}/assets-amd64.txt" "${assets_root}/assets-arm64.txt" | sort -u > "${expected_file}"
+          test "$(wc -l < "${expected_file}" | tr -d ' ')" = 12
+          while IFS= read -r asset_name; do
             local_path="${assets_root}/${asset_name}"
             test -f "${local_path}"
-            count=$(jq --arg name "${asset_name}" '[.assets[] | select(.name == $name)] | length' "${release_json}")
-            test "${count}" -le 1
-            asset_id=$(jq -r --arg name "${asset_name}" '[.assets[] | select(.name == $name)][0].id // empty' "${release_json}")
+            local_digest="sha256:$(sha256sum "${local_path}" | cut -d ' ' -f 1)"
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" > "${release_assets_json}"
+            count=$(jq --arg name "${asset_name}" '[.[] | select(.name == $name)] | length' "${release_assets_json}")
+            test "${count}" -le 1 || {
+              echo "Release contains duplicate assets named ${asset_name}." >&2
+              exit 1
+            }
+            asset_id=$(jq -r --arg name "${asset_name}" '[.[] | select(.name == $name)][0].id // empty' "${release_assets_json}")
             if [ -n "${asset_id}" ]; then
-              remote_path="${RUNNER_TEMP}/remote-${asset_name}"
-              gh api \
-                -H 'Accept: application/octet-stream' \
-                "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" > "${remote_path}"
-              test "$(sha256sum "${local_path}" | cut -d ' ' -f 1)" = "$(sha256sum "${remote_path}" | cut -d ' ' -f 1)" || {
+              remote_digest=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .digest // empty' "${release_assets_json}")
+              asset_state=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .state // empty' "${release_assets_json}")
+              test "${asset_state}" = uploaded && test "${remote_digest}" = "${local_digest}" || {
                 echo "Existing asset ${asset_name} has different content." >&2
                 exit 1
               }
@@ -554,25 +569,34 @@ jobs:
                 echo "Published Release is missing ${asset_name}; immutable assets will not be modified." >&2
                 exit 1
               }
-              curl --fail --silent --show-error \
+              upload_response="${RUNNER_TEMP}/upload-${asset_name}.json"
+              curl --fail-with-body --silent --show-error \
                 --request POST \
                 --header "Authorization: Bearer ${GH_TOKEN}" \
                 --header 'Content-Type: application/octet-stream' \
                 --data-binary "@${local_path}" \
-                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}"
+                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}" \
+                > "${upload_response}"
+              jq -e \
+                --arg name "${asset_name}" \
+                --arg digest "${local_digest}" \
+                '.name == $name and .state == "uploaded" and .digest == $digest' \
+                "${upload_response}" >/dev/null || {
+                echo "GitHub returned unexpected metadata after uploading ${asset_name}." >&2
+                exit 1
+              }
+              echo "Uploaded ${asset_name}."
             fi
-          done
+          done < "${expected_file}"
 
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "${release_json}"
-          jq -e --arg version "${STUDIO_VERSION}" '
-            ([.assets[].name] | sort) ==
-            ([
-              "nebula-studio-\($version)-linux-amd64.tar.gz",
-              "nebula-studio-\($version)-linux-amd64.tar.gz.sha256",
-              "nebula-studio-\($version)-linux-arm64.tar.gz",
-              "nebula-studio-\($version)-linux-arm64.tar.gz.sha256"
-            ] | sort)
-          ' "${release_json}" >/dev/null
+          jq -R -s 'split("\n") | map(select(length > 0))' "${expected_file}" > "${RUNNER_TEMP}/expected-assets.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" > "${release_assets_json}"
+          jq -e --slurpfile expected "${RUNNER_TEMP}/expected-assets.json" \
+            '([.[].name] | sort) == ($expected[0] | sort)' "${release_assets_json}" >/dev/null || {
+            echo 'Release asset list differs from the expected immutable set.' >&2
+            jq -r '.[].name' "${release_assets_json}" | sort >&2
+            exit 1
+          }
 
       - name: Leave the draft for review or verify the published Release
         id: release-state

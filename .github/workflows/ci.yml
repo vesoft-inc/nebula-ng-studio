@@ -51,7 +51,7 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
-      - name: Test the release channel policy
+      - name: Test release and package version policies
         run: pnpm test:release-policy
 
       - name: Lint repository
@@ -146,7 +146,7 @@ jobs:
           git diff --exit-code
 
   studio-archives:
-    name: Studio Linux archives
+    name: Studio Linux delivery
     uses: ./.github/workflows/studio-archives.yml
     with:
       version: 0.0.0-dev+${{ inputs.checkout_ref || github.sha }}
