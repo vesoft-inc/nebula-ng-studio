@@ -154,6 +154,12 @@ jobs:
               echo "Existing Release is bound to a different tag than ${tag_name}." >&2
               exit 1
             }
+            if jq -e '.draft == true' "${release_json}" >/dev/null; then
+              jq -e --arg target "${target_sha}" '.target_commitish == $target' "${release_json}" >/dev/null || {
+                echo "Existing draft Release targets a different commit than ${target_sha}." >&2
+                exit 1
+              }
+            fi
             jq -e --argjson expected "${is_prerelease}" '.prerelease == $expected' "${release_json}" >/dev/null || {
               echo "Release prerelease state conflicts with the requested version." >&2
               exit 1
@@ -447,9 +453,65 @@ jobs:
             printf '%s\n' "${release}"
           }
 
+          notes="${RUNNER_TEMP}/release-notes.md"
+          prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*-*' "${TARGET_SHA}^" 2>/dev/null || true)
+          {
+            echo '## Changes'
+            echo
+            if [ -n "${prev_tag}" ]; then
+              range="${prev_tag}..${TARGET_SHA}"
+            else
+              range="${TARGET_SHA}"
+            fi
+            git log --no-merges --pretty=format:'%h%x09%s' "${range}" |
+              awk -F'\t' -v repo="${GITHUB_REPOSITORY}" '
+                function section(subject) {
+                  if (subject ~ /^feat(\(|:|!)/) return "Features"
+                  if (subject ~ /^fix(\(|:|!)/) return "Fixes"
+                  return "Other Changes"
+                }
+                $2 ~ /^chore\(release\)/ { next }
+                {
+                  name = section($2)
+                  items[name] = items[name] "- " $2 " ([" $1 "](https://github.com/" repo "/commit/" $1 "))\n"
+                }
+                END {
+                  split("Features Fixes Other Changes", order, " ")
+                  printed = 0
+                  for (i = 1; i <= 3; i++) {
+                    if (order[i] in items) {
+                      printf "### %s\n%s\n", order[i], items[order[i]]
+                      printed = 1
+                    }
+                  }
+                  if (!printed) print "- No user-visible changes recorded in this range."
+                }
+              '
+            if [ -n "${prev_tag}" ]; then
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev_tag}...${TAG_NAME}"
+            else
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG_NAME}"
+            fi
+            echo
+            echo '## Delivery metadata'
+            echo
+            echo "- Version: \`${STUDIO_VERSION}\`"
+            echo "- Source commit: \`${TARGET_SHA}\`"
+            echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
+            echo '- Linux delivery: tar.gz, DEB and RPM for `amd64` and `arm64` (SHA-256 files attached)'
+            echo '- Source downloads: GitHub-generated zip and tar.gz archives for this tag (no project-published checksum)'
+            echo '- Upgrade note: back up the Studio database before deployment.'
+          } > "${notes}"
+
           release_json="${RUNNER_TEMP}/release.json"
           if ! fetch_release > "${release_json}"; then
-            release_args=(--draft --verify-tag --title "NebulaGraph Studio ${STUDIO_VERSION}" --notes 'Release notes are being prepared.')
+            release_args=(
+              --draft
+              --verify-tag
+              --target "${TARGET_SHA}"
+              --title "NebulaGraph Studio ${STUDIO_VERSION}"
+              --notes-file "${notes}"
+            )
             if [ "${IS_PRERELEASE}" = true ]; then
               release_args+=(--prerelease)
             fi
@@ -457,73 +519,23 @@ jobs:
             fetch_release > "${release_json}"
           fi
 
+          release_id=$(jq -r .id "${release_json}")
+          draft=$(jq -r .draft "${release_json}")
           jq -e --arg tag "${TAG_NAME}" '.tag_name == $tag' "${release_json}" >/dev/null || {
             echo "Release is bound to a different tag than ${TAG_NAME}." >&2
             exit 1
           }
-
-          release_id=$(jq -r .id "${release_json}")
-          draft=$(jq -r .draft "${release_json}")
           if [ "${draft}" = true ]; then
-            notes="${RUNNER_TEMP}/release-notes.md"
-            prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*-*' "${TARGET_SHA}^" 2>/dev/null || true)
-            {
-              echo '## Changes'
-              echo
-              if [ -n "${prev_tag}" ]; then
-                range="${prev_tag}..${TARGET_SHA}"
-              else
-                range="${TARGET_SHA}"
-              fi
-              git log --no-merges --pretty=format:'%h%x09%s' "${range}" |
-                awk -F'\t' -v repo="${GITHUB_REPOSITORY}" '
-                  function section(subject) {
-                    if (subject ~ /^feat(\(|:|!)/) return "Features"
-                    if (subject ~ /^fix(\(|:|!)/) return "Fixes"
-                    return "Other Changes"
-                  }
-                  $2 ~ /^chore\(release\)/ { next }
-                  {
-                    name = section($2)
-                    items[name] = items[name] "- " $2 " ([" $1 "](https://github.com/" repo "/commit/" $1 "))\n"
-                  }
-                  END {
-                    split("Features Fixes Other Changes", order, " ")
-                    printed = 0
-                    for (i = 1; i <= 3; i++) {
-                      if (order[i] in items) {
-                        printf "### %s\n%s\n", order[i], items[order[i]]
-                        printed = 1
-                      }
-                    }
-                    if (!printed) print "- No user-visible changes recorded in this range."
-                  }
-                '
-              if [ -n "${prev_tag}" ]; then
-                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev_tag}...${TAG_NAME}"
-              else
-                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG_NAME}"
-              fi
-              echo
-              echo '## Delivery metadata'
-              echo
-              echo "- Version: \`${STUDIO_VERSION}\`"
-              echo "- Source commit: \`${TARGET_SHA}\`"
-              echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
-              echo '- Linux delivery: tar.gz, DEB and RPM for `amd64` and `arm64` (SHA-256 files attached)'
-              echo '- Source downloads: GitHub-generated zip and tar.gz archives for this tag (no project-published checksum)'
-              echo '- Upgrade note: back up the Studio database before deployment.'
-            } > "${notes}"
-            jq -n \
-              --arg name "NebulaGraph Studio ${STUDIO_VERSION}" \
-              --rawfile body "${notes}" \
+            jq -e \
+              --arg target "${TARGET_SHA}" \
               --argjson prerelease "${IS_PRERELEASE}" \
-              '{name: $name, body: $body, draft: true, prerelease: $prerelease}' \
-              > "${RUNNER_TEMP}/release-update.json"
-            gh api \
-              --method PATCH \
-              "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
-              --input "${RUNNER_TEMP}/release-update.json" >/dev/null
+              '.target_commitish == $target
+                and .draft == true
+                and .prerelease == $prerelease' \
+              "${release_json}" >/dev/null || {
+              echo "Draft ${TAG_NAME} does not target ${TARGET_SHA} with the expected prerelease state." >&2
+              exit 1
+            }
           else
             jq -e --argjson expected "${IS_PRERELEASE}" '.prerelease == $expected' "${release_json}" >/dev/null
           fi
