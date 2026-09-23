@@ -24,6 +24,7 @@ env:
   HUSKY: 0
   NODE_VERSION: '24.21.0'
   STUDIO_IMAGE: ghcr.io/${{ github.repository_owner }}/nebula-studio
+  STUDIO_DOCKERHUB_IMAGE: docker.io/vesoft/nebula-studio
 
 jobs:
   promote:
@@ -121,6 +122,8 @@ jobs:
 
           image=$(printf '%s' "${STUDIO_IMAGE}" | tr '[:upper:]' '[:lower:]')
           [[ "${image}" =~ ^ghcr\.io/[a-z0-9._-]+/nebula-studio$ ]]
+          dockerhub_image="${STUDIO_DOCKERHUB_IMAGE}"
+          test "${dockerhub_image}" = docker.io/vesoft/nebula-studio
           channels=$(jq -c .channels "${policy_json}")
           release_url=$(jq -r .html_url "${release_json}")
           {
@@ -131,6 +134,7 @@ jobs:
             echo "kind=$(jq -r .kind "${policy_json}")"
             echo "channels=${channels}"
             echo "image=${image}"
+            echo "dockerhub_image=${dockerhub_image}"
             echo "release_url=${release_url}"
           } >> "${GITHUB_OUTPUT}"
 
@@ -142,56 +146,88 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify the immutable version image
+      - name: Require Docker Hub organization secrets
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_PASSWORD}" ]; then
+            echo 'DOCKER_USERNAME and DOCKER_PASSWORD must be available to this repository as organization secrets.' >&2
+            exit 1
+          fi
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Verify both immutable version images
         id: image
         env:
-          IMAGE: ${{ steps.release.outputs.image }}
+          GHCR_IMAGE: ${{ steps.release.outputs.image }}
+          DOCKERHUB_IMAGE: ${{ steps.release.outputs.dockerhub_image }}
           STUDIO_VERSION: ${{ steps.release.outputs.version }}
           TARGET_SHA: ${{ steps.release.outputs.target_sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
-          image_ref="${IMAGE}:${STUDIO_VERSION}"
-          docker buildx imagetools inspect "${image_ref}" > "${RUNNER_TEMP}/source-image.txt"
-          docker buildx imagetools inspect "${image_ref}" --raw > "${RUNNER_TEMP}/source-image.json"
+          ghcr_digest=''
+          for registry in ghcr dockerhub; do
+            case "${registry}" in
+              ghcr) image="${GHCR_IMAGE}" ;;
+              dockerhub) image="${DOCKERHUB_IMAGE}" ;;
+            esac
+            image_ref="${image}:${STUDIO_VERSION}"
+            image_info="${RUNNER_TEMP}/${registry}-source-image.txt"
+            image_json="${RUNNER_TEMP}/${registry}-source-image.json"
+            docker buildx imagetools inspect "${image_ref}" > "${image_info}"
+            docker buildx imagetools inspect "${image_ref}" --raw > "${image_json}"
 
-          jq -e '
-            (.manifests | type) == "array"
-            and ([.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") != null)
-            and ([.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/arm64") != null)
-          ' "${RUNNER_TEMP}/source-image.json" >/dev/null || {
-            echo "${image_ref} is not the required linux/amd64 and linux/arm64 image index." >&2
-            exit 1
-          }
+            jq -e --arg version "${STUDIO_VERSION}" --arg revision "${TARGET_SHA}" --arg source "${SOURCE_URL}" '
+              [.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest] as $amd |
+              [.manifests[] | select(.platform.os == "linux" and .platform.architecture == "arm64") | .digest] as $arm |
+              .annotations["org.opencontainers.image.version"] == $version
+              and .annotations["org.opencontainers.image.revision"] == $revision
+              and .annotations["org.opencontainers.image.source"] == $source
+              and (($amd | length) == 1)
+              and (($arm | length) == 1)
+              and (([.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest"
+                and .annotations["vnd.docker.reference.digest"] == $amd[0])] | length) == 1)
+              and (([.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest"
+                and .annotations["vnd.docker.reference.digest"] == $arm[0])] | length) == 1)
+            ' "${image_json}" >/dev/null || {
+              echo "${image_ref} lacks the expected index, annotations, platforms, or provenance." >&2
+              exit 1
+            }
 
-          image_version=$(jq -r '.annotations["org.opencontainers.image.version"] // empty' "${RUNNER_TEMP}/source-image.json")
-          image_revision=$(jq -r '.annotations["org.opencontainers.image.revision"] // empty' "${RUNNER_TEMP}/source-image.json")
-          test "${image_version}" = "${STUDIO_VERSION}" || {
-            echo "${image_ref} declares version '${image_version:-missing}'." >&2
-            exit 1
-          }
-          test "${image_revision}" = "${TARGET_SHA}" || {
-            echo "${image_ref} declares revision '${image_revision:-missing}', expected ${TARGET_SHA}." >&2
-            exit 1
-          }
-
-          digest=$(awk '$1 == "Digest:" { print $2; exit }' "${RUNNER_TEMP}/source-image.txt")
-          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+            digest=$(awk '$1 == "Digest:" { print $2; exit }' "${image_info}")
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+            if [ "${registry}" = ghcr ]; then
+              ghcr_digest="${digest}"
+            else
+              test "${digest}" = "${ghcr_digest}" || {
+                echo "${image_ref} has digest ${digest}, not the GHCR digest ${ghcr_digest}." >&2
+                exit 1
+              }
+            fi
+          done
+          echo "digest=${ghcr_digest}" >> "${GITHUB_OUTPUT}"
+          echo "dockerhub_digest=${ghcr_digest}" >> "${GITHUB_OUTPUT}"
 
       - name: Plan monotonic channel updates
         id: plan
         env:
           CHANNELS: ${{ steps.release.outputs.channels }}
-          IMAGE: ${{ steps.release.outputs.image }}
+          GHCR_IMAGE: ${{ steps.release.outputs.image }}
+          DOCKERHUB_IMAGE: ${{ steps.release.outputs.dockerhub_image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           IS_PRERELEASE: ${{ steps.release.outputs.is_prerelease }}
           STUDIO_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           decisions="${RUNNER_TEMP}/promotion-decisions.tsv"
-          promote_channels="${RUNNER_TEMP}/promotion-channels.txt"
           : > "${decisions}"
-          : > "${promote_channels}"
 
           mapfile -t channels < <(jq -r '.[]' <<< "${CHANNELS}")
           if [ "${#channels[@]}" -eq 0 ]; then
@@ -200,101 +236,157 @@ jobs:
             exit 0
           fi
           echo 'mode=channels' >> "${GITHUB_OUTPUT}"
-          for channel in "${channels[@]}"; do
-            channel_ref="${IMAGE}:${channel}"
-            channel_id=${channel//[^A-Za-z0-9]/-}
-            inspect_text="${RUNNER_TEMP}/channel-${channel_id}.txt"
-            inspect_json="${RUNNER_TEMP}/channel-${channel_id}.json"
-            inspect_error="${RUNNER_TEMP}/channel-${channel_id}.error"
-
-            if docker buildx imagetools inspect "${channel_ref}" > "${inspect_text}" 2> "${inspect_error}"; then
-              docker buildx imagetools inspect "${channel_ref}" --raw > "${inspect_json}"
-            elif grep -Eqi 'not found|manifest unknown|name unknown' "${inspect_error}"; then
-              printf '%s\tupdate\tchannel does not exist\n' "${channel}" >> "${decisions}"
-              printf '%s\n' "${channel}" >> "${promote_channels}"
-              continue
-            else
-              cat "${inspect_error}" >&2
-              printf '%s\tfailed\tregistry inspection failed\n' "${channel}" >> "${decisions}"
-              exit 1
-            fi
-
-            current_digest=$(awk '$1 == "Digest:" { print $2; exit }' "${inspect_text}")
-            current_version=$(jq -r '.annotations["org.opencontainers.image.version"] // empty' "${inspect_json}")
-            if [[ ! "${current_digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || [ -z "${current_version}" ]; then
-              printf '%s\tfailed\tcurrent digest or version annotation is invalid\n' "${channel}" >> "${decisions}"
-              echo "${channel_ref} has no trustworthy digest and version annotation." >&2
-              exit 1
-            fi
-
-            if ! current_policy=$(node scripts/release-channel-policy.mjs classify "${current_version}" "${IS_PRERELEASE}"); then
-              printf '%s\tfailed\tcurrent version is invalid for this release kind\n' "${channel}" >> "${decisions}"
-              exit 1
-            fi
-            if ! jq -e --arg channel "${channel}" '.channels | index($channel) != null' <<< "${current_policy}" >/dev/null; then
-              printf '%s\tfailed\tcurrent version does not belong to this channel\n' "${channel}" >> "${decisions}"
-              echo "${channel_ref} points to ${current_version}, which does not belong to ${channel}." >&2
-              exit 1
-            fi
-
-            relation=$(node scripts/release-channel-policy.mjs compare "${STUDIO_VERSION}" "${current_version}")
-            case "${relation}" in
-              advance)
-                printf '%s\tupdate\tadvance from %s\n' "${channel}" "${current_version}" >> "${decisions}"
-                printf '%s\n' "${channel}" >> "${promote_channels}"
-                ;;
-              equal)
-                if [ "${current_digest}" != "${IMAGE_DIGEST}" ]; then
-                  printf '%s\tfailed\tsame version points to a different digest\n' "${channel}" >> "${decisions}"
-                  echo "${channel_ref} already identifies ${STUDIO_VERSION} at ${current_digest}, not ${IMAGE_DIGEST}." >&2
-                  exit 1
-                fi
-                printf '%s\tunchanged\talready points to %s\n' "${channel}" "${STUDIO_VERSION}" >> "${decisions}"
-                ;;
-              behind)
-                printf '%s\tbehind\tkept newer version %s\n' "${channel}" "${current_version}" >> "${decisions}"
-                ;;
-              *)
-                printf '%s\tfailed\tunknown comparison result\n' "${channel}" >> "${decisions}"
-                exit 1
-                ;;
+          for registry in ghcr dockerhub; do
+            case "${registry}" in
+              ghcr) image="${GHCR_IMAGE}" ;;
+              dockerhub) image="${DOCKERHUB_IMAGE}" ;;
             esac
+            promote_channels="${RUNNER_TEMP}/promotion-channels-${registry}.txt"
+            : > "${promote_channels}"
+
+            for channel in "${channels[@]}"; do
+              channel_ref="${image}:${channel}"
+              channel_id=${channel//[^A-Za-z0-9]/-}
+              inspect_text="${RUNNER_TEMP}/${registry}-channel-${channel_id}.txt"
+              inspect_json="${RUNNER_TEMP}/${registry}-channel-${channel_id}.json"
+              inspect_error="${RUNNER_TEMP}/${registry}-channel-${channel_id}.error"
+
+              if docker buildx imagetools inspect "${channel_ref}" > "${inspect_text}" 2> "${inspect_error}"; then
+                docker buildx imagetools inspect "${channel_ref}" --raw > "${inspect_json}"
+              elif grep -Eqi \
+                -e 'unauthorized|denied|timeout|connection|TLS|rate limit' \
+                -e '401 Unauthorized|403 Forbidden|429 Too Many Requests|5[0-9]{2} (Internal|Bad|Service|Gateway)' \
+                "${inspect_error}"; then
+                cat "${inspect_error}" >&2
+                printf '%s\t%s\tfailed\tregistry inspection failed\n' "${registry}" "${channel}" >> "${decisions}"
+                exit 1
+              elif grep -Eqi 'not found|manifest unknown|name unknown' "${inspect_error}"; then
+                printf '%s\t%s\tplanned\tchannel does not exist\n' "${registry}" "${channel}" >> "${decisions}"
+                printf '%s\n' "${channel}" >> "${promote_channels}"
+                continue
+              else
+                cat "${inspect_error}" >&2
+                printf '%s\t%s\tfailed\tregistry inspection failed\n' "${registry}" "${channel}" >> "${decisions}"
+                exit 1
+              fi
+
+              current_digest=$(awk '$1 == "Digest:" { print $2; exit }' "${inspect_text}")
+              current_version=$(jq -r '.annotations["org.opencontainers.image.version"] // empty' "${inspect_json}")
+              if [[ ! "${current_digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || [ -z "${current_version}" ]; then
+                printf '%s\t%s\tfailed\tcurrent digest or version annotation is invalid\n' "${registry}" "${channel}" >> "${decisions}"
+                echo "${channel_ref} has no trustworthy digest and version annotation." >&2
+                exit 1
+              fi
+
+              if ! current_policy=$(node scripts/release-channel-policy.mjs classify "${current_version}" "${IS_PRERELEASE}"); then
+                printf '%s\t%s\tfailed\tcurrent version is invalid for this release kind\n' "${registry}" "${channel}" >> "${decisions}"
+                exit 1
+              fi
+              if ! jq -e --arg channel "${channel}" '.channels | index($channel) != null' <<< "${current_policy}" >/dev/null; then
+                printf '%s\t%s\tfailed\tcurrent version does not belong to this channel\n' "${registry}" "${channel}" >> "${decisions}"
+                echo "${channel_ref} points to ${current_version}, which does not belong to ${channel}." >&2
+                exit 1
+              fi
+
+              relation=$(node scripts/release-channel-policy.mjs compare "${STUDIO_VERSION}" "${current_version}")
+              case "${relation}" in
+                advance)
+                  printf '%s\t%s\tplanned\tadvance from %s\n' "${registry}" "${channel}" "${current_version}" >> "${decisions}"
+                  printf '%s\n' "${channel}" >> "${promote_channels}"
+                  ;;
+                equal)
+                  if [ "${current_digest}" != "${IMAGE_DIGEST}" ]; then
+                    printf '%s\t%s\tfailed\tsame version points to a different digest\n' "${registry}" "${channel}" >> "${decisions}"
+                    echo "${channel_ref} already identifies ${STUDIO_VERSION} at ${current_digest}, not ${IMAGE_DIGEST}." >&2
+                    exit 1
+                  fi
+                  printf '%s\t%s\tunchanged\talready points to %s\n' "${registry}" "${channel}" "${STUDIO_VERSION}" >> "${decisions}"
+                  ;;
+                behind)
+                  printf '%s\t%s\tbehind\tkept newer version %s\n' "${registry}" "${channel}" "${current_version}" >> "${decisions}"
+                  ;;
+                *)
+                  printf '%s\t%s\tfailed\tunknown comparison result\n' "${registry}" "${channel}" >> "${decisions}"
+                  exit 1
+                  ;;
+              esac
+            done
           done
 
       - name: Promote and verify selected channels
         if: steps.plan.outputs.mode != 'immutable-only'
         env:
-          IMAGE: ${{ steps.release.outputs.image }}
+          GHCR_IMAGE: ${{ steps.release.outputs.image }}
+          DOCKERHUB_IMAGE: ${{ steps.release.outputs.dockerhub_image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
           decisions="${RUNNER_TEMP}/promotion-decisions.tsv"
-          promote_channels="${RUNNER_TEMP}/promotion-channels.txt"
-          if [ ! -s "${promote_channels}" ]; then
+          if [ ! -s "${RUNNER_TEMP}/promotion-channels-ghcr.txt" ] &&
+            [ ! -s "${RUNNER_TEMP}/promotion-channels-dockerhub.txt" ]; then
             echo 'Every channel is already current or points to a newer release.'
             exit 0
           fi
 
-          tag_args=()
-          while IFS= read -r channel; do
-            tag_args+=(--tag "${IMAGE}:${channel}")
-          done < "${promote_channels}"
-          docker buildx imagetools create "${tag_args[@]}" "${IMAGE}@${IMAGE_DIGEST}"
+          mark_decision() {
+            local registry=$1 channel=$2 state=$3 detail=$4
+            awk -F '\t' -v registry="${registry}" -v channel="${channel}" \
+              -v state="${state}" -v detail="${detail}" '
+                BEGIN { OFS = "\t" }
+                $1 == registry && $2 == channel { $3 = state; $4 = detail }
+                { print }
+              ' "${decisions}" > "${decisions}.updated"
+            mv "${decisions}.updated" "${decisions}"
+          }
 
-          while IFS= read -r channel; do
-            promoted_digest=$(docker buildx imagetools inspect "${IMAGE}:${channel}" | awk '$1 == "Digest:" { print $2; exit }')
-            test "${promoted_digest}" = "${IMAGE_DIGEST}"
-          done < "${promote_channels}"
+          for registry in ghcr dockerhub; do
+            case "${registry}" in
+              ghcr) image="${GHCR_IMAGE}" ;;
+              dockerhub) image="${DOCKERHUB_IMAGE}" ;;
+            esac
+            promote_channels="${RUNNER_TEMP}/promotion-channels-${registry}.txt"
+            if [ ! -s "${promote_channels}" ]; then continue; fi
 
-          awk -F '\t' 'BEGIN { OFS = "\t" } $2 == "update" { $2 = "updated" } { print }' \
-            "${decisions}" > "${decisions}.updated"
-          mv "${decisions}.updated" "${decisions}"
+            tag_args=()
+            while IFS= read -r channel; do
+              tag_args+=(--tag "${image}:${channel}")
+            done < "${promote_channels}"
+            docker buildx imagetools create "${tag_args[@]}" "${image}@${IMAGE_DIGEST}"
+
+            # Registry tag reads may lag a successful push; verify with a bounded retry.
+            while IFS= read -r channel; do
+              channel_ref="${image}:${channel}"
+              inspect_error="${RUNNER_TEMP}/promoted-${registry}-${channel//[^A-Za-z0-9]/-}.error"
+              promoted_digest=''
+              for attempt in {1..10}; do
+                promoted_digest=''
+                : > "${inspect_error}"
+                if inspect_text=$(docker buildx imagetools inspect "${channel_ref}" 2> "${inspect_error}"); then
+                  promoted_digest=$(awk '$1 == "Digest:" { print $2; exit }' <<< "${inspect_text}")
+                  if [ "${promoted_digest}" = "${IMAGE_DIGEST}" ]; then
+                    break
+                  fi
+                fi
+                if [ "${attempt}" -lt 10 ]; then sleep 2; fi
+              done
+              if [ "${promoted_digest}" != "${IMAGE_DIGEST}" ]; then
+                mark_decision "${registry}" "${channel}" failed 'digest did not converge'
+                if [ -s "${inspect_error}" ]; then cat "${inspect_error}" >&2; fi
+                echo "${channel_ref} did not converge to ${IMAGE_DIGEST}." >&2
+                echo "Last observed digest: ${promoted_digest:-unavailable}." >&2
+                exit 1
+              fi
+              mark_decision "${registry}" "${channel}" updated 'matches the immutable version digest'
+            done < "${promote_channels}"
+          done
 
       - name: Summarize channel promotion
         if: always()
         env:
-          IMAGE: ${{ steps.release.outputs.image }}
+          GHCR_IMAGE: ${{ steps.release.outputs.image }}
+          DOCKERHUB_IMAGE: ${{ steps.release.outputs.dockerhub_image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          DOCKERHUB_DIGEST: ${{ steps.image.outputs.dockerhub_digest }}
           JOB_STATUS: ${{ job.status }}
           PROMOTION_MODE: ${{ steps.plan.outputs.mode }}
           RELEASE_KIND: ${{ steps.release.outputs.kind }}
@@ -309,7 +401,8 @@ jobs:
             if [ -n "${STUDIO_VERSION}" ]; then
               echo "- Version: \`${STUDIO_VERSION}\` (${RELEASE_KIND})"
               echo "- Source commit: \`${TARGET_SHA}\`"
-              echo "- Immutable image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
+              echo "- GHCR image: \`${GHCR_IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
+              echo "- Docker Hub image: \`${DOCKERHUB_IMAGE}:${STUDIO_VERSION}@${DOCKERHUB_DIGEST}\`"
               echo "- Release: ${RELEASE_URL}"
               if [ "${PROMOTION_MODE}" = immutable-only ]; then
                 echo '- Channel promotion: `immutable-only` (no mutable channels apply).'
@@ -318,10 +411,10 @@ jobs:
             decisions="${RUNNER_TEMP}/promotion-decisions.tsv"
             if [ -s "${decisions}" ]; then
               echo
-              echo '| Channel | Decision | Detail |'
-              echo '| --- | --- | --- |'
-              while IFS=$'\t' read -r channel decision detail; do
-                echo "| \`${channel}\` | \`${decision}\` | ${detail} |"
+              echo '| Registry | Channel | Decision | Detail |'
+              echo '| --- | --- | --- | --- |'
+              while IFS=$'\t' read -r registry channel decision detail; do
+                echo "| \`${registry}\` | \`${channel}\` | \`${decision}\` | ${detail} |"
               done < "${decisions}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
