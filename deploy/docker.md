@@ -11,7 +11,7 @@ docker run -d --name nebula-studio \
   --restart unless-stopped \
   -p 7001:7001 \
   -v nebula-studio-data:/app/data \
-  ghcr.io/vesoft-inc/nebula-studio:latest
+  vesoft/nebula-studio:latest
 ```
 
 Alternatively, save this image-based example as `compose.yaml` in your deployment directory:
@@ -19,7 +19,7 @@ Alternatively, save this image-based example as `compose.yaml` in your deploymen
 ```yaml
 services:
   studio:
-    image: ghcr.io/vesoft-inc/nebula-studio:${STUDIO_IMAGE_TAG:-latest}
+    image: vesoft/nebula-studio:${STUDIO_IMAGE_TAG:-latest}
     init: true
     ports:
       - '${STUDIO_PORT:-7001}:7001'

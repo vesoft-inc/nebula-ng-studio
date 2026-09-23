@@ -38,7 +38,7 @@ docker run -d --name nebula-studio \
   --restart unless-stopped \
   -p 7001:7001 \
   -v nebula-studio-data:/app/data \
-  ghcr.io/vesoft-inc/nebula-studio:latest
+  vesoft/nebula-studio:latest
 ```
 
 Open <http://localhost:7001> and enter a Graphd address reachable from the container.
