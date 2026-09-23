@@ -20,11 +20,6 @@ on:
         required: false
         default: ci
         type: string
-      run_package_lifecycle_tests:
-        description: Run the slow native package lifecycle and distribution matrix
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -288,30 +283,41 @@ jobs:
           SOURCE_DATE_EPOCH=$(git show -s --format=%ct '${{ inputs.git_hash }}')
           find "${package_root}" -exec touch --no-dereference --date="@${SOURCE_DATE_EPOCH}" {} +
 
-          PACKAGE_VERSION="${DEB_UPSTREAM}" "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=1 PACKAGE_VERSION="${DEB_UPSTREAM}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager deb --target "${release_root}/${deb}"
-          PACKAGE_VERSION="${RPM_VERSION}" "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=1 PACKAGE_VERSION="${RPM_VERSION}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager rpm --target "${release_root}/${rpm}"
           (cd "${release_root}" && sha256sum "${deb}" > "${deb}.sha256" && sha256sum "${rpm}" > "${rpm}.sha256")
 
           reproducible_root="${RUNNER_TEMP}/reproducible-packages"
           mkdir -p "${reproducible_root}"
-          PACKAGE_VERSION="${DEB_UPSTREAM}" "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=1 PACKAGE_VERSION="${DEB_UPSTREAM}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager deb --target "${reproducible_root}/${deb}"
-          PACKAGE_VERSION="${RPM_VERSION}" "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=1 PACKAGE_VERSION="${RPM_VERSION}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager rpm --target "${reproducible_root}/${rpm}"
           cmp "${release_root}/${deb}" "${reproducible_root}/${deb}"
           cmp "${release_root}/${rpm}" "${reproducible_root}/${rpm}"
 
           upgrade_root="${RUNNER_TEMP}/upgrade-packages"
           mkdir -p "${upgrade_root}"
-          PACKAGE_VERSION='0.0.0~dev.build' "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=0 PACKAGE_VERSION="${DEB_UPSTREAM}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager deb --target "${upgrade_root}/nebula-studio-old.deb"
-          PACKAGE_VERSION='0.0.0~dev.build' "${RUNNER_TEMP}/nfpm" package \
+          PACKAGE_RELEASE=0 PACKAGE_VERSION="${RPM_VERSION}" "${RUNNER_TEMP}/nfpm" package \
             --config packaging/nfpm.yaml --packager rpm --target "${upgrade_root}/nebula-studio-old.rpm"
-          dpkg --compare-versions '0.0.0~dev.build-1' lt "${DEB_VERSION}"
-          test "$(docker run --rm "${GLIBC_FLOOR_IMAGE}" \
-            rpm --eval "%{lua:print(rpm.vercmp(\"0.0.0~dev.build\", \"${RPM_VERSION}\"))}")" = -1
+          dpkg --compare-versions "${DEB_UPSTREAM}-0" lt "${DEB_VERSION}"
+          test "$(dpkg-deb -f "${upgrade_root}/nebula-studio-old.deb" Version)" = "${DEB_UPSTREAM}-0"
+          test "$(docker run --rm -v "${upgrade_root}:/work:ro" "${GLIBC_FLOOR_IMAGE}" \
+            rpm -qp --queryformat '%{VERSION}-%{RELEASE}' /work/nebula-studio-old.rpm)" = "${RPM_VERSION}-0"
+          (cd "${upgrade_root}" && sha256sum nebula-studio-old.deb > nebula-studio-old.deb.sha256 \
+            && sha256sum nebula-studio-old.rpm > nebula-studio-old.rpm.sha256)
+          jq -n \
+            --arg arch '${{ matrix.arch }}' \
+            --arg version '${{ inputs.version }}' \
+            --arg sourceSha '${{ inputs.git_hash }}' \
+            --arg debFile "${deb}" \
+            --arg rpmFile "${rpm}" \
+            '{arch: $arch, version: $version, sourceSha: $sourceSha, debFile: $debFile, rpmFile: $rpmFile}' \
+            > "${upgrade_root}/fixture-metadata.json"
 
           archive="nebula-studio-${{ inputs.version }}-linux-${{ matrix.arch }}.tar.gz"
           printf '%s\n' \
@@ -349,7 +355,6 @@ jobs:
           (cd "${release_root}" && sha256sum --check "$(basename "${deb}").sha256" "$(basename "${rpm}").sha256")
 
       - name: Verify DEB service lifecycle on the native runner
-        if: inputs.run_package_lifecycle_tests
         env:
           DEB_VERSION: ${{ steps.package-version.outputs.deb_version }}
           DEB_FILE_VERSION: ${{ steps.package-version.outputs.deb_file_version }}
@@ -416,132 +421,7 @@ jobs:
           sudo test ! -f /etc/nebula-studio/config.yaml
           sudo test -f /var/lib/nebula-studio/studio.db
 
-      - name: Verify packages install on supported distribution families
-        if: inputs.run_package_lifecycle_tests
-        env:
-          DEB_VERSION: ${{ steps.package-version.outputs.deb_version }}
-          DEB_FILE_VERSION: ${{ steps.package-version.outputs.deb_file_version }}
-          RPM_VERSION: ${{ steps.package-version.outputs.rpm_version }}
-          RPM_FILE_VERSION: ${{ steps.package-version.outputs.rpm_file_version }}
-        run: |
-          set -euo pipefail
-          release_root="${GITHUB_WORKSPACE}/dist/release"
-          deb="nebula-studio_${DEB_FILE_VERSION}_${{ matrix.arch }}.deb"
-          rpm="nebula-studio-${RPM_FILE_VERSION}-1.${{ matrix.rpm_arch }}.rpm"
-          for image in ubuntu:22.04 ubuntu:24.04 debian:12-slim debian:13-slim; do
-            docker run --rm -v "${release_root}:/work:ro" "${image}" sh -ceu '
-              apt-get update >/dev/null
-              if ! apt-get install -y "/work/$1" > /tmp/studio-install.log 2>&1; then
-                cat /tmp/studio-install.log >&2
-                exit 1
-              fi
-              test -x /usr/lib/nebula-studio/bin/studio
-              test ! -e /run/systemd/system
-              printf preserved > /var/lib/nebula-studio/studio.db
-              chown nebula-studio:nebula-studio /var/lib/nebula-studio/studio.db
-              if ! dpkg --remove nebula-studio > /tmp/studio-remove.log 2>&1; then
-                cat /tmp/studio-remove.log >&2
-                exit 1
-              fi
-              test -f /var/lib/nebula-studio/studio.db
-            ' sh "${deb}"
-          done
-          for image in rockylinux:9 rockylinux/rockylinux:10; do
-            docker run --rm -v "${release_root}:/work:ro" "${image}" sh -ceu '
-              if ! dnf install -y "/work/$1" > /tmp/studio-install.log 2>&1; then
-                cat /tmp/studio-install.log >&2
-                exit 1
-              fi
-              test -x /usr/lib/nebula-studio/bin/studio
-              test ! -e /run/systemd/system
-              printf preserved > /var/lib/nebula-studio/studio.db
-              chown nebula-studio:nebula-studio /var/lib/nebula-studio/studio.db
-              if ! rpm -e nebula-studio > /tmp/studio-remove.log 2>&1; then
-                cat /tmp/studio-remove.log >&2
-                exit 1
-              fi
-              test -f /var/lib/nebula-studio/studio.db
-            ' sh "${rpm}"
-          done
-
-      - name: Verify RPM service upgrades under systemd
-        if: inputs.run_package_lifecycle_tests
-        env:
-          RPM_FILE_VERSION: ${{ steps.package-version.outputs.rpm_file_version }}
-        run: |
-          set -euo pipefail
-          release_root="${GITHUB_WORKSPACE}/dist/release"
-          upgrade_root="${RUNNER_TEMP}/upgrade-packages"
-          rpm="nebula-studio-${RPM_FILE_VERSION}-1.${{ matrix.rpm_arch }}.rpm"
-          for specification in 'rockylinux:9 rocky9' 'rockylinux/rockylinux:10 rocky10'; do
-            read -r image suffix <<< "${specification}"
-            container="studio-rpm-${suffix}-${{ matrix.arch }}-${GITHUB_RUN_ID}"
-            test_image="studio-systemd-${suffix}-${{ matrix.arch }}:${GITHUB_RUN_ID}"
-            docker build --progress=plain \
-              --platform 'linux/${{ matrix.arch }}' \
-              --build-arg "ROCKY_BASE=${image}" \
-              --file .github/docker/rocky-systemd.Dockerfile \
-              --tag "${test_image}" .
-            docker run --detach --privileged --cgroupns=host \
-              --name "${container}" \
-              --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
-              --volume "${release_root}:/release:ro" \
-              --volume "${upgrade_root}:/upgrade:ro" \
-              "${test_image}"
-            cleanup_container() { docker rm --force "${container}" >/dev/null 2>&1 || true; }
-            trap cleanup_container EXIT
-            for attempt in {1..180}; do
-              if [[ $(docker inspect --format '{{.State.Running}}' "${container}") != true ]]; then
-                docker inspect --format '{{json .State}}' "${container}" >&2
-                docker logs "${container}" >&2
-                exit 1
-              fi
-              state=$(docker exec "${container}" systemctl is-system-running 2>&1 || true)
-              # A container can remain globally "starting" while unrelated default
-              # units time out. The manager is usable at this point; the Studio
-              # enable/start/stop and health assertions below are the real lifecycle gate.
-              if [[ ${state} == starting || ${state} == running || ${state} == degraded ]]; then break; fi
-              if [[ ${attempt} -eq 180 ]]; then
-                echo "systemd did not become usable (last state: ${state:-empty})." >&2
-                docker inspect --format '{{json .State}}' "${container}" >&2
-                docker exec "${container}" systemctl --no-pager --failed >&2 || true
-                docker logs "${container}" >&2
-                exit 1
-              fi
-              sleep 1
-            done
-
-            docker exec "${container}" dnf install -y /upgrade/nebula-studio-old.rpm >/dev/null
-            test "$(docker exec "${container}" systemctl is-enabled nebula-studio.service 2>/dev/null || true)" = disabled
-            ! docker exec "${container}" systemctl is-active --quiet nebula-studio.service
-            docker exec "${container}" sh -c "echo '# package-upgrade-preserved' >> /etc/nebula-studio/config.yaml"
-            docker exec "${container}" systemctl enable nebula-studio.service
-            docker exec "${container}" systemctl start nebula-studio.service
-            for attempt in {1..30}; do
-              if docker exec "${container}" /usr/lib/nebula-studio/bin/studio \
-                -healthcheck http://127.0.0.1:7001/api-studio/health; then break; fi
-              test "${attempt}" -lt 30
-              sleep 1
-            done
-            docker exec "${container}" dnf install -y "/release/${rpm}" >/dev/null
-            ! docker exec "${container}" systemctl is-active --quiet nebula-studio.service
-            test "$(docker exec "${container}" systemctl is-enabled nebula-studio.service)" = enabled
-            docker exec "${container}" grep -Fqx '# package-upgrade-preserved' /etc/nebula-studio/config.yaml
-            docker exec "${container}" systemctl start nebula-studio.service
-            for attempt in {1..30}; do
-              if docker exec "${container}" /usr/lib/nebula-studio/bin/studio \
-                -healthcheck http://127.0.0.1:7001/api-studio/health; then break; fi
-              test "${attempt}" -lt 30
-              sleep 1
-            done
-            docker exec "${container}" rpm -e nebula-studio
-            docker exec "${container}" test -f /var/lib/nebula-studio/studio.db
-            cleanup_container
-            trap - EXIT
-          done
-
       - name: Verify systemd 219 command compatibility
-        if: inputs.run_package_lifecycle_tests
         run: |
           set -euo pipefail
           output=$(docker run --rm "${GLIBC_FLOOR_IMAGE}" sh -c \
@@ -554,4 +434,76 @@ jobs:
           path: |
             dist/release/*
           if-no-files-found: error
+          compression-level: 0
+          overwrite: true
           retention-days: 3
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-upgrade-${{ matrix.arch }}-${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/upgrade-packages/
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+          retention-days: 3
+
+  package-integration:
+    name: Linux ${{ matrix.arch }} packages on ${{ matrix.suite }}
+    needs: archive
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+            suite: debian-family
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+            suite: rocky9
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+            suite: rocky10
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+            suite: debian-family
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+            suite: rocky9
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+            suite: rocky10
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.git_hash }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: studio-linux-${{ matrix.arch }}-${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/release-assets
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: studio-upgrade-${{ matrix.arch }}-${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/upgrade-packages
+
+      - name: Verify package delivery on the native runner
+        env:
+          PACKAGE_ARCH: ${{ matrix.arch }}
+          STUDIO_VERSION: ${{ inputs.version }}
+          GIT_HASH: ${{ inputs.git_hash }}
+          RELEASE_ROOT: ${{ runner.temp }}/release-assets
+          UPGRADE_ROOT: ${{ runner.temp }}/upgrade-packages
+        run: |
+          test "$(uname -m)" = '${{ matrix.machine }}'
+          bash scripts/ci/test-native-packages.sh '${{ matrix.suite }}'

@@ -3,7 +3,7 @@ arch: ${PACKAGE_ARCH}
 platform: linux
 version: ${PACKAGE_VERSION}
 version_schema: none
-release: '1'
+release: ${PACKAGE_RELEASE}
 section: database
 priority: optional
 maintainer: Vesoft Inc. <support@vesoft.com>
