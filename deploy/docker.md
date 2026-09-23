@@ -26,6 +26,8 @@ services:
     environment:
       - STUDIO_TOKEN_SECRET
       - STUDIO_ENCRYPT_PASSPHRASE
+      - STUDIO_GRAPHD_DEFAULT_HOST
+      - STUDIO_GRAPHD_DEFAULT_PORT
       - STUDIO_HEALTHCHECK_URL
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -70,6 +72,16 @@ The Graphd address entered on the login page must be reachable from the Studio c
 - For Graphd on the Docker host, use `host.docker.internal:9669`. The Compose example maps that name on Linux; with `docker run`, add `--add-host host.docker.internal:host-gateway` on Linux.
 - For Graphd elsewhere, use a reachable DNS name or IP address.
 - Do not use `127.0.0.1` unless Graphd runs in the Studio container.
+
+To prefill the login page, set `STUDIO_GRAPHD_DEFAULT_HOST` and `STUDIO_GRAPHD_DEFAULT_PORT` in the Compose environment:
+
+```bash
+STUDIO_GRAPHD_DEFAULT_HOST=host.docker.internal \
+STUDIO_GRAPHD_DEFAULT_PORT=9669 \
+docker compose up -d
+```
+
+With `docker run`, pass them using `-e`. The bundled YAML files expand these variables at startup. A custom YAML file must retain the `${STUDIO_GRAPHD_DEFAULT_HOST}` and `${STUDIO_GRAPHD_DEFAULT_PORT}` placeholders to use them; literal YAML values remain unchanged. Without a port value, the login page uses `9669`.
 
 To change only the host-side Studio port with Compose, run `STUDIO_PORT=17001 docker compose up -d` and open <http://localhost:17001>.
 

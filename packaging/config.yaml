@@ -2,8 +2,8 @@ Name: studio-api
 Host: 0.0.0.0
 Port: 7001
 Timeout: 30000
-DefaultHost: '' # Optional default NebulaGraph domain shown on the login page, for example "graph0"
-DefaultPort: '' # Optional default NebulaGraph port shown on the login page, for example "9669"
+DefaultHost: '${STUDIO_GRAPHD_DEFAULT_HOST}' # Optional default NebulaGraph domain shown on the login page, for example "graph0"
+DefaultPort: '${STUDIO_GRAPHD_DEFAULT_PORT}' # Optional default NebulaGraph port shown on the login page, for example "9669"
 Log:
   Mode: file
   Path: /var/log/nebula-studio

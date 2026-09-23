@@ -39,11 +39,13 @@ sudo systemctl enable nebula-studio.service  # optional: start during boot
 | ---------------------------- | ---------------------------------- |
 | Application                  | `/usr/lib/nebula-studio`           |
 | Configuration                | `/etc/nebula-studio/config.yaml`   |
-| Optional secrets environment | `/etc/nebula-studio/studio.env`    |
+| Optional environment         | `/etc/nebula-studio/studio.env`    |
 | SQLite database              | `/var/lib/nebula-studio/studio.db` |
 | Application logs             | `/var/log/nebula-studio`           |
 
 The package manager protects `config.yaml` during upgrades. For stable login sessions, set `STUDIO_TOKEN_SECRET` and `STUDIO_ENCRYPT_PASSPHRASE` in `studio.env`, make it readable only by root, and restart Studio.
+
+To prefill the Graphd address on the login page, set `STUDIO_GRAPHD_DEFAULT_HOST` and `STUDIO_GRAPHD_DEFAULT_PORT` in `studio.env` and restart Studio. The packaged YAML expands these variables. If you replace their YAML entries with literal values, the environment variables no longer affect those entries.
 
 ## Upgrade and remove
 

@@ -30,6 +30,8 @@ cd nebula-studio-<version>
 
 Review `etc/config.yaml` before starting Studio. Set stable authentication secrets when login sessions must survive a restart, and ensure Graphd is reachable from the Server host.
 
+To prefill the Graphd address on the login page, set `STUDIO_GRAPHD_DEFAULT_HOST` and `STUDIO_GRAPHD_DEFAULT_PORT` in the Server process environment. The bundled YAML expands these variables; a custom YAML file needs the same placeholders. Literal YAML values remain unchanged.
+
 To use a configuration outside the archive, pass it to the service script with `-c`, or run the binary directly with `-f`. Without either flag, `etc/config.yaml` inside the archive is used.
 
 ## Start and stop Studio
