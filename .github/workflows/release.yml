@@ -192,21 +192,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       checkout_ref: ${{ needs.preflight.outputs.target_sha }}
-    permissions:
-      contents: read
-
-  release-archives:
-    name: Release Linux delivery
-    needs:
-      - preflight
-      - quality-gate
-    uses: ./.github/workflows/studio-archives.yml
-    with:
-      version: ${{ needs.preflight.outputs.studio_version }}
-      git_hash: ${{ needs.preflight.outputs.target_sha }}
-      git_ref: ${{ needs.preflight.outputs.tag_name }}
-      artifact_suffix: release
-      run_package_lifecycle_tests: false
+      release_version: ${{ needs.preflight.outputs.studio_version }}
     permissions:
       contents: read
 
@@ -214,7 +200,7 @@ jobs:
     name: Review release candidate
     needs:
       - preflight
-      - release-archives
+      - quality-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
