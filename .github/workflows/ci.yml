@@ -8,6 +8,11 @@ on:
         required: false
         default: ''
         type: string
+      release_version:
+        description: Exact release version; empty for ordinary CI builds
+        required: false
+        default: ''
+        type: string
   pull_request:
   push:
     branches:
@@ -25,7 +30,8 @@ env:
   HUSKY: 0
   NODE_VERSION: '24.21.0'
   SOURCE_SHA: ${{ inputs.checkout_ref || github.sha }}
-  SOURCE_REF: ${{ inputs.checkout_ref || github.ref_name }}
+  SOURCE_REF: ${{ inputs.release_version && format('v{0}', inputs.release_version) || inputs.checkout_ref || github.ref_name }}
+  DELIVERY_VERSION: ${{ inputs.release_version || format('0.0.0-dev+{0}', inputs.checkout_ref || github.sha) }}
 
 jobs:
   repository-checks:
@@ -53,6 +59,14 @@ jobs:
 
       - name: Test release and package version policies
         run: pnpm test:release-policy
+
+      - name: Verify the requested release version
+        if: inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          node scripts/release-channel-policy.mjs classify "${RELEASE_VERSION}" >/dev/null
+          test "$(node -p "require('./apps/web/package.json').version")" = "${RELEASE_VERSION}"
 
       - name: Lint repository
         run: pnpm lint
@@ -149,10 +163,10 @@ jobs:
     name: Studio Linux delivery
     uses: ./.github/workflows/studio-archives.yml
     with:
-      version: 0.0.0-dev+${{ inputs.checkout_ref || github.sha }}
+      version: ${{ inputs.release_version || format('0.0.0-dev+{0}', inputs.checkout_ref || github.sha) }}
       git_hash: ${{ inputs.checkout_ref || github.sha }}
-      git_ref: ${{ inputs.checkout_ref || github.ref_name }}
-      artifact_suffix: ci
+      git_ref: ${{ inputs.release_version && format('v{0}', inputs.release_version) || inputs.checkout_ref || github.ref_name }}
+      artifact_suffix: ${{ inputs.release_version && 'release' || 'ci' }}
     permissions:
       contents: read
 
@@ -187,7 +201,7 @@ jobs:
           container="studio-ci-${{ matrix.arch }}"
           docker buildx build \
             --platform 'linux/${{ matrix.arch }}' \
-            --build-arg "STUDIO_VERSION=0.0.0-dev+${SOURCE_SHA}" \
+            --build-arg "STUDIO_VERSION=${DELIVERY_VERSION}" \
             --build-arg "GIT_HASH=${SOURCE_SHA}" \
             --build-arg "GIT_REF=${SOURCE_REF}" \
             --load \
@@ -215,7 +229,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:17001/api-studio/health | grep -Fqx '{"status":"ok"}'
           curl --fail --silent http://127.0.0.1:17001/api-studio/health/ready | grep -Fqx '{"database":"ok"}'
           curl --fail --silent http://127.0.0.1:17001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
-          docker exec "${container}" ./studio -v | grep -F "V0.0.0-dev+${SOURCE_SHA}"
+          docker exec "${container}" ./studio -v | grep -F "V${DELIVERY_VERSION}"
           docker exec "${container}" /usr/bin/id -u | grep -Fx 10001
           docker stop --timeout 10 "${container}"
           trap - EXIT
