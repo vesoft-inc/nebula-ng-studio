@@ -257,32 +257,27 @@ jobs:
             echo 'Publishing the draft in GitHub automatically promotes the immutable image digest to the applicable channels.'
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  publish:
-    name: Publish approved Studio release
+  publish-prepare:
+    name: Approve and prepare Studio publication
     needs:
       - preflight
       - release-candidate
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 15
     environment:
       name: release
+    outputs:
+      image_exists: ${{ steps.image-state.outputs.exists }}
+      image_digest: ${{ steps.image-state.outputs.digest }}
     permissions:
       contents: write
-      packages: write
+      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.preflight.outputs.target_sha }}
           fetch-depth: 0
           fetch-tags: true
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: studio-linux-*-release
-          path: ${{ runner.temp }}/release-assets
-          merge-multiple: true
-
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -310,27 +305,6 @@ jobs:
             git push origin "refs/tags/${TAG_NAME}"
           fi
           test "$(git rev-list -n 1 "refs/tags/${TAG_NAME}")" = "${TARGET_SHA}"
-
-      - name: Generate OCI metadata
-        id: metadata
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
-        with:
-          images: ${{ needs.preflight.outputs.image }}
-          flavor: latest=false
-          tags: type=raw,value=${{ needs.preflight.outputs.studio_version }}
-          labels: |
-            org.opencontainers.image.title=NebulaGraph Studio
-            org.opencontainers.image.description=Self-hosted NebulaGraph Studio with integrated Explorer
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
-            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
-          annotations: |
-            org.opencontainers.image.title=NebulaGraph Studio
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
-            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
 
       - name: Inspect an existing immutable version image
         id: image-state
@@ -365,6 +339,12 @@ jobs:
             [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
             echo 'exists=true' >> "${GITHUB_OUTPUT}"
             echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          elif grep -Eqi \
+            -e 'unauthorized|denied|timeout|connection|TLS|rate limit' \
+            -e '401 Unauthorized|403 Forbidden|429 Too Many Requests|5[0-9]{2} (Internal|Bad|Service|Gateway)' \
+            "${RUNNER_TEMP}/image-error.txt"; then
+            cat "${RUNNER_TEMP}/image-error.txt" >&2
+            exit 1
           elif grep -Eqi 'not found|manifest unknown' "${RUNNER_TEMP}/image-error.txt"; then
             echo 'exists=false' >> "${GITHUB_OUTPUT}"
           else
@@ -372,15 +352,73 @@ jobs:
             exit 1
           fi
 
-      - name: Build and push the immutable version image
+  publish-platform:
+    name: Build Studio image (${{ matrix.arch }})
+    needs:
+      - preflight
+      - publish-prepare
+    if: needs.publish-prepare.outputs.image_exists != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            machine: x86_64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            machine: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Require the native build architecture
+        run: test "$(uname -m)" = '${{ matrix.machine }}'
+
+      - name: Generate OCI metadata
+        id: metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest
+        with:
+          images: ${{ needs.preflight.outputs.image }}
+          flavor: latest=false
+          tags: type=raw,value=${{ needs.preflight.outputs.studio_version }}
+          labels: |
+            org.opencontainers.image.title=NebulaGraph Studio
+            org.opencontainers.image.description=Self-hosted NebulaGraph Studio with integrated Explorer
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
+          annotations: |
+            org.opencontainers.image.title=NebulaGraph Studio
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.preflight.outputs.studio_version }}
+            org.opencontainers.image.revision=${{ needs.preflight.outputs.target_sha }}
+
+      - name: Build and push the native image by digest
         id: push-image
-        if: steps.image-state.outputs.exists != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ needs.preflight.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=min
           labels: ${{ steps.metadata.outputs.labels }}
           annotations: ${{ steps.metadata.outputs.annotations }}
           build-args: |
@@ -389,24 +427,145 @@ jobs:
             GIT_REF=${{ needs.preflight.outputs.tag_name }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
             LICENSES=Apache-2.0
-          cache-from: type=gha,scope=studio-release
-          cache-to: type=gha,mode=max,scope=studio-release
 
-      - name: Resolve the immutable image digest
-        id: image
+      - name: Verify the pushed platform and runtime
         env:
-          IMAGE_EXISTS: ${{ steps.image-state.outputs.exists }}
-          EXISTING_DIGEST: ${{ steps.image-state.outputs.digest }}
-          PUSHED_DIGEST: ${{ steps.push-image.outputs.digest }}
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          DIGEST: ${{ steps.push-image.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
         run: |
           set -euo pipefail
-          if [ "${IMAGE_EXISTS}" = true ]; then
-            digest="${EXISTING_DIGEST}"
-          else
-            digest="${PUSHED_DIGEST}"
-          fi
-          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
-          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          [[ "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          image_ref="${IMAGE}@${DIGEST}"
+          docker buildx imagetools inspect "${image_ref}" --raw > "${RUNNER_TEMP}/platform-image.json"
+          jq -e --arg arch "${ARCH}" '
+            ([.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch)] | length) == 1
+            and ([.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest")] | length) == 1
+          ' "${RUNNER_TEMP}/platform-image.json" >/dev/null
+          runtime_digest=$(jq -r --arg arch "${ARCH}" \
+            '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' \
+            "${RUNNER_TEMP}/platform-image.json")
+          attestation_digest=$(jq -r --arg digest "${runtime_digest}" '
+            .manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest"
+              and .annotations["vnd.docker.reference.digest"] == $digest) | .digest
+          ' "${RUNNER_TEMP}/platform-image.json")
+          [[ "${runtime_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${attestation_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "${IMAGE}@${runtime_digest}" --raw > "${RUNNER_TEMP}/runtime-manifest.json"
+          jq -e --arg version "${STUDIO_VERSION}" --arg revision "${TARGET_SHA}" '
+            .annotations["org.opencontainers.image.version"] == $version
+            and .annotations["org.opencontainers.image.revision"] == $revision
+          ' "${RUNNER_TEMP}/runtime-manifest.json" >/dev/null
+
+          container="studio-release-${ARCH}-${GITHUB_RUN_ID}"
+          docker run --detach --rm --pull=always \
+            --name "${container}" \
+            --publish 127.0.0.1:17001:7001 \
+            --health-interval 1s \
+            --health-start-period 1s \
+            --health-timeout 2s \
+            --health-retries 20 \
+            "${image_ref}"
+          trap 'docker logs "${container}" || true; docker stop --timeout 10 "${container}" || true' EXIT
+          for attempt in {1..30}; do
+            health_state=$(docker inspect --format '{{.State.Health.Status}}' "${container}")
+            if [ "${health_state}" = healthy ]; then break; fi
+            test "${attempt}" -lt 30
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:17001/api-studio/health | grep -Fqx '{"status":"ok"}'
+          curl --fail --silent http://127.0.0.1:17001/api-studio/health/ready | grep -Fqx '{"database":"ok"}'
+          curl --fail --silent http://127.0.0.1:17001/api-studio/db/oauth2-config | grep -Fq '"enabled":false'
+          docker exec "${container}" ./studio -v | grep -F "V${STUDIO_VERSION}"
+          docker exec "${container}" /usr/bin/id -u | grep -Fx 10001
+          docker stop --timeout 10 "${container}"
+          trap - EXIT
+
+          mkdir -p "${RUNNER_TEMP}/oci-digest"
+          jq -n \
+            --arg arch "${ARCH}" \
+            --arg version "${STUDIO_VERSION}" \
+            --arg sourceSha "${TARGET_SHA}" \
+            --arg digest "${DIGEST}" \
+            --arg runtimeDigest "${runtime_digest}" \
+            --arg attestationDigest "${attestation_digest}" \
+            '{arch: $arch, version: $version, sourceSha: $sourceSha,
+              digest: $digest, runtimeDigest: $runtimeDigest, attestationDigest: $attestationDigest}' \
+            > "${RUNNER_TEMP}/oci-digest/record.json"
+          (cd "${RUNNER_TEMP}/oci-digest" && sha256sum record.json > record.json.sha256)
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-oci-${{ matrix.arch }}
+          path: ${{ runner.temp }}/oci-digest/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  publish-finalize:
+    name: Publish approved Studio release
+    if: >-
+      always() && needs.preflight.result == 'success' &&
+      needs.release-candidate.result == 'success' &&
+      needs.publish-prepare.result == 'success' &&
+      (needs.publish-platform.result == 'success' ||
+      (needs.publish-prepare.outputs.image_exists == 'true' && needs.publish-platform.result == 'skipped'))
+    needs:
+      - preflight
+      - release-candidate
+      - publish-prepare
+      - publish-platform
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: studio-linux-*-release
+          path: ${{ runner.temp }}/release-assets
+          merge-multiple: true
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.publish-prepare.outputs.image_exists != 'true'
+        with:
+          name: studio-oci-amd64
+          path: ${{ runner.temp }}/oci-digests/amd64
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.publish-prepare.outputs.image_exists != 'true'
+        with:
+          name: studio-oci-arm64
+          path: ${{ runner.temp }}/oci-digests/arm64
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge or reuse the immutable version image
+        id: image
+        env:
+          IMAGE: ${{ needs.preflight.outputs.image }}
+          STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+          PREPARED_EXISTING: ${{ needs.publish-prepare.outputs.image_exists }}
+          PREPARED_DIGEST: ${{ needs.publish-prepare.outputs.image_digest }}
+          DIGEST_ROOT: ${{ runner.temp }}/oci-digests
+        run: bash scripts/ci/finalize-release-image.sh
 
       - name: Create or reuse the GitHub Release
         id: release
