@@ -63,4 +63,17 @@ For troubleshooting, run the Server directly in the foreground:
 - `logs/` — service output and rotating application logs.
 - `pids/studio.pid` — running Server process ID.
 
-Before upgrading, stop Studio and back up the database. Database migrations are forward-only; restore the pre-upgrade backup when rolling back.
+## Upgrade
+
+1. Stop Studio in the current directory and back up its configuration and database. For SQLite, preserve the configured database file and any `-wal` and `-shm` companions after the process has stopped (`data/studio.db` by default). Back up MySQL separately.
+2. Verify and extract the new archive into a separate directory. Review its `etc/config.yaml` and carry over your settings. For the default SQLite path, create `data/` in the new directory and restore the backed-up database files there. Check external paths and custom relative SQLite paths against the new directory. Do not copy the old binary, assets, scripts, PID files, or logs.
+3. Update any service path or symlink that points to the old directory. Start Studio from the new directory, check its version, and verify both health endpoints:
+
+```bash
+./bin/studio -v
+sudo ./scripts/studio.service start studio
+./bin/studio -healthcheck http://127.0.0.1:7001/api-studio/health
+./bin/studio -healthcheck http://127.0.0.1:7001/api-studio/health/ready
+```
+
+Database migrations are forward-only. To roll back, stop the new version and restore the previous archive, configuration, and pre-upgrade database backup together.
