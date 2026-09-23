@@ -1,20 +1,22 @@
 <p align="center">
-  <picture>
-    <source
-      media="(prefers-color-scheme: dark)"
-      srcset="https://github.com/user-attachments/assets/4f7c9f6d-7ce3-4c57-8e1b-26a7f53c26da"
-    />
-    <source
-      media="(prefers-color-scheme: light)"
-      srcset="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
-    />
-    <img
-      src="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
-      alt="NebulaGraph Studio"
-      width="429"
-      height="57"
-    />
-  </picture>
+  <a href="https://nebula-graph.io/" rel="noopener noreferrer">
+    <picture>
+      <source
+        media="(prefers-color-scheme: dark)"
+        srcset="https://github.com/user-attachments/assets/4f7c9f6d-7ce3-4c57-8e1b-26a7f53c26da"
+      />
+      <source
+        media="(prefers-color-scheme: light)"
+        srcset="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
+      />
+      <img
+        src="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
+        alt="NebulaGraph Studio"
+        width="429"
+        height="57"
+      />
+    </picture>
+  </a>
 </p>
 
 <p align="center">
@@ -22,7 +24,10 @@
   <a href="LICENSE"><img src="https://github.com/user-attachments/assets/d2877980-d8d4-4185-8c7c-05852bc89c90" alt="License: Apache-2.0" /></a>
 </p>
 
-<p align="center">A web-based visualization tool for NebulaGraph.</p>
+<p align="center">
+  A web-based visualization tool for NebulaGraph.
+  <a href="https://dev-docs.nebula-graph.io/master/visualization/studio/" rel="noopener noreferrer">Read the Docs to Learn More.</a>
+</p>
 
 ## 🚀 Quick start
 
