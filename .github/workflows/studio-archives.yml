@@ -476,26 +476,34 @@ jobs:
           for specification in 'rockylinux:9 rocky9' 'rockylinux/rockylinux:10 rocky10'; do
             read -r image suffix <<< "${specification}"
             container="studio-rpm-${suffix}-${{ matrix.arch }}-${GITHUB_RUN_ID}"
+            test_image="studio-systemd-${suffix}-${{ matrix.arch }}:${GITHUB_RUN_ID}"
+            docker build --progress=plain \
+              --platform 'linux/${{ matrix.arch }}' \
+              --build-arg "ROCKY_BASE=${image}" \
+              --file .github/docker/rocky-systemd.Dockerfile \
+              --tag "${test_image}" .
             docker run --detach --privileged --cgroupns=host \
               --name "${container}" \
               --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
               --volume "${release_root}:/release:ro" \
               --volume "${upgrade_root}:/upgrade:ro" \
-              "${image}" sh -ceu 'dnf install -y systemd; exec /sbin/init'
+              "${test_image}"
             cleanup_container() { docker rm --force "${container}" >/dev/null 2>&1 || true; }
             trap cleanup_container EXIT
             for attempt in {1..180}; do
               if [[ $(docker inspect --format '{{.State.Running}}' "${container}") != true ]]; then
+                docker inspect --format '{{json .State}}' "${container}" >&2
                 docker logs "${container}" >&2
                 exit 1
               fi
-              state=$(docker exec "${container}" systemctl is-system-running 2>/dev/null || true)
+              state=$(docker exec "${container}" systemctl is-system-running 2>&1 || true)
               # A container can remain globally "starting" while unrelated default
               # units time out. The manager is usable at this point; the Studio
               # enable/start/stop and health assertions below are the real lifecycle gate.
               if [[ ${state} == starting || ${state} == running || ${state} == degraded ]]; then break; fi
               if [[ ${attempt} -eq 180 ]]; then
                 echo "systemd did not become usable (last state: ${state:-empty})." >&2
+                docker inspect --format '{{json .State}}' "${container}" >&2
                 docker exec "${container}" systemctl --no-pager --failed >&2 || true
                 docker logs "${container}" >&2
                 exit 1
