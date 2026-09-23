@@ -1,14 +1,18 @@
 # Troubleshooting
 
-Common Studio startup, connectivity, configuration, and data failures. See [`docker.md`](docker.md), [`linux-packages.md`](linux-packages.md), or [`linux-tar.md`](linux-tar.md) for deployment instructions.
+Common Studio startup, connectivity, upgrade, and data failures. See [`docker.md`](docker.md), [`linux-packages.md`](linux-packages.md), or [`linux-tar.md`](linux-tar.md) for deployment instructions.
 
-## Studio redirects to the login page repeatedly
+## A DEB or RPM upgrade from older Studio 5.x is blocked
 
-Studio generates temporary authentication secrets when none are configured, which invalidates existing cookies after a restart. Set stable `STUDIO_TOKEN_SECRET` and a 16-, 24-, or 32-byte `STUDIO_ENCRYPT_PASSPHRASE`, and keep them unchanged across restarts.
+Installing a current package over a Studio 5.x release earlier than 5.3.2 may report a package conflict. Do not force the installation or remove the existing installation manually first: installing the new package alone does not transfer the configuration, database, or service state. Follow [Upgrade legacy Studio 5.x](upgrade-legacy-studio.md) for the one-time upgrade.
+
+## Sessions are lost after Studio restarts
+
+Studio generates temporary authentication secrets when none are configured, which invalidates existing sessions after a restart. Set stable `STUDIO_TOKEN_SECRET` and a 16-, 24-, or 32-byte `STUDIO_ENCRYPT_PASSPHRASE`, and keep them unchanged across restarts.
 
 ## The container restarts in a loop
 
-An invalid or empty secret stops startup. `docker compose ps` may show `Restarting` or an uptime that repeatedly resets. Use `docker compose logs studio` to find the startup error.
+Use `docker compose ps` to check for `Restarting` or an uptime that repeatedly resets, then inspect the startup error with `docker compose logs studio`. An invalid or explicitly empty authentication secret is one possible cause.
 
 ## Cannot connect to Graphd
 
@@ -16,29 +20,15 @@ The address must be reachable from the Server process, not only from the browser
 
 Confirm the Graphd version is in the supported 5.x protocol family, and verify address, port, username, password, TLS, and network policy outside Studio.
 
-## A custom Docker configuration is not loaded
-
-`STUDIO_CONFIG_FILE` must be an existing readable absolute host path; Compose mounts it over `/app/etc/config-release.yaml` and does not create a missing path. Environment authentication secrets take precedence over values in the file. `docker compose config` shows the resolved mounts.
-
 ## Studio cannot write SQLite data
 
 The container runs as a non-root user. Keep the default `/app/data/studio.db` path, or make a custom bind mount writable by UID/GID 10001. Back up the database before changing ownership or mount layout.
-
-## Port 7001 is already in use
-
-Publish a different host port:
-
-```bash
-STUDIO_PORT=17001 docker compose up -d --build
-```
-
-Open `http://127.0.0.1:17001`.
 
 ## OAuth2 login does not start or never returns
 
 Configure the provider endpoints, client credentials, and a public redirect URL ending in `/api-studio/db/oauth2-callback`. Register that exact URL with the provider and configure the matching OAuth2 server in NebulaGraph.
 
-When TLS terminates at a reverse proxy, ensure the proxy marks the OAuth2 cookie as `Secure`. Alternatively, configure TLS directly in Studio.
+If the provider redirects back but login fails, check that the browser sends the temporary `oauth2_context` cookie to the callback. When TLS terminates at a reverse proxy, inspect the actual cookie behavior; Studio sets `Secure` only when it serves HTTPS itself.
 
 ## A database migration fails
 

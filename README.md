@@ -62,11 +62,11 @@ Studio Server reads the YAML selected by `-f <path>`. Configuration values may r
 
 ## 🛠️ Troubleshooting
 
-Common startup, Graphd connectivity, Docker configuration, and database migration failures are documented in [`deploy/troubleshooting.md`](deploy/troubleshooting.md).
+See the [troubleshooting guide](deploy/troubleshooting.md).
 
 ## 🤝 Contributing
 
-Development setup and repository checks are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+See the [contributing guide](CONTRIBUTING.md).
 
 ## 📄 License
 
