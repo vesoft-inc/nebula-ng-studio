@@ -746,8 +746,6 @@ jobs:
             echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}@${IMAGE_DIGEST}\`"
             echo "- Docker Hub image: \`${DOCKERHUB_IMAGE}:${STUDIO_VERSION}@${DOCKERHUB_DIGEST}\`"
             echo '- Linux delivery: tar.gz, DEB and RPM for `amd64` and `arm64` (SHA-256 files attached)'
-            echo '- Source downloads: GitHub-generated zip and tar.gz archives for this tag (no project-published checksum)'
-            echo '- Upgrade note: back up the Studio database before deployment.'
           } > "${notes}"
 
           release_json="${RUNNER_TEMP}/release.json"
