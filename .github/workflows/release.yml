@@ -804,51 +804,97 @@ jobs:
           expected_file="${RUNNER_TEMP}/expected-assets.txt"
           cat "${assets_root}/assets-amd64.txt" "${assets_root}/assets-arm64.txt" | sort -u > "${expected_file}"
           test "$(wc -l < "${expected_file}" | tr -d ' ')" = 12
-          while IFS= read -r asset_name; do
-            local_path="${assets_root}/${asset_name}"
-            test -f "${local_path}"
-            local_digest="sha256:$(sha256sum "${local_path}" | cut -d ' ' -f 1)"
-            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" > "${release_assets_json}"
-            count=$(jq --arg name "${asset_name}" '[.[] | select(.name == $name)] | length' "${release_assets_json}")
-            test "${count}" -le 1 || {
-              echo "Release contains duplicate assets named ${asset_name}." >&2
+          jq -R -s 'split("\n") | map(select(length > 0))' "${expected_file}" > "${RUNNER_TEMP}/expected-assets.json"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" > "${release_assets_json}"
+          existing_count=$(jq 'length' "${release_assets_json}")
+          if [ "${existing_count}" = 12 ]; then
+            # A completed draft is the immutable source of truth. Rebuilding the same commit can
+            # produce different Vite chunk hashes; never replace or reject valid attached assets
+            # solely because a later build produced different bytes.
+            jq -e --slurpfile expected "${RUNNER_TEMP}/expected-assets.json" \
+              '([.[].name] | sort) == ($expected[0] | sort)
+                and all(.[]; .state == "uploaded" and (.digest | test("^sha256:[0-9a-f]{64}$")))' \
+              "${release_assets_json}" >/dev/null || {
+              echo 'The existing Release asset set is incomplete or invalid.' >&2
               exit 1
             }
-            asset_id=$(jq -r --arg name "${asset_name}" '[.[] | select(.name == $name)][0].id // empty' "${release_assets_json}")
-            if [ -n "${asset_id}" ]; then
-              remote_digest=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .digest // empty' "${release_assets_json}")
-              asset_state=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .state // empty' "${release_assets_json}")
-              test "${asset_state}" = uploaded && test "${remote_digest}" = "${local_digest}" || {
-                echo "Existing asset ${asset_name} has different content." >&2
+            candidate_differences=0
+            while IFS= read -r asset_name; do
+              remote_digest=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .digest' "${release_assets_json}")
+              local_digest="sha256:$(sha256sum "${assets_root}/${asset_name}" | cut -d ' ' -f 1)"
+              if [ "${local_digest}" != "${remote_digest}" ]; then
+                candidate_differences=$((candidate_differences + 1))
+              fi
+            done < "${expected_file}"
+            while IFS= read -r checksum_name; do
+              binary_name="${checksum_name%.sha256}"
+              checksum_id=$(jq -r --arg name "${checksum_name}" '.[] | select(.name == $name) | .id' "${release_assets_json}")
+              checksum_digest=$(jq -r --arg name "${checksum_name}" '.[] | select(.name == $name) | .digest' "${release_assets_json}")
+              binary_digest=$(jq -r --arg name "${binary_name}" '.[] | select(.name == $name) | .digest' "${release_assets_json}")
+              checksum_file="${RUNNER_TEMP}/existing-${checksum_name}"
+              gh api -H 'Accept: application/octet-stream' \
+                "repos/${GITHUB_REPOSITORY}/releases/assets/${checksum_id}" > "${checksum_file}"
+              test "sha256:$(sha256sum "${checksum_file}" | cut -d ' ' -f 1)" = "${checksum_digest}"
+              test "$(wc -l < "${checksum_file}" | tr -d ' ')" = 1
+              read -r expected_digest named_binary < "${checksum_file}"
+              [[ "${expected_digest}" =~ ^[0-9a-f]{64}$ ]]
+              test "${named_binary}" = "${binary_name}"
+              test "sha256:${expected_digest}" = "${binary_digest}" || {
+                echo "Existing ${checksum_name} does not match ${binary_name}." >&2
                 exit 1
               }
-              echo "Reusing ${asset_name}."
-            else
-              test "${RELEASE_DRAFT}" = true || {
-                echo "Published Release is missing ${asset_name}; immutable assets will not be modified." >&2
-                exit 1
-              }
-              upload_response="${RUNNER_TEMP}/upload-${asset_name}.json"
-              curl --fail-with-body --silent --show-error \
-                --request POST \
-                --header "Authorization: Bearer ${GH_TOKEN}" \
-                --header 'Content-Type: application/octet-stream' \
-                --data-binary "@${local_path}" \
-                "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}" \
-                > "${upload_response}"
-              jq -e \
-                --arg name "${asset_name}" \
-                --arg digest "${local_digest}" \
-                '.name == $name and .state == "uploaded" and .digest == $digest' \
-                "${upload_response}" >/dev/null || {
-                echo "GitHub returned unexpected metadata after uploading ${asset_name}." >&2
-                exit 1
-              }
-              echo "Uploaded ${asset_name}."
+            done < <(grep -E '\.sha256$' "${expected_file}")
+            echo 'Reusing the complete, verified immutable Release asset set.'
+            if [ "${candidate_differences}" -gt 0 ]; then
+              echo "::notice::${candidate_differences} rebuilt candidate assets differ; the verified Release originals remain unchanged."
             fi
-          done < "${expected_file}"
+          else
+            # Initial publication or an interrupted draft: every already-uploaded asset must
+            # match this run before missing assets may be uploaded. Published Releases cannot grow.
+            while IFS= read -r asset_name; do
+              local_path="${assets_root}/${asset_name}"
+              test -f "${local_path}"
+              local_digest="sha256:$(sha256sum "${local_path}" | cut -d ' ' -f 1)"
+              count=$(jq --arg name "${asset_name}" '[.[] | select(.name == $name)] | length' "${release_assets_json}")
+              test "${count}" -le 1 || {
+                echo "Release contains duplicate assets named ${asset_name}." >&2
+                exit 1
+              }
+              asset_id=$(jq -r --arg name "${asset_name}" '[.[] | select(.name == $name)][0].id // empty' "${release_assets_json}")
+              if [ -n "${asset_id}" ]; then
+                remote_digest=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .digest // empty' "${release_assets_json}")
+                asset_state=$(jq -r --arg name "${asset_name}" '.[] | select(.name == $name) | .state // empty' "${release_assets_json}")
+                test "${asset_state}" = uploaded && test "${remote_digest}" = "${local_digest}" || {
+                  echo "Existing asset ${asset_name} has different content." >&2
+                  exit 1
+                }
+                echo "Reusing ${asset_name}."
+              else
+                test "${RELEASE_DRAFT}" = true || {
+                  echo "Published Release is missing ${asset_name}; immutable assets will not be modified." >&2
+                  exit 1
+                }
+                upload_response="${RUNNER_TEMP}/upload-${asset_name}.json"
+                curl --fail-with-body --silent --show-error \
+                  --request POST \
+                  --header "Authorization: Bearer ${GH_TOKEN}" \
+                  --header 'Content-Type: application/octet-stream' \
+                  --data-binary "@${local_path}" \
+                  "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${asset_name}" \
+                  > "${upload_response}"
+                jq -e \
+                  --arg name "${asset_name}" \
+                  --arg digest "${local_digest}" \
+                  '.name == $name and .state == "uploaded" and .digest == $digest' \
+                  "${upload_response}" >/dev/null || {
+                  echo "GitHub returned unexpected metadata after uploading ${asset_name}." >&2
+                  exit 1
+                }
+                echo "Uploaded ${asset_name}."
+              fi
+            done < "${expected_file}"
+          fi
 
-          jq -R -s 'split("\n") | map(select(length > 0))' "${expected_file}" > "${RUNNER_TEMP}/expected-assets.json"
           gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" > "${release_assets_json}"
           jq -e --slurpfile expected "${RUNNER_TEMP}/expected-assets.json" \
             '([.[].name] | sort) == ($expected[0] | sort)' "${release_assets_json}" >/dev/null || {
