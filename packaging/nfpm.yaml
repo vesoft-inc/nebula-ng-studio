@@ -30,7 +30,7 @@ contents:
     dst: /usr/lib/nebula-studio/assets/public
     type: tree
     expand: true
-  - src: packaging/config.yaml
+  - src: apps/server/etc/config-package.yaml
     dst: /etc/nebula-studio/config.yaml
     type: config|noreplace
     file_info:

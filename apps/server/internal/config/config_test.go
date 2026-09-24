@@ -39,7 +39,7 @@ func TestBundledGraphdDefaultsExpandEnvironment(t *testing.T) {
 	configPaths := map[string]string{
 		"development": "../../etc/config.yaml",
 		"release":     "../../etc/config-release.yaml",
-		"package":     "../../../../packaging/config.yaml",
+		"package":     "../../etc/config-package.yaml",
 	}
 	cases := []struct {
 		name string
