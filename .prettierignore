@@ -1,6 +1,8 @@
 pnpm-lock.yaml
 .turbo
 apps/web/index.html
+**/*.md
+**/*.mdx
 docs/local/**
 **/dist/**
 apps/server/assets/public/**
