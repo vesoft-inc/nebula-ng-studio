@@ -35,13 +35,13 @@ sudo systemctl enable nebula-studio.service  # optional: start during boot
 
 ## Files and configuration
 
-| Content                      | Location                           |
-| ---------------------------- | ---------------------------------- |
-| Application                  | `/usr/lib/nebula-studio`           |
-| Configuration                | `/etc/nebula-studio/config.yaml`   |
-| Optional environment         | `/etc/nebula-studio/studio.env`    |
-| SQLite database              | `/var/lib/nebula-studio/studio.db` |
-| Application logs             | `/var/log/nebula-studio`           |
+| Content              | Location                           |
+| -------------------- | ---------------------------------- |
+| Application          | `/usr/lib/nebula-studio`           |
+| Configuration        | `/etc/nebula-studio/config.yaml`   |
+| Optional environment | `/etc/nebula-studio/studio.env`    |
+| SQLite database      | `/var/lib/nebula-studio/studio.db` |
+| Application logs     | `/var/log/nebula-studio`           |
 
 The package manager protects `config.yaml` during upgrades. For stable login sessions, set `STUDIO_TOKEN_SECRET` and `STUDIO_ENCRYPT_PASSPHRASE` in `studio.env`, make it readable only by root, and restart Studio.
 
