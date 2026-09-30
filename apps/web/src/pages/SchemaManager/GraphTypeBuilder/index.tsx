@@ -22,14 +22,14 @@ import EdgeTypeTable from './EdgeType';
 import Preview from './Preview';
 import { GraphTypeBuildMode } from '@studio/interfaces';
 import LabelTable from './LabelTable';
-import { createSketch, execGql } from '@studio/services';
+import { createSketch, execGql, migrateGraphTypeLayout, resolveSchemaPath } from '@studio/services';
 import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
 import { CloseFilled, EditFilled } from '@vesoft-inc/icons';
 import { encodeUrl, isStudioTarget } from '@studio/utils';
 import GroupButton from '@studio/components/GroupButton';
 import TitleEllipsis from '@studio/components/TitleEllipsis';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
-import { reactFlowInstance } from './VisualBuilder/store';
+import { getCanvasLayout, reactFlowInstance } from './VisualBuilder/store';
 import { MassiveGraphConfirmMask } from './VisualBuilder/MassiveGraphConfirmMask';
 
 enum CreateGraphTypeStep {
@@ -62,7 +62,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
   const [curStep, setCurStep] = useState<CreateGraphTypeStep>(CreateGraphTypeStep.create);
-  const { graphtypeStore, schemaStore } = useStore();
+  const { graphtypeStore, schemaStore, commonStore } = useStore();
   const [curTab, setCurTab] = useState<CreateFunction>(CreateFunction.VisualBuilder);
   const message = useModal().message;
   const navigate = useNavigate();
@@ -238,6 +238,31 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     );
   };
 
+  /**
+   * A renamed graph type is a new identity, so its saved layout would be left
+   * behind. Carry the arrangement currently on screen over to the new name.
+   * Fired without awaiting: the write must not delay leaving the editor.
+   */
+  const carryLayoutToRenamedGraphType = () => {
+    const graphTypeName = graphtypeStore.schemaStore?.graphtypeName;
+    const nextGraphTypeName = form.getValues('graphTypeName');
+    if (!graphTypeName || !nextGraphTypeName || graphTypeName === nextGraphTypeName) {
+      return;
+    }
+
+    const userInfo = commonStore.userInfo;
+    const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, schemaStore.currentSchema.path);
+    const identity = { address: userInfo?.address, username: userInfo?.username, schemaPath };
+    // Read the canvas before navigating: it is reset when the builder unmounts.
+    const canvasLayout = getCanvasLayout();
+
+    migrateGraphTypeLayout(
+      { ...identity, graphTypeName },
+      { ...identity, graphTypeName: nextGraphTypeName },
+      canvasLayout
+    );
+  };
+
   const handleCreateGraphType = async () => {
     if (mode === GraphTypeBuildMode.Edit) {
       const conflicts = detectNameConflicts();
@@ -249,6 +274,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
       const res = await execGql(getAlterGraphTypeNgql());
       if (res.code === 0) {
         message.success(t('alterGraphTypeSuccess', { ns: 'graphtype' }));
+        carryLayoutToRenamedGraphType();
         navigate('/schema-manager/graphtype');
       }
       return;
