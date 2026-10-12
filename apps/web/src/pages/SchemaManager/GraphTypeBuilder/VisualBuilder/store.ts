@@ -9,10 +9,12 @@ import {
   EdgeChange,
   getNodesBounds,
 } from '@xyflow/react';
-import { IEdgeTypeItem, INodeTypeItem } from '@studio/interfaces';
+import { IEdgeTypeItem, INodeTypeItem, NodeLayoutMap } from '@studio/interfaces';
+import { serializeNodePositions } from '@studio/services';
 import { NODE_SIZE } from './CustomNode';
 import { ActiveItemInfo } from '@studio/stores/graphtype/schema';
-import { computeForceLayout } from './useForceLayout';
+import { computeForceLayout } from './forceLayout';
+import { resolveNodeLayout } from './layout';
 import { VisualEditorType } from '@studio/utils/constant';
 
 // ReactFlow data interfaces
@@ -137,9 +139,43 @@ export const getPositionFromCanvas = (id: string): { x: number; y: number } | nu
   return { x: bounds.x * offsetFactor, y: bounds.y * offsetFactor };
 };
 
-export const updateNodes = action((nodeTypeList: INodeTypeItem[]) => {
-  if (reactFlowNodes.length === 0 && nodeTypeList.length > 0) {
-    const nodes = transformToReactFlowNodes(nodeTypeList);
+/**
+ * Current arrangement of the canvas, keyed by node type name.
+ *
+ * Used to carry a layout over when the graph type is renamed: at that point the
+ * canvas is the newest truth, fresher than whatever the debounced save has written.
+ */
+export const getCanvasLayout = (): NodeLayoutMap =>
+  serializeNodePositions(
+    reactFlowNodes.map((node) => ({
+      name: node.data?.nodeTypeItem?.name,
+      x: node.position.x,
+      y: node.position.y,
+    }))
+  );
+
+export const updateNodes = action((nodeTypeList: INodeTypeItem[], savedLayout: NodeLayoutMap | null = null) => {
+  const incoming = transformToReactFlowNodes(nodeTypeList);
+  const currentPositions = new Map(reactFlowNodes.map((node) => [node.id, { x: node.position.x, y: node.position.y }]));
+
+  const { positions, pinned, pending } = resolveNodeLayout(
+    incoming.map((node) => ({
+      id: node.id,
+      name: node.data.nodeTypeItem.name,
+      position: { x: node.position.x, y: node.position.y },
+    })),
+    currentPositions,
+    savedLayout
+  );
+
+  let nodes = incoming.map((node) => {
+    const position = positions.get(node.id);
+    return position ? { ...node, position } : node;
+  });
+
+  // Nothing to place: the layout is fully decided by the canvas and the saved
+  // positions, so skip the simulation entirely for an exact restore.
+  if (pending.size > 0) {
     const edgesForLayout = reactFlowEdges.slice().map((edge) => ({
       source: edge.source,
       target: edge.target,
@@ -148,28 +184,22 @@ export const updateNodes = action((nodeTypeList: INodeTypeItem[]) => {
 
     const layout = computeForceLayout(
       nodes.map((node) => ({ id: node.id, x: node.position.x, y: node.position.y })),
-      edgesForLayout
+      edgesForLayout,
+      { fixedIds: pinned }
     );
+
     if (layout.length > 0) {
       const positionMap = new Map(layout.map((item) => [item.id, { x: item.x, y: item.y }]));
-      const positionedNodes = nodes.map((node) => {
-        const pos = positionMap.get(node.id);
-        return pos ? { ...node, position: pos } : node;
+      nodes = nodes.map((node) => {
+        if (!pending.has(node.id)) {
+          return node;
+        }
+        const position = positionMap.get(node.id);
+        return position ? { ...node, position } : node;
       });
-      reactFlowNodes.replace(positionedNodes);
-      return;
     }
   }
 
-  const nodeMap = new Map(reactFlowNodes.map((node) => [node.id, node]));
-  const nodes = transformToReactFlowNodes(nodeTypeList).map((node) => {
-    const existingNode = nodeMap.get(node.id);
-    if (!existingNode) {
-      return node;
-    }
-    node.position = existingNode.position || node.position;
-    return node;
-  });
   reactFlowNodes.replace(nodes);
 });
 

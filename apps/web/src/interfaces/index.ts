@@ -210,6 +210,15 @@ export interface VisualInfo {
   [key: string]: unknown;
 }
 
+/** Canvas position of a node type in the schema visual builder. */
+export interface NodePosition {
+  x: number;
+  y: number;
+}
+
+/** Node type name -> canvas position. */
+export type NodeLayoutMap = Record<string, NodePosition>;
+
 export interface VisualNodeCustomizeInfo {
   fill?: string;
   strokeColor?: string;

@@ -10,9 +10,10 @@ import {
   IEdgeTypeItem,
   INodeTypeItem,
   IProperty,
+  NodeLayoutMap,
   VisualInfo,
 } from '@studio/interfaces';
-import { execGql, getSketchById } from '@studio/services';
+import { execGql, getSketchById, readGraphTypeLayout, resolveSchemaPath } from '@studio/services';
 import { RootStore } from '@studio/stores/index';
 import { VisualEditorType } from '@studio/utils/constant';
 import { extractEdgeByEdgeTypeName } from '@studio/utils';
@@ -30,6 +31,9 @@ class SchemaStore {
   originalEdgeTypeList: IEdgeTypeItem[] = [];
   nodeTypeList = observable.array<INodeTypeItem>([], { deep: false });
   edgeTypeList = observable.array<IEdgeTypeItem>([], { deep: false });
+
+  /** Node type name -> canvas position, restored from the server when the graph type is opened. */
+  savedLayout: NodeLayoutMap | null = null;
 
   // Container dimensions for initial position calculations
   containerWidth = 800;
@@ -53,7 +57,27 @@ class SchemaStore {
   // Transform data from DDL to editor
   transformGraphTypeToEditorFromDDL = async (graphTypeName: string) => {
     this.updateGraphTypeName(graphTypeName);
-    const [nodeTypes, edgeTypes] = await this.transformGrapTypeByDDL(graphTypeName);
+
+    const userInfo = this.rootStore?.commonStore.userInfo;
+    const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, this.rootStore?.schemaStore.currentSchema.path);
+
+    // Load the saved layout alongside the DDL so it is already in place when
+    // `updateNodeTypeList` triggers the first canvas render. A missing or
+    // unreadable layout must never prevent the editor from opening.
+    const [[nodeTypes, edgeTypes], savedLayout] = await Promise.all([
+      this.transformGrapTypeByDDL(graphTypeName),
+      readGraphTypeLayout({
+        address: userInfo?.address,
+        username: userInfo?.username,
+        schemaPath,
+        graphTypeName,
+      }).catch((error) => {
+        console.warn('[schema-layout] failed to restore layout', error);
+        return null;
+      }),
+    ]);
+
+    this.savedLayout = savedLayout;
     this.updateNodeTypeList(nodeTypes);
     this.updateEdgeTypeList(edgeTypes);
     this.originalNodeTypeList = cloneDeep(nodeTypes);

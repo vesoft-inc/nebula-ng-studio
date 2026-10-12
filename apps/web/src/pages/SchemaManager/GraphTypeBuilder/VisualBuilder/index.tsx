@@ -27,17 +27,19 @@ import {
 } from './store';
 import { GraphCornerButtons } from './GraphCornerButtons';
 import { useForceLayout } from './useForceLayout';
+import { useLayoutPersistence } from './useLayoutPersistence';
 import { Drawer } from '@vesoft-inc/ui-components';
 import { ConfigForm } from './ConfigForm';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@studio/stores';
 import { updateNodes, updateEdges } from './store';
+import { resolveSchemaPath } from '@studio/services';
 
 function VisualBuilder() {
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
 
-  const { graphtypeStore } = useStore();
+  const { graphtypeStore, commonStore, schemaStore: rootSchemaStore } = useStore();
   const { schemaStore, mode } = graphtypeStore;
   const graphTypeId = schemaStore?.graphtypeName;
 
@@ -64,13 +66,25 @@ function VisualBuilder() {
   // sync to store
   const nodeTypeList = schemaStore?.nodeTypeList.slice();
   const edgeTypeList = schemaStore?.edgeTypeList.slice();
+  const savedLayout = schemaStore?.savedLayout ?? null;
   const [, startTransition] = useTransition();
   useEffect(() => {
     startTransition(() => {
-      updateNodes(nodeTypeList || []);
+      updateNodes(nodeTypeList || [], savedLayout);
       updateEdges(edgeTypeList || []);
     });
-  }, [JSON.stringify(nodeTypeList), JSON.stringify(edgeTypeList)]);
+  }, [JSON.stringify(nodeTypeList), JSON.stringify(edgeTypeList), savedLayout]);
+
+  // Remember the arrangement the user ends up with, so the next visit restores it.
+  const userInfo = commonStore.userInfo;
+  useLayoutPersistence({
+    enabled: (mode === GraphTypeBuildMode.Edit || mode === GraphTypeBuildMode.Readonly) && !!graphTypeId,
+    address: userInfo?.address,
+    username: userInfo?.username,
+    schemaPath: resolveSchemaPath(userInfo?.curSchemaPath, rootSchemaStore.currentSchema.path),
+    graphTypeName: graphTypeId,
+    initialLayout: savedLayout,
+  });
 
   const {
     isRunning: isForceLayoutRunning,

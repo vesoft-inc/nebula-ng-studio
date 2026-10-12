@@ -10,7 +10,13 @@ import {
   ISchemaItem,
   NebulaSchema,
 } from '@studio/interfaces';
-import { changeSchema, execGql, importDataParams } from '@studio/services';
+import {
+  changeSchema,
+  execGql,
+  importDataParams,
+  resolveSchemaPath,
+  sweepStaleGraphTypeLayouts,
+} from '@studio/services';
 import { action, makeAutoObservable, observable, reaction } from 'mobx';
 import { RootStore } from '.';
 
@@ -73,11 +79,17 @@ export default class SchemaStore {
 
   unsafeAction = (fn: (store: this) => void) => action('unsafeAction', () => fn(this))();
 
-  getGraphTypes = async () => {
+  getGraphTypes = async () => (await this.queryGraphTypes()).graphTypes;
+
+  /**
+   * `SHOW GRAPH TYPES` plus whether it succeeded. The success flag matters for the
+   * layout sweep: an empty list from a failed query must not be read as "every
+   * graph type is gone".
+   */
+  queryGraphTypes = async (): Promise<{ graphTypes: GraphType[]; ok: boolean }> => {
     const gql = `SHOW GRAPH TYPES`;
     const res = await execGql<GQLResult<GraphType>>(gql);
-    const graphtypes = (res.data?.tables || []) as GraphType[];
-    return graphtypes;
+    return { graphTypes: (res.data?.tables || []) as GraphType[], ok: res.code === 0 };
   };
 
   getCreateGraphTypeDDL = async (graphType: string) => {
@@ -88,10 +100,29 @@ export default class SchemaStore {
   };
 
   updateGraphTypesBySchema = async () => {
-    const graphTypes = await this.getGraphTypes();
+    const { graphTypes, ok } = await this.queryGraphTypes();
     this.updateCurrentSchame({
       graphTypes,
     });
+
+    if (ok) {
+      this.sweepStaleLayouts(graphTypes);
+    }
+  };
+
+  /**
+   * Layouts of deleted graph types would otherwise linger forever. The list just
+   * queried is the live set of the session's schema path, so it is also the only
+   * moment at which staleness can be judged.
+   */
+  sweepStaleLayouts = (graphTypes: GraphType[]) => {
+    const userInfo = this.userInfo;
+    const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, this.currentSchema.path);
+
+    sweepStaleGraphTypeLayouts(
+      { address: userInfo?.address, username: userInfo?.username, schemaPath },
+      graphTypes.map((graphType) => graphType.graph_type)
+    );
   };
 
   getGraphs = async () => {

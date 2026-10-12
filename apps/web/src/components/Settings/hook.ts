@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ConsoleSettingsForm, ExplorerSettingsForm } from './constants';
-import { fetcher } from '@studio/services/fetcher';
+import { fetchGlobalConfig, upsertGlobalConfig } from '@studio/services/globalConfig';
 
 /**
  * Local settings
@@ -121,37 +121,10 @@ export const useStorageSettings = <T = SettingForm>({
 
 export const EXPLORER_APP_CONFIG_KEY = 'explorer-app-config-v1';
 
-interface RemoteConfigResponse {
-  key: string;
-  value: ExplorerSettingsForm | null;
-}
+const fetchAppConfig = (configKey: string): Promise<ExplorerSettingsForm | null> =>
+  fetchGlobalConfig<ExplorerSettingsForm>(configKey);
 
-const fetchAppConfig = async (configKey: string): Promise<ExplorerSettingsForm | null> => {
-  const res = await fetcher
-    .get<RemoteConfigResponse>(`/explorer/global-config/${configKey}`, undefined, { errTip: false })
-    .then((res) => res.data);
-  if (res.code !== 0) {
-    return null;
-  }
-  try {
-    return JSON.parse(res.data?.value as unknown as string) satisfies ExplorerSettingsForm;
-  } catch (error) {
-    return null;
-  }
-};
-
-const upsertAppConfig = async (configKey: string, data: ExplorerSettingsForm) => {
-  const res = await fetcher
-    .post<RemoteConfigResponse>(`/explorer/global-config/upsert`, {
-      key: configKey,
-      value: JSON.stringify(data),
-    })
-    .then((res) => res.data);
-  if (res.code !== 0) {
-    throw new Error(res.message);
-  }
-  return res.data;
-};
+const upsertAppConfig = (configKey: string, data: ExplorerSettingsForm) => upsertGlobalConfig(configKey, data);
 
 export const useRemoteSettings = ({
   settingId,
