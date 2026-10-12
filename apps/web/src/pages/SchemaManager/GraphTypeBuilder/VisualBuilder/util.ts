@@ -110,6 +110,8 @@ function generateNodeTypeSubGQL(nodeType: INodeTypeItem, showDetail = true) {
   }
   let property = ``;
   if (nodeType.properties.length > 0) {
+    const primaryKeys = nodeType.properties.filter((p) => p.isPrimaryKey).map((p) => `\`${p.name}\``);
+    const primaryKey = primaryKeys.length > 0 ? `, PRIMARY KEY(${primaryKeys.join(',')})` : '';
     property += `{${nodeType.properties.map((property) => {
       const items = [];
       items.push(`\`${property.name}\``);
@@ -131,10 +133,7 @@ function generateNodeTypeSubGQL(nodeType: INodeTypeItem, showDetail = true) {
       property.nullable === false && items.push('NOT NULL');
       property.default && items.push(`DEFAULT ${generateDefaultValue(property)}`);
       return items.join(' ');
-    })}, PRIMARY KEY(${nodeType.properties
-      .filter((p) => p.isPrimaryKey)
-      .map((p) => `\`${p.name}\``)
-      .join(',')})}`;
+    })}${primaryKey}}`;
   }
   return `NODE \`${nodeType.name}\` (${label} ${property})`;
 }

@@ -211,7 +211,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterSelectedOptions: true,
                 handleHomeEndKeys: true,
                 freeSolo: true,
-                autoSelect: false,
+                autoSelect: true,
                 blurOnSelect: true,
                 disabled: readonly,
                 clearIcon: <CloseFilled fontSize="small" />,
@@ -230,7 +230,8 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterOptions: (options: string[], params: FilterOptionsState<string>) => {
                   const filtered = labelOptionFilter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option);
+                  // MUI has already removed selected labels from options.
+                  const isExisting = labelOptions.includes(inputValue);
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(inputValue);
                   }
