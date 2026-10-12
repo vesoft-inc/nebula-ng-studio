@@ -67,13 +67,6 @@ function VisualBuilder() {
   const nodeTypeList = schemaStore?.nodeTypeList.slice();
   const edgeTypeList = schemaStore?.edgeTypeList.slice();
   const savedLayout = schemaStore?.savedLayout ?? null;
-  const [, startTransition] = useTransition();
-  useEffect(() => {
-    startTransition(() => {
-      updateNodes(nodeTypeList || [], savedLayout);
-      updateEdges(edgeTypeList || []);
-    });
-  }, [JSON.stringify(nodeTypeList), JSON.stringify(edgeTypeList), savedLayout]);
 
   // Remember the arrangement the user ends up with, so the next visit restores it.
   const userInfo = commonStore.userInfo;
@@ -84,7 +77,18 @@ function VisualBuilder() {
     schemaPath: resolveSchemaPath(userInfo?.curSchemaPath, rootSchemaStore.currentSchema.path),
     graphTypeName: graphTypeId,
     initialLayout: savedLayout,
+    preserveNodeNames:
+      mode === GraphTypeBuildMode.Edit ? schemaStore?.originalNodeTypeList.map((node) => node.name) : undefined,
   });
+
+  // Capture committed positions before a draft update removes them from the canvas.
+  const [, startTransition] = useTransition();
+  useEffect(() => {
+    startTransition(() => {
+      updateNodes(nodeTypeList || [], savedLayout);
+      updateEdges(edgeTypeList || []);
+    });
+  }, [JSON.stringify(nodeTypeList), JSON.stringify(edgeTypeList), savedLayout]);
 
   const {
     isRunning: isForceLayoutRunning,

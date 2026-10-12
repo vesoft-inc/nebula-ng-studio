@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { reaction } from 'mobx';
 import type { NodeLayoutMap } from '@studio/interfaces';
 import { writeGraphTypeLayout } from '@studio/services';
-import { resolveLayoutWrite } from './layout';
+import { resolveLayoutWrite, retainDraftNodePositions } from './layout';
 import { getCanvasLayout, reactFlowNodes } from './store';
 
 /** Node drags and force-layout ticks are frequent; coalesce them into one write. */
@@ -17,6 +17,8 @@ interface UseLayoutPersistenceOptions {
   graphTypeName?: string;
   /** Layout restored when the graph type was opened, used to skip no-op writes. */
   initialLayout: NodeLayoutMap | null;
+  /** Committed names whose last coordinates survive draft deletion or rename. */
+  preserveNodeNames?: string[];
 }
 
 /**
@@ -33,42 +35,62 @@ export const useLayoutPersistence = ({
   schemaPath,
   graphTypeName,
   initialLayout,
+  preserveNodeNames = [],
 }: UseLayoutPersistenceOptions) => {
-  const serverSignatureRef = useRef<string>(JSON.stringify(initialLayout ?? {}));
-  const writtenSignatureRef = useRef<string>('');
-  const pendingLayoutRef = useRef<NodeLayoutMap | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const state = useMemo(
+    () => ({
+      identity: { address, username, schemaPath, graphTypeName },
+      serverSignature: '{}',
+      writtenSignature: '',
+      queuedWrite: null as { signature: string } | null,
+      lastLayout: null as NodeLayoutMap | null,
+      rememberedLayout: {} as NodeLayoutMap,
+      preservedNames: new Set<string>(),
+    }),
+    [address, username, schemaPath, graphTypeName]
+  );
+  const preservedNamesSignature = JSON.stringify(preserveNodeNames);
 
   useEffect(() => {
-    serverSignatureRef.current = JSON.stringify(initialLayout ?? {});
-  }, [initialLayout]);
+    state.serverSignature = JSON.stringify(initialLayout ?? {});
+    state.preservedNames = new Set(preserveNodeNames);
+    state.rememberedLayout = retainDraftNodePositions(
+      {},
+      { ...initialLayout, ...state.rememberedLayout },
+      state.preservedNames
+    );
+  }, [state, initialLayout, preservedNamesSignature]);
 
   useEffect(() => {
     if (!enabled || !address || !username || !graphTypeName) {
       return;
     }
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
-      const layout = pendingLayoutRef.current;
-      pendingLayoutRef.current = null;
+      const layout = state.lastLayout;
       if (!layout) {
         return;
       }
 
       const pending = resolveLayoutWrite(layout, {
-        serverSignature: serverSignatureRef.current,
-        writtenSignature: writtenSignatureRef.current,
+        serverSignature: state.serverSignature,
+        writtenSignature: state.queuedWrite?.signature ?? state.writtenSignature,
       });
       if (!pending) {
         return;
       }
 
-      writtenSignatureRef.current = JSON.stringify(pending);
-      writeGraphTypeLayout({ address, username, schemaPath, graphTypeName }, pending);
+      const queued = { signature: JSON.stringify(pending) };
+      state.queuedWrite = queued;
+      writeGraphTypeLayout(state.identity, pending).then((saved) => {
+        if (saved) state.writtenSignature = queued.signature;
+        if (state.queuedWrite === queued) state.queuedWrite = null;
+      });
     };
 
     const disposer = reaction(
@@ -77,22 +99,25 @@ export const useLayoutPersistence = ({
           .map((node) => `${node.data?.nodeTypeItem?.name}:${node.position.x},${node.position.y}`)
           .join('|'),
       () => {
-        const layout = getCanvasLayout();
+        const canvas = getCanvasLayout();
         // An empty canvas means the store was just reset; never persist that.
-        if (Object.keys(layout).length === 0) {
+        if (Object.keys(canvas).length === 0) {
           return;
         }
-        pendingLayoutRef.current = layout;
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
+        const layout = retainDraftNodePositions(canvas, state.rememberedLayout, state.preservedNames);
+        state.rememberedLayout = layout;
+        state.lastLayout = layout;
+        if (timer) {
+          clearTimeout(timer);
         }
-        timerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
-      }
+        timer = setTimeout(flush, SAVE_DEBOUNCE_MS);
+      },
+      { fireImmediately: true }
     );
 
     return () => {
       disposer();
       flush();
     };
-  }, [enabled, address, username, schemaPath, graphTypeName]);
+  }, [enabled, state]);
 };

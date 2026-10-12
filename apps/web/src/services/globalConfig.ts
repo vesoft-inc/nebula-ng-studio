@@ -1,6 +1,6 @@
 import { HttpResCode } from '@vesoft-inc/utils';
 import { safeParse } from '@studio/utils/function';
-import { fetcher } from './fetcher';
+import { fetcher, type ConfigType } from './fetcher';
 
 /**
  * Generic key/value client for the Studio Server global config store
@@ -20,9 +20,12 @@ export interface GlobalConfigItem {
  * Read a config entry. Returns `null` when the entry does not exist, when the
  * request fails, or when the stored value cannot be parsed.
  */
-export const fetchGlobalConfig = async <T>(key: string): Promise<T | null> => {
+export const fetchGlobalConfig = async <T>(key: string, config?: ConfigType): Promise<T | null> => {
   const res = await fetcher
-    .get<GlobalConfigItem>(`/explorer/global-config/${encodeURIComponent(key)}`, undefined, { errTip: false })
+    .get<GlobalConfigItem>(`/explorer/global-config/${encodeURIComponent(key)}`, undefined, {
+      errTip: false,
+      ...config,
+    })
     .then((res) => res.data);
 
   if (res.code !== 0) {
@@ -34,12 +37,20 @@ export const fetchGlobalConfig = async <T>(key: string): Promise<T | null> => {
 /**
  * Create or replace a config entry. Rejects when the server does not confirm the write.
  */
-export const upsertGlobalConfig = async <T>(key: string, value: T): Promise<GlobalConfigItem | undefined> => {
+export const upsertGlobalConfig = async <T>(
+  key: string,
+  value: T,
+  config?: ConfigType
+): Promise<GlobalConfigItem | undefined> => {
   const res = await fetcher
-    .post<GlobalConfigItem>('/explorer/global-config/upsert', {
-      key,
-      value: JSON.stringify(value),
-    })
+    .post<GlobalConfigItem>(
+      '/explorer/global-config/upsert',
+      {
+        key,
+        value: JSON.stringify(value),
+      },
+      config
+    )
     .then((res) => res.data);
 
   if (res.code !== 0) {
@@ -70,23 +81,27 @@ export const listGlobalConfigs = async (
 
 /**
  * Every stored entry, page by page. Bounded by `maxPages` so a large config table
- * cannot turn a background sweep into an unbounded loop.
+ * cannot turn a background sweep into an unbounded loop. Incomplete or failed
+ * listings reject so callers cannot mistake a failed sweep for a completed one.
  */
 export const listAllGlobalConfigs = async (maxPages = 20): Promise<GlobalConfigItem[]> => {
   const items: GlobalConfigItem[] = [];
 
   for (let page = 1; page <= maxPages; page += 1) {
     const result = await listGlobalConfigs(page);
-    if (!result) {
-      break;
+    if (!result || !Array.isArray(result.items) || !Number.isFinite(result.total)) {
+      throw new Error('Failed to list global configs');
     }
-    const pageItems = result.items || [];
+    const pageItems = result.items;
     items.push(...pageItems);
-    if (pageItems.length < CONFIG_PAGE_SIZE || items.length >= result.total) {
-      break;
+    if (items.length >= result.total) {
+      return items;
+    }
+    if (pageItems.length < CONFIG_PAGE_SIZE) {
+      throw new Error('Incomplete global config listing');
     }
   }
-  return items;
+  throw new Error('Global config listing exceeded its page budget');
 };
 
 /** Idempotent: an entry that is already gone is not an error. */

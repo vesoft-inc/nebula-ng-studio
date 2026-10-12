@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Static import for fixtures: the key builder is pure, so it does not need the
 // per-test module isolation that the stateful functions under test rely on.
 import { schemaLayoutConfigKey, type SchemaLayoutIdentity } from './schemaLayout';
 
 const globalConfig = vi.hoisted(() => ({
-  fetchGlobalConfig: vi.fn(async (_key: string): Promise<unknown> => null),
-  upsertGlobalConfig: vi.fn(async (_key: string, _value: unknown) => ({ key: '', value: '' })),
+  fetchGlobalConfig: vi.fn(async (_key: string, _config?: unknown): Promise<unknown> => null),
+  upsertGlobalConfig: vi.fn(async (_key: string, _value: unknown, _config?: unknown) => ({ key: '', value: '' })),
   listAllGlobalConfigs: vi.fn(async (): Promise<{ key: string; value: string | null }[]> => []),
   deleteGlobalConfig: vi.fn(async (_key: string) => undefined),
 }));
@@ -25,6 +25,7 @@ const IDENTITY = {
 };
 
 const CONFIG_KEY = `studio-schema-layout-v1|${ADDRESS}|${USERNAME}|~2fschema~2fdemo|${GRAPH_TYPE}`;
+const SAVE_CONFIG = { errTip: false, timeout: 2000 };
 
 const document = (nodes: unknown) => ({ version: 1, ...IDENTITY, nodes });
 
@@ -165,13 +166,15 @@ describe('schema layout persistence', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => vi.useRealTimers());
+
   it('reads the entry of the requested graph type and returns its nodes', async () => {
     globalConfig.fetchGlobalConfig.mockResolvedValueOnce(document({ A: { x: 1, y: 2 } }));
 
     const { readGraphTypeLayout } = await loadModule();
     const layout = await readGraphTypeLayout(IDENTITY);
 
-    expect(globalConfig.fetchGlobalConfig).toHaveBeenCalledWith(CONFIG_KEY);
+    expect(globalConfig.fetchGlobalConfig).toHaveBeenCalledWith(CONFIG_KEY, { timeout: 2000 });
     expect(layout).toEqual({ A: { x: 1, y: 2 } });
   });
 
@@ -189,7 +192,11 @@ describe('schema layout persistence', () => {
     const { writeGraphTypeLayout } = await loadModule();
     await writeGraphTypeLayout(IDENTITY, { A: { x: 1, y: 2 } });
 
-    expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledWith(CONFIG_KEY, document({ A: { x: 1, y: 2 } }));
+    expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledWith(
+      CONFIG_KEY,
+      document({ A: { x: 1, y: 2 } }),
+      SAVE_CONFIG
+    );
   });
 
   it('does not read before writing, so two graph types never share a row', async () => {
@@ -213,12 +220,66 @@ describe('schema layout persistence', () => {
     globalConfig.upsertGlobalConfig.mockRejectedValueOnce(new Error('database disabled'));
 
     const { writeGraphTypeLayout } = await loadModule();
-    await expect(writeGraphTypeLayout(IDENTITY, { A: { x: 1, y: 2 } })).resolves.toBeUndefined();
+    await expect(writeGraphTypeLayout(IDENTITY, { A: { x: 1, y: 2 } })).resolves.toBe(false);
     expect(warn).toHaveBeenCalled();
 
-    await expect(writeGraphTypeLayout(IDENTITY, { A: { x: 9, y: 9 } })).resolves.toBeUndefined();
+    await expect(writeGraphTypeLayout(IDENTITY, { A: { x: 9, y: 9 } })).resolves.toBe(true);
     expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledTimes(2);
     warn.mockRestore();
+  });
+
+  it('falls back after a stalled read and ignores a late response', async () => {
+    vi.useFakeTimers();
+    let completeRead!: (value: unknown) => void;
+    globalConfig.fetchGlobalConfig.mockReturnValueOnce(new Promise((resolve) => (completeRead = resolve)));
+    const { readGraphTypeLayout, SCHEMA_LAYOUT_READ_TIMEOUT_MS } = await loadModule();
+
+    const read = readGraphTypeLayout(IDENTITY);
+    await vi.advanceTimersByTimeAsync(SCHEMA_LAYOUT_READ_TIMEOUT_MS);
+    await expect(read).resolves.toBeNull();
+
+    completeRead(document({ A: { x: 1, y: 2 } }));
+    await expect(read).resolves.toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('clears the read deadline after an ordinary successful response', async () => {
+    vi.useFakeTimers();
+    globalConfig.fetchGlobalConfig.mockResolvedValueOnce(document({ A: { x: 1, y: 2 } }));
+    const { readGraphTypeLayout } = await loadModule();
+
+    await expect(readGraphTypeLayout(IDENTITY)).resolves.toEqual({ A: { x: 1, y: 2 } });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not confirm an invalid identity or an empty layout as saved', async () => {
+    const { writeGraphTypeLayout } = await loadModule();
+    await expect(writeGraphTypeLayout({ ...IDENTITY, address: undefined }, { A: { x: 1, y: 2 } })).resolves.toBe(false);
+    await expect(writeGraphTypeLayout(IDENTITY, {})).resolves.toBe(false);
+  });
+
+  it('serializes overlapping writes so the newest arrangement cannot be overtaken', async () => {
+    let completeSave!: () => void;
+    globalConfig.upsertGlobalConfig.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeSave = () => resolve({ key: CONFIG_KEY, value: '' });
+        })
+    );
+    const { writeGraphTypeLayout } = await loadModule();
+
+    const first = writeGraphTypeLayout(IDENTITY, { A: { x: 100, y: 200 } });
+    const last = writeGraphTypeLayout(IDENTITY, { A: { x: 0, y: 0 } });
+    await Promise.resolve();
+    expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledTimes(1);
+    completeSave();
+    await expect(first).resolves.toBe(true);
+    await expect(last).resolves.toBe(true);
+    expect(globalConfig.upsertGlobalConfig).toHaveBeenLastCalledWith(
+      CONFIG_KEY,
+      document({ A: { x: 0, y: 0 } }),
+      SAVE_CONFIG
+    );
   });
 });
 
@@ -235,7 +296,8 @@ describe('schema layout migration on rename', () => {
     expect(globalConfig.fetchGlobalConfig).not.toHaveBeenCalled();
     expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledWith(
       'studio-schema-layout-v1|127.0.0.1:9669|root|~2fschema~2fdemo|film_type',
-      { version: 1, ...IDENTITY, graphTypeName: 'film_type', nodes: { A: { x: 1, y: 2 } } }
+      { version: 1, ...IDENTITY, graphTypeName: 'film_type', nodes: { A: { x: 1, y: 2 } } },
+      SAVE_CONFIG
     );
   });
 
@@ -245,10 +307,11 @@ describe('schema layout migration on rename', () => {
     const { migrateGraphTypeLayout } = await loadModule();
     await migrateGraphTypeLayout(IDENTITY, { ...IDENTITY, graphTypeName: 'film_type' }, {});
 
-    expect(globalConfig.fetchGlobalConfig).toHaveBeenCalledWith(CONFIG_KEY);
+    expect(globalConfig.fetchGlobalConfig).toHaveBeenCalledWith(CONFIG_KEY, { timeout: 2000 });
     expect(globalConfig.upsertGlobalConfig).toHaveBeenCalledWith(
       'studio-schema-layout-v1|127.0.0.1:9669|root|~2fschema~2fdemo|film_type',
-      { version: 1, ...IDENTITY, graphTypeName: 'film_type', nodes: { A: { x: 1, y: 2 } } }
+      { version: 1, ...IDENTITY, graphTypeName: 'film_type', nodes: { A: { x: 1, y: 2 } } },
+      SAVE_CONFIG
     );
   });
 

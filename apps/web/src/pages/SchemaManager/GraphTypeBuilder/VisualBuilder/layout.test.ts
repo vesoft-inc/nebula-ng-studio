@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import type { NodeLayoutMap } from '@studio/interfaces';
-import { resolveLayoutWrite, resolveNodeLayout } from './layout';
+import { resolveLayoutWrite, resolveNodeLayout, retainDraftNodePositions } from './layout';
 
 const node = (id: string, name: string, x = 0, y = 0) => ({ id, name, position: { x, y } });
 
-const NO_WRITE_YET = '{}';
+const NO_WRITE_YET = '';
+
+describe('retainDraftNodePositions', () => {
+  it('keeps only committed missing nodes and the current canvas positions', () => {
+    expect(
+      retainDraftNodePositions(
+        { A: { x: 10, y: 20 }, C: { x: 30, y: 40 } },
+        { A: { x: 0, y: 0 }, B: { x: 700, y: 900 }, Stale: { x: 1, y: 2 } },
+        ['A', 'B']
+      )
+    ).toEqual({ A: { x: 10, y: 20 }, B: { x: 700, y: 900 }, C: { x: 30, y: 40 } });
+  });
+
+  it('does not resurrect deleted names after their schema changes are committed', () => {
+    expect(
+      retainDraftNodePositions({ A: { x: 10, y: 20 } }, { A: { x: 0, y: 0 }, B: { x: 700, y: 900 } }, ['A'])
+    ).toEqual({ A: { x: 10, y: 20 } });
+  });
+});
 
 describe('resolveNodeLayout', () => {
   it('leaves every node pending when nothing is saved and the canvas is empty', () => {
@@ -119,5 +137,14 @@ describe('resolveLayoutWrite', () => {
         writtenSignature: JSON.stringify(layout),
       })
     ).toBeNull();
+  });
+
+  it('writes the initial arrangement again after a different one was written', () => {
+    expect(
+      resolveLayoutWrite(layout, {
+        serverSignature: JSON.stringify(layout),
+        writtenSignature: JSON.stringify({ A: { x: 100, y: 200 } }),
+      })
+    ).toEqual(layout);
   });
 });

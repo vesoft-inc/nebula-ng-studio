@@ -63,6 +63,18 @@ export const resolveNodeLayout = (
   return { positions, pinned, pending };
 };
 
+/** Draft deletions and renames must not discard positions of committed node types. */
+export const retainDraftNodePositions = (
+  canvas: NodeLayoutMap,
+  remembered: NodeLayoutMap,
+  committedNames: Iterable<string>
+): NodeLayoutMap => ({
+  ...Object.fromEntries(
+    [...committedNames].filter((name) => isPosition(remembered[name])).map((name) => [name, remembered[name]])
+  ),
+  ...canvas,
+});
+
 /**
  * Whether a canvas arrangement needs to be written.
  *
@@ -78,7 +90,7 @@ export const resolveLayoutWrite = (
     return null;
   }
   const signature = JSON.stringify(layout);
-  if (signature === serverSignature || signature === writtenSignature) {
+  if (signature === (writtenSignature || serverSignature)) {
     return null;
   }
   return layout;
