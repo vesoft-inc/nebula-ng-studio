@@ -23,6 +23,7 @@ import {
 
 export const SCHEMA_LAYOUT_VERSION = 1;
 export const SCHEMA_LAYOUT_CONFIG_PREFIX = 'studio-schema-layout-v1';
+export const SCHEMA_LAYOUT_READ_TIMEOUT_MS = 2000;
 
 /** The config `key` column is `varchar(255)`. */
 const MAX_CONFIG_KEY_LENGTH = 250;
@@ -202,38 +203,50 @@ export const readGraphTypeLayout = async (identity: SchemaLayoutIdentity): Promi
     return null;
   }
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return parseLayoutDocument(await fetchGlobalConfig<unknown>(key), normalized)?.nodes ?? null;
+    // Bound restoration independently of the HTTP client's timeout, including
+    // transports that fail to settle after a connection or proxy stalls.
+    const raw = await Promise.race([
+      fetchGlobalConfig<unknown>(key, { timeout: SCHEMA_LAYOUT_READ_TIMEOUT_MS }),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), SCHEMA_LAYOUT_READ_TIMEOUT_MS);
+      }),
+    ]);
+    return parseLayoutDocument(raw, normalized)?.nodes ?? null;
   } catch (error) {
     console.warn('[schema-layout] failed to read layout', error);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 };
 
 // Writes are serialized so a debounced save cannot overtake an earlier one.
-let pendingWrite: Promise<void> = Promise.resolve();
+let pendingWrite: Promise<boolean> = Promise.resolve(true);
 
-export const writeGraphTypeLayout = (identity: SchemaLayoutIdentity, layout: NodeLayoutMap): Promise<void> => {
+export const writeGraphTypeLayout = (identity: SchemaLayoutIdentity, layout: NodeLayoutMap): Promise<boolean> => {
   const normalized = normalizeIdentity(identity);
   const nodes = sanitizeNodeLayoutMap(layout);
   if (!normalized || Object.keys(nodes).length === 0) {
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
 
   const key = schemaLayoutConfigKey(normalized);
   if (!key) {
     console.warn('[schema-layout] skipping layout write: config key is too long');
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
 
   const document: SchemaLayoutDocument = { version: SCHEMA_LAYOUT_VERSION, ...normalized, nodes };
   // The tail of the chain never rejects, so one failed save cannot stall the next.
   pendingWrite = pendingWrite
-    .then(() => upsertGlobalConfig(key, document))
+    .then(() => upsertGlobalConfig(key, document, { errTip: false, timeout: SCHEMA_LAYOUT_READ_TIMEOUT_MS }))
     .then(
-      () => undefined,
+      () => true,
       (error) => {
         console.warn('[schema-layout] failed to save layout', error);
+        return false;
       }
     );
   return pendingWrite;
