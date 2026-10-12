@@ -7,6 +7,7 @@ import {
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
 import { RawEntityType } from '@studio/interfaces/console';
 import { isEqualIgnoringFields } from '@studio/utils';
+import { getNewNodeTypes } from '../validation';
 
 interface GraphTypeInfo {
   graphTypeName: string;
@@ -26,9 +27,7 @@ export function generateAlterGraphTypeGQL(original: GraphTypeInfo, current: Grap
   if (original.graphTypeName !== current.graphTypeName) {
     return `RENAME GRAPH TYPE \`${original.graphTypeName}\` TO \`${current.graphTypeName}\`\n`;
   }
-  const createNodeTypeList = current.nodeTypeList.filter(
-    (nodeType) => !original.nodeTypeList.find((ot) => isSameEntity(ot, nodeType))
-  );
+  const createNodeTypeList = getNewNodeTypes(original.nodeTypeList, current.nodeTypeList);
   const dropNodeTypeList = original.nodeTypeList.filter(
     (nodeType) => !current.nodeTypeList.find((nt) => isSameEntity(nt, nodeType))
   );
@@ -110,6 +109,8 @@ function generateNodeTypeSubGQL(nodeType: INodeTypeItem, showDetail = true) {
   }
   let property = ``;
   if (nodeType.properties.length > 0) {
+    const primaryKeys = nodeType.properties.filter((p) => p.isPrimaryKey).map((p) => `\`${p.name}\``);
+    const primaryKey = primaryKeys.length > 0 ? `, PRIMARY KEY(${primaryKeys.join(',')})` : '';
     property += `{${nodeType.properties.map((property) => {
       const items = [];
       items.push(`\`${property.name}\``);
@@ -131,10 +132,7 @@ function generateNodeTypeSubGQL(nodeType: INodeTypeItem, showDetail = true) {
       property.nullable === false && items.push('NOT NULL');
       property.default && items.push(`DEFAULT ${generateDefaultValue(property)}`);
       return items.join(' ');
-    })}, PRIMARY KEY(${nodeType.properties
-      .filter((p) => p.isPrimaryKey)
-      .map((p) => `\`${p.name}\``)
-      .join(',')})}`;
+    })}${primaryKey}}`;
   }
   return `NODE \`${nodeType.name}\` (${label} ${property})`;
 }

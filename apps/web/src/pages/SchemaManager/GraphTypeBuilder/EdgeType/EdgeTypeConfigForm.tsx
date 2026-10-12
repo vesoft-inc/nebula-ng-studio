@@ -43,6 +43,7 @@ import { getDuplicateValues } from '@studio/utils';
 import { useStore } from '@studio/stores';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
+import { getPropertyFormValues } from '../formValues';
 
 interface EdgeTypeConfigFormProps {
   hasSrcAndDstNode?: boolean;
@@ -244,10 +245,12 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
 
   const handleAddProperty = () => {
     append(
-      new IProperty({
-        name: '',
-        type: PropertyDataType.STRING,
-      })
+      getPropertyFormValues(
+        new IProperty({
+          name: '',
+          type: PropertyDataType.STRING,
+        })
+      )
     );
   };
 
@@ -365,7 +368,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
         style: {
           strokeColor: edgeStrokeColor,
         },
-        properties,
+        properties: properties.map((property) => new IProperty(property)),
       })
     );
   }, [
@@ -533,7 +536,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                 fullWidth: true,
                 filterSelectedOptions: true,
                 freeSolo: true,
-                autoSelect: false,
+                autoSelect: true,
                 clearIcon: <CloseFilled fontSize="small" />,
                 ChipProps: {
                   size: 'small',
@@ -547,7 +550,8 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                 filterOptions: (options: string[], params: FilterOptionsState<string>) => {
                   const filtered = labelOptionFilter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option);
+                  // MUI has already removed selected labels from options.
+                  const isExisting = labelOptions.includes(inputValue);
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(inputValue);
                   }

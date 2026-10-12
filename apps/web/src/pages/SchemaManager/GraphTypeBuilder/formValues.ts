@@ -1,0 +1,25 @@
+import { IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
+
+// React Hook Form does not clone class instances or their prototype getters.
+// Use plain, detached values and an enumerable identity for each property.
+export const getPropertyFormValues = (property: IProperty) => ({ ...property, id: property.id });
+
+export const getNodeTypeFormValues = (node: INodeTypeItem) => ({
+  id: node.id,
+  name: node.name,
+  labels: node.labels.slice(),
+  style: { ...node.style },
+  properties: node.properties.map(getPropertyFormValues),
+});
+
+export const getEdgeTypeFormValues = (edge: IEdgeTypeItem) => ({
+  id: edge.id,
+  name: edge.name,
+  labels: edge.labels.slice(),
+  style: { ...edge.style },
+  properties: edge.properties.map(getPropertyFormValues),
+  srcNode: edge.srcNode,
+  dstNode: edge.dstNode,
+  direction: edge.direction,
+  multiEdgeKeyMode: edge.multiEdgeKeyMode,
+});

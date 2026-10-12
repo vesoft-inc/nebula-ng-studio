@@ -5,8 +5,10 @@ import { Modal } from '@vesoft-inc/ui-components';
 import { useTranslation } from 'react-i18next';
 
 import { useStore } from '@studio/stores';
-import { IEdgeTypeItem, INodeTypeItem } from '@studio/interfaces';
+import { IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
 import EdgeTypeConfigForm from './EdgeTypeConfigForm';
+import { getEdgeTypeFormValues } from '../formValues';
+import { setActiveItem } from '../VisualBuilder/store';
 
 interface EdgeTypeModalProps {
   edgeTypeItem?: IEdgeTypeItem;
@@ -35,8 +37,9 @@ function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
 
   useEffect(() => {
     if (open) {
+      setActiveItem(null);
       if (edgeTypeItem) {
-        form.reset(new IEdgeTypeItem(edgeTypeItem));
+        form.reset(getEdgeTypeFormValues(edgeTypeItem));
       } else {
         form.reset(getDefaultValues());
       }
@@ -44,10 +47,14 @@ function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
   }, [open, edgeTypeItem]);
 
   const onSubmit = (values: IEdgeTypeItem) => {
+    const edge = new IEdgeTypeItem({
+      ...values,
+      properties: values.properties.map((property) => new IProperty(property)),
+    });
     if (edgeTypeItem) {
-      schemaStore?.updateEdgeType(edgeTypeItem.id, values);
+      schemaStore?.updateEdgeType(edgeTypeItem.id, edge);
     } else {
-      schemaStore?.addEdgeType(new IEdgeTypeItem(values));
+      schemaStore?.addEdgeType(edge);
     }
     onCancel();
   };

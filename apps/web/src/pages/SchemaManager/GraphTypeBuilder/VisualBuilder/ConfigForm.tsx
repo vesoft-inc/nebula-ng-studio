@@ -7,6 +7,7 @@ import { FormContainer } from 'react-hook-form-mui';
 import EdgeTypeConfigForm from '../EdgeType/EdgeTypeConfigForm';
 import NodeTypeConfigForm from '../NodeType/NodeTypeConfigForm';
 import { ActiveItemInfo } from '@studio/stores/graphtype/schema';
+import { getEdgeTypeFormValues, getNodeTypeFormValues } from '../formValues';
 
 export const ActionsContainer = styled('div')`
   height: 64px;
@@ -57,7 +58,7 @@ export const ConfigForm = ({
       )}
 
       {activeItem?.type === VisualEditorType.Tag && (
-        <FormContainer key={activeItem.value.id} defaultValues={new INodeTypeItem(activeItem.value)}>
+        <FormContainer key={activeItem.value.id} defaultValues={getNodeTypeFormValues(activeItem.value)}>
           <NodeTypeConfigForm
             colorPicker
             onChange={(values) => {
@@ -67,7 +68,7 @@ export const ConfigForm = ({
         </FormContainer>
       )}
       {activeItem?.type === VisualEditorType.Edge && (
-        <FormContainer key={activeItem.value.id} defaultValues={new IEdgeTypeItem(activeItem.value)}>
+        <FormContainer key={activeItem.value.id} defaultValues={getEdgeTypeFormValues(activeItem.value)}>
           <EdgeTypeConfigForm
             colorPicker
             hasSrcAndDstNode

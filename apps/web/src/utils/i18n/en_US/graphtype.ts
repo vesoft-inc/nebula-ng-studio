@@ -18,6 +18,7 @@ export default {
   editGraphType: 'Edit Graph Type',
   createGraph: 'Create Graph',
   saveAsSketch: 'Save As Sketch',
+  saveAsSketchHelp: 'Incomplete types can be saved as a sketch.',
   sketchContentEmptyError: 'Sketch can not be empty',
   updateContentEmptyError: 'Update content can not be empty',
   nameConflictError:
@@ -32,6 +33,14 @@ export default {
   duplicate: 'Duplicate',
   label: 'Label',
   primaryKey: 'Primary Key',
+  nodePrimaryKeyRequired: 'Select at least one primary key property.',
+  nodePrimaryKeyInvalid: 'Review primary key properties.',
+  nodePrimaryKeyImmutable: 'Restore the existing primary key.',
+  nodePrimaryKeyImmutableHelp:
+    'An existing primary key cannot be changed. Its properties cannot be removed, or have their type, nullability or default changed.',
+  nodePrimaryKeyHelp:
+    'Multiple properties form a composite primary key. Key properties must have names, cannot be nullable or have defaults, and cannot use LIST, SET, MAP, VECTOR or GEOGRAPHY.',
+  graphTypeSubmitFailed: 'Unable to submit the graph type. Your changes are preserved; please retry.',
   operation: 'Operation',
   properties: 'Properties',
   addProperty: 'Add Property',

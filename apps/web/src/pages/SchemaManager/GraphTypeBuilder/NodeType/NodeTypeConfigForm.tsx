@@ -42,6 +42,8 @@ import { useStore } from '@studio/stores';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
 import { useEffect } from 'react';
+import { getNodePrimaryKeyError, getOriginalNodeType } from '../validation';
+import { getPropertyFormValues } from '../formValues';
 
 interface NodeTypeConfigFormProps {
   colorPicker?: boolean;
@@ -71,10 +73,12 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
 
   const handleAddProperty = () => {
     append(
-      new IProperty({
-        name: '',
-        type: PropertyDataType.STRING,
-      })
+      getPropertyFormValues(
+        new IProperty({
+          name: '',
+          type: PropertyDataType.STRING,
+        })
+      )
     );
   };
 
@@ -106,14 +110,30 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
     defaultValue: (defaultValues?.properties || []).map((item) => new IProperty(item)),
   });
 
+  const targetId = useWatch({ control: form.control, name: 'id', defaultValue: defaultValues?.id });
+
   const labelOptions = [...new Set(Array.from(schemaStore?.nodeTypeLabeMap.keys() || []).concat(selectedLabelOptions))];
+  const originalNode =
+    mode === GraphTypeBuildMode.Edit
+      ? getOriginalNodeType(schemaStore?.originalNodeTypeList || [], {
+          id: targetId || '',
+          name: name || '',
+        })
+      : undefined;
+  const primaryKeyError = getNodePrimaryKeyError({ properties: properties || [] }, originalNode);
+  const isKeyDefinitionLocked = (index: number) => {
+    const value = properties[index];
+    const originalProperty =
+      originalNode?.properties.find((item) => item.id === value?.id) ||
+      originalNode?.properties.find((item) => item.name === value?.name);
+    return readonly || !!originalProperty?.isPrimaryKey;
+  };
 
   const popupState = usePopupState({
     variant: 'popover',
     popupId: 'node-color-picker',
   });
 
-  const targetId = form.formState.defaultValues?.id;
   useEffect(() => {
     if (!targetId) {
       return;
@@ -211,7 +231,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterSelectedOptions: true,
                 handleHomeEndKeys: true,
                 freeSolo: true,
-                autoSelect: false,
+                autoSelect: true,
                 blurOnSelect: true,
                 disabled: readonly,
                 clearIcon: <CloseFilled fontSize="small" />,
@@ -230,7 +250,8 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterOptions: (options: string[], params: FilterOptionsState<string>) => {
                   const filtered = labelOptionFilter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option);
+                  // MUI has already removed selected labels from options.
+                  const isExisting = labelOptions.includes(inputValue);
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(inputValue);
                   }
@@ -254,7 +275,19 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
       </TypeInfoContainer>
       <Divider />
       <TypeInfoContainer>
-        <Typography sx={{ mb: theme.spacing(2) }}>{t('properties', { ns: 'graphtype' })}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minHeight: 24, mb: 2 }}>
+          <Typography>{t('properties', { ns: 'graphtype' })}</Typography>
+          {!readonly && primaryKeyError && (
+            <Typography
+              role="status"
+              variant="body2"
+              color="warning.dark"
+              sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
+            >
+              {t(primaryKeyError, { ns: 'graphtype' })}
+            </Typography>
+          )}
+        </Box>
         <Stack direction="row" sx={{ mt: 1 }}>
           <PropertyHeaderCell sx={{ flex: 0, flexBasis: '23%' }}>
             <Typography>{t('propName', { ns: 'graphtype' })}</Typography>
@@ -262,8 +295,22 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
           <PropertyHeaderCell sx={{ flex: 1 }}>
             <Typography>{t('propType', { ns: 'graphtype' })}</Typography>
           </PropertyHeaderCell>
-          <PropertyHeaderCell sx={{ flex: 0, flexBasis: '26%' }}>
+          <PropertyHeaderCell sx={{ flex: 0, flexBasis: '26%', minWidth: 0, pl: 2, gap: 0.5 }}>
             <Typography>{t('primaryKey', { ns: 'graphtype' })}</Typography>
+            <Tooltip
+              title={t(originalNode ? 'nodePrimaryKeyImmutableHelp' : 'nodePrimaryKeyHelp', { ns: 'graphtype' })}
+              describeChild
+              arrow
+            >
+              <IconButton
+                type="button"
+                size="small"
+                aria-label={t('primaryKey', { ns: 'graphtype' })}
+                sx={{ p: 0.25, flexShrink: 0 }}
+              >
+                <HelpCircleOutline sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
           </PropertyHeaderCell>
         </Stack>
         <List {...slotProps?.propertyList}>
@@ -298,11 +345,11 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                       size: 'small',
                       fullWidth: true,
                       inputProps: {
-                        disabled: readonly,
+                        disabled: isKeyDefinitionLocked(index),
                       },
                     }}
                     autocompleteProps={{
-                      disabled: readonly,
+                      disabled: isKeyDefinitionLocked(index),
                       size: 'small',
                       fullWidth: true,
                       disableClearable: true,
@@ -521,7 +568,8 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 <PropertyBodyCell display="flex" justifyContent={'center'}>
                   <CheckboxElement
                     inputProps={{
-                      disabled: readonly,
+                      disabled: readonly || !!originalNode,
+                      'aria-label': `${t('primaryKey', { ns: 'graphtype' })}: ${properties[index]?.name || index + 1}`,
                     }}
                     size="small"
                     name={`properties[${index}].isPrimaryKey`}
@@ -614,7 +662,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                       size="small"
                                       name={`properties[${index}].decimalPrecision`}
                                       inputProps={{
-                                        disabled: readonly,
+                                        disabled: isKeyDefinitionLocked(index),
                                         inputMode: 'numeric',
                                         pattern: '[0-9]*',
                                       }}
@@ -640,7 +688,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                       size="small"
                                       name={`properties[${index}].decimalScale`}
                                       inputProps={{
-                                        disabled: readonly,
+                                        disabled: isKeyDefinitionLocked(index),
                                         inputMode: 'numeric',
                                         pattern: '[0-9]*',
                                       }}
@@ -670,7 +718,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                   <CheckboxElement
                                     name={`properties[${index}].nullable`}
                                     inputProps={{
-                                      disabled: readonly,
+                                      disabled: isKeyDefinitionLocked(index),
                                     }}
                                   />
                                 </PropertyBodyCell>
@@ -679,7 +727,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                     size="small"
                                     name={`properties[${index}].default`}
                                     inputProps={{
-                                      disabled: readonly,
+                                      disabled: isKeyDefinitionLocked(index),
                                     }}
                                   />
                                 </PropertyBodyCell>
@@ -691,7 +739,12 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                     </PopupState>
 
                     {!readonly && (
-                      <IconButton size="small" onClick={handleDelete(index)}>
+                      <IconButton
+                        size="small"
+                        onClick={handleDelete(index)}
+                        disabled={isKeyDefinitionLocked(index)}
+                        aria-label={`${t('delete', { ns: 'common' })}: ${properties[index]?.name || index + 1}`}
+                      >
                         <CloseFilled />
                       </IconButton>
                     )}

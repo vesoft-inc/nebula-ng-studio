@@ -6,6 +6,8 @@ import { useStore } from '@studio/stores';
 import { INodeTypeItem } from '@studio/interfaces';
 import NodeTypeConfigForm from './NodeTypeConfigForm';
 import { useEffect } from 'react';
+import { getNodeTypeFormValues } from '../formValues';
+import { setActiveItem } from '../VisualBuilder/store';
 
 interface NodeTypeModalProps {
   open: boolean;
@@ -26,9 +28,11 @@ function NodeTypeConfigModal(props: NodeTypeModalProps) {
 
   useEffect(() => {
     if (open) {
-      form.reset(new INodeTypeItem(nodeTypeItem));
+      // Do not leave a second editor mounted with stale values for this node.
+      setActiveItem(null);
+      form.reset(getNodeTypeFormValues(new INodeTypeItem(nodeTypeItem)));
     }
-  }, [open]);
+  }, [open, nodeTypeItem]);
 
   const hanleOk = () => {
     form.handleSubmit(onSubmit)();
@@ -36,7 +40,7 @@ function NodeTypeConfigModal(props: NodeTypeModalProps) {
 
   const onSubmit = (values: INodeTypeItem) => {
     if (nodeTypeItem) {
-      schemaStore?.updateNodeType(nodeTypeItem.id, values);
+      schemaStore?.updateNodeType(nodeTypeItem.id, new INodeTypeItem(values));
     } else {
       schemaStore?.addNodeType(new INodeTypeItem(values));
     }
