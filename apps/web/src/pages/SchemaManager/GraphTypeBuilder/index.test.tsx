@@ -6,7 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { MemoryRouter } from 'react-router-dom';
-import { GraphTypeBuildMode, INodeTypeItem, IProperty } from '@studio/interfaces';
+import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
+import { PropertyDataType } from '@vesoft-inc/utils';
 import { StrictMode } from 'react';
 import { generateCreateGraphTypeGQL } from './VisualBuilder/util';
 import GraphTypeBuilder from './index';
@@ -22,9 +23,9 @@ const mocks = vi.hoisted(() => ({
   schema: {
     graphtypeName: 'people',
     nodeTypeList: [] as INodeTypeItem[],
-    edgeTypeList: [],
+    edgeTypeList: [] as IEdgeTypeItem[],
     originalNodeTypeList: [] as INodeTypeItem[],
-    originalEdgeTypeList: [],
+    originalEdgeTypeList: [] as IEdgeTypeItem[],
     transformGraphTypeToEditorFromDDL: vi.fn(),
     transformGrapTypeBySketch: vi.fn(),
   },
@@ -138,6 +139,38 @@ beforeEach(() => {
 });
 
 describe('graph type validation and submission', () => {
+  it.each([GraphTypeBuildMode.Create, GraphTypeBuildMode.Edit, GraphTypeBuildMode.Sketch])(
+    'blocks invalid DECIMAL from node or edge drafts before preview in %s',
+    async (mode) => {
+      const amount = new IProperty({ name: 'amount', type: PropertyDataType.DECIMAL, decimalPrecision: 257 });
+      const edge = new IEdgeTypeItem({
+        name: 'Pays',
+        srcNode: mocks.schema.nodeTypeList[0],
+        dstNode: mocks.schema.nodeTypeList[0],
+        properties: [amount],
+      });
+      mocks.schema.edgeTypeList = [edge];
+      const { user } = renderBuilder(mode);
+      await user.click(screen.getByRole('button', { name: 'preview' }));
+      await waitFor(() => expect(mocks.setActiveItem).toHaveBeenCalledWith({ type: 'edge', value: edge }));
+      expect(screen.queryByTestId('preview')).toBeNull();
+      expect(mocks.execGql).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rechecks DECIMAL before submission after a draft changed behind preview', async () => {
+    const node = mocks.schema.nodeTypeList[0];
+    node.properties.push(
+      new IProperty({ name: 'amount', type: PropertyDataType.DECIMAL, decimalPrecision: 256, decimalScale: 128 })
+    );
+    const { user } = renderBuilder();
+    await preview(user);
+    node.properties[1].decimalScale = 129;
+    await user.click(screen.getByRole('button', { name: 'createGraphType' }));
+    await waitFor(() => expect(mocks.setActiveItem).toHaveBeenCalledWith({ type: 'tag', value: node }));
+    expect(mocks.execGql).not.toHaveBeenCalled();
+  });
+
   it('shows incomplete-draft guidance on the sketch action rather than in the editor', async () => {
     const { user } = renderBuilder();
     expect(screen.queryByRole('tooltip')).toBeNull();

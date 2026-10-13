@@ -6,8 +6,9 @@ import { useStore } from '@studio/stores';
 import { INodeTypeItem } from '@studio/interfaces';
 import NodeTypeConfigForm from './NodeTypeConfigForm';
 import { useEffect } from 'react';
-import { getNodeTypeFormValues } from '../formValues';
+import { getNodeTypeFormValues, getPropertyModel } from '../formValues';
 import { setActiveItem } from '../VisualBuilder/store';
+import { getPropertyDecimalError } from '../validation';
 
 interface NodeTypeModalProps {
   open: boolean;
@@ -39,10 +40,12 @@ function NodeTypeConfigModal(props: NodeTypeModalProps) {
   };
 
   const onSubmit = (values: INodeTypeItem) => {
+    if (values.properties.some(getPropertyDecimalError)) return;
+    const node = new INodeTypeItem({ ...values, id: values.id, properties: values.properties.map(getPropertyModel) });
     if (nodeTypeItem) {
-      schemaStore?.updateNodeType(nodeTypeItem.id, new INodeTypeItem(values));
+      schemaStore?.updateNodeType(nodeTypeItem.id, node);
     } else {
-      schemaStore?.addNodeType(new INodeTypeItem(values));
+      schemaStore?.addNodeType(node);
     }
     onCancel();
   };

@@ -1,11 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { PropertyDataType } from '@vesoft-inc/utils';
-import { GraphTypeBuildMode, INodeTypeItem, IProperty } from '@studio/interfaces';
-import { getNewNodeTypes, getNodePrimaryKeyError, validateGraphTypePrimaryKeys } from './validation';
+import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
+import {
+  getNewNodeTypes,
+  getNodePrimaryKeyError,
+  validateGraphTypePrimaryKeys,
+  validateGraphTypeDecimals,
+} from './validation';
 
 const node = (name: string, properties: Partial<IProperty>[] = []) =>
   new INodeTypeItem({ name, properties: properties.map((property) => new IProperty(property)) });
 const key = { name: 'id', type: PropertyDataType.STRING, isPrimaryKey: true };
+
+describe('DECIMAL schema validation', () => {
+  it.each([0, 257, 1.2, NaN, Infinity])(
+    'checks ordinary node and edge properties with precision %s',
+    (decimalPrecision) => {
+      const property = new IProperty({ name: 'amount', type: PropertyDataType.DECIMAL, decimalPrecision });
+      const person = node('Person', [key, property]);
+      const edge = new IEdgeTypeItem({ name: 'Pays', properties: [property] });
+      expect(validateGraphTypeDecimals([person], [edge])).toHaveLength(2);
+    }
+  );
+  it('rejects malformed sketch type signatures instead of defaulting them', () => {
+    const person = node('Person', [key, { name: 'amount', type: 'DECIMAL(bad)' as PropertyDataType }]);
+    expect(validateGraphTypeDecimals([person], [])).toHaveLength(1);
+  });
+  it('treats omitted DECIMAL key parameters and explicit defaults as equivalent', () => {
+    const original = node('Person', [{ ...key, type: PropertyDataType.DECIMAL }]);
+    const current = new INodeTypeItem(original);
+    current.properties[0].decimalPrecision = 10;
+    current.properties[0].decimalScale = 0;
+    expect(getNodePrimaryKeyError(current, original)).toBeNull();
+  });
+});
 
 describe('node primary key validation', () => {
   it.each([{ properties: [] }, { properties: [{ name: 'name' }] }])(

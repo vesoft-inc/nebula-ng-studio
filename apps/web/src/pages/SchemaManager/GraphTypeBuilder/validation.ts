@@ -1,5 +1,25 @@
-import { GraphTypeBuildMode, INodeTypeItem } from '@studio/interfaces';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
+import {
+  getDecimalParameterError,
+  parseDecimalType,
+  PropertyDataType,
+  resolveDecimalParameters,
+} from '@vesoft-inc/utils';
+
+export function getPropertyDecimalError(property: IProperty): boolean {
+  if (/^\s*(DECIMAL|DEC)\s*$/i.test(property.type)) return !!getDecimalParameterError(property);
+  if (/^\s*(DECIMAL|DEC)\b/i.test(property.type)) {
+    const parsed = parseDecimalType(property.type);
+    return !parsed || !!getDecimalParameterError(parsed);
+  }
+  return false;
+}
+
+export function validateGraphTypeDecimals(nodes: INodeTypeItem[], edges: IEdgeTypeItem[]) {
+  return [...nodes, ...edges].flatMap((entity) =>
+    entity.properties.filter(getPropertyDecimalError).map((property) => ({ entity, property }))
+  );
+}
 
 type NodeIdentity = Pick<INodeTypeItem, 'id' | 'name'>;
 export type NodePrimaryKeyError = 'nodePrimaryKeyRequired' | 'nodePrimaryKeyInvalid' | 'nodePrimaryKeyImmutable';
@@ -26,8 +46,10 @@ export const getNodePrimaryKeyError = (
         return (
           !current ||
           current.type !== property.type ||
-          current.decimalPrecision !== property.decimalPrecision ||
-          current.decimalScale !== property.decimalScale ||
+          (property.type === PropertyDataType.DECIMAL &&
+            (resolveDecimalParameters(current).decimalPrecision !==
+              resolveDecimalParameters(property).decimalPrecision ||
+              resolveDecimalParameters(current).decimalScale !== resolveDecimalParameters(property).decimalScale)) ||
           !!current.nullable !== !!property.nullable ||
           (current.default || '') !== (property.default || '')
         );

@@ -1,4 +1,16 @@
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
+import { resolveDecimalParameters, PropertyDataType } from '@vesoft-inc/utils';
+
+export const getPropertyModel = (property: IProperty) =>
+  new IProperty({
+    ...property,
+    id: property.id,
+    ...(property.type === PropertyDataType.DECIMAL
+      ? {
+          ...resolveDecimalParameters(property),
+        }
+      : {}),
+  });
 
 // React Hook Form does not clone class instances or their prototype getters.
 // Use plain, detached values and an enumerable identity for each property.

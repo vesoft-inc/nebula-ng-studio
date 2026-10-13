@@ -20,7 +20,8 @@ import VisualBuilder from './VisualBuilder';
 import NodeTypeTable from './NodeType';
 import EdgeTypeTable from './EdgeType';
 import Preview from './Preview';
-import { GraphTypeBuildMode, INodeTypeItem } from '@studio/interfaces';
+import { GraphTypeBuildMode } from '@studio/interfaces';
+import { ActiveItemInfo } from '@studio/stores/graphtype/schema';
 import LabelTable from './LabelTable';
 import { createSketch, execGql, migrateGraphTypeLayout, resolveSchemaPath } from '@studio/services';
 import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
@@ -32,7 +33,7 @@ import TitleEllipsis from '@studio/components/TitleEllipsis';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
 import { getCanvasLayout, reactFlowInstance, setActiveItem } from './VisualBuilder/store';
 import { MassiveGraphConfirmMask } from './VisualBuilder/MassiveGraphConfirmMask';
-import { validateGraphTypePrimaryKeys } from './validation';
+import { validateGraphTypeDecimals, validateGraphTypePrimaryKeys } from './validation';
 import { getGraphTypeSubmissionError } from './submissionError';
 
 enum CreateGraphTypeStep {
@@ -70,7 +71,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   const message = useModal().message;
   const navigate = useNavigate();
   const [curNgql, setCurNgql] = useState('');
-  const [pendingInvalidNode, setPendingInvalidNode] = useState<{ node: INodeTypeItem } | null>(null);
+  const [pendingInvalidItem, setPendingInvalidItem] = useState<ActiveItemInfo | null>(null);
   const [submissionError, setSubmissionError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef<symbol | null>(null);
@@ -125,7 +126,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
 
   useEffect(() => {
     setCurStep(CreateGraphTypeStep.create); // Reset to initial status on location change (menu item changed)
-    setPendingInvalidNode(null);
+    setPendingInvalidItem(null);
     setSubmissionError('');
     setIsSubmitting(false);
     submittingRef.current = null;
@@ -179,19 +180,27 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     setSubmissionError('');
   }, [graphTypeName, curStep]);
 
-  const validatePrimaryKeys = () => {
+  const validateSchema = () => {
+    const schema = graphtypeStore.schemaStore;
+    const decimalError = validateGraphTypeDecimals(schema?.nodeTypeList || [], schema?.edgeTypeList || [])[0];
     const firstError = getPrimaryKeyErrors()[0];
-    if (!firstError) return true;
+    if (!firstError && !decimalError) return true;
     setCurStep(CreateGraphTypeStep.create);
     setCurTab(CreateFunction.VisualBuilder);
     setHasConfirmedHeavyRender(true);
-    setPendingInvalidNode({ node: firstError.node });
+    if (firstError) setPendingInvalidItem({ type: VisualEditorType.Tag, value: firstError.node });
+    else if (decimalError) {
+      const node = schema?.nodeTypeList.find((node) => node.id === decimalError.entity.id);
+      const edge = schema?.edgeTypeList.find((edge) => edge.id === decimalError.entity.id);
+      if (node) setPendingInvalidItem({ type: VisualEditorType.Tag, value: node });
+      else if (edge) setPendingInvalidItem({ type: VisualEditorType.Edge, value: edge });
+    }
     return false;
   };
 
   const handeNextClick = () => {
     form.handleSubmit(() => {
-      if (!validatePrimaryKeys()) return;
+      if (!validateSchema()) return;
       setCurStep(curStep + 1);
     })();
   };
@@ -304,7 +313,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   const handleCreateGraphType = async () => {
     if (submittingRef.current || readonlyMode) return;
     setSubmissionError('');
-    if (!validatePrimaryKeys()) return;
+    if (!validateSchema()) return;
     let gql: string;
     if (mode === GraphTypeBuildMode.Edit) {
       const conflicts = detectNameConflicts();
@@ -567,7 +576,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
 
   useEffect(() => {
     if (
-      !pendingInvalidNode ||
+      !pendingInvalidItem ||
       curStep !== CreateGraphTypeStep.create ||
       curTab !== CreateFunction.VisualBuilder ||
       shouldConfirmHeavyRender
@@ -576,11 +585,11 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     }
     // Builder initialization and StrictMode replay reset selection; select after both finish.
     const timeout = window.setTimeout(() => {
-      setActiveItem({ type: VisualEditorType.Tag, value: pendingInvalidNode.node });
-      setPendingInvalidNode(null);
+      setActiveItem(pendingInvalidItem);
+      setPendingInvalidItem(null);
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [pendingInvalidNode, curStep, curTab, shouldConfirmHeavyRender]);
+  }, [pendingInvalidItem, curStep, curTab, shouldConfirmHeavyRender]);
 
   return (
     <ContentContainer>

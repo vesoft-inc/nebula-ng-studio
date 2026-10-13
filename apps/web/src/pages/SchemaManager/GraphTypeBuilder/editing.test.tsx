@@ -1,18 +1,19 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { runInAction } from 'mobx';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { PropertyDataType } from '@vesoft-inc/utils';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
 import SchemaStore from '@studio/stores/graphtype/schema';
 import NodeTypeConfigModal from './NodeType/NodeTypeConfigModal';
 import EdgeTypeConfigModal from './EdgeType/EdgeTypeConfigModal';
 import VisualBuilder from './VisualBuilder';
-import { generateAlterGraphTypeGQL } from './VisualBuilder/util';
+import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
 import { activeItem, setActiveItem } from './VisualBuilder/store';
 import { VisualEditorType } from '@studio/utils/constant';
 
@@ -28,7 +29,7 @@ vi.mock('@studio/services', () => ({ resolveSchemaPath: () => '/default_schema' 
 vi.mock('@vesoft-inc/icons', () => ({
   AddFilled: () => null,
   CloseFilled: () => null,
-  MoreVertFilled: () => null,
+  MoreVertFilled: () => <span>More</span>,
   HelpCircleOutline: () => null,
   ContentCopyFilled: () => null,
   DeleteOutline: () => null,
@@ -174,7 +175,7 @@ describe('existing node editing', () => {
     expect(key.disabled).toBe(true);
     expect((within(dialog).getByRole('combobox', { name: /propType/ }) as HTMLInputElement).disabled).toBe(true);
     expect((within(dialog).getByRole('button', { name: 'delete: id' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(key);
+    expect(key.closest('.MuiCheckbox-root')?.classList.contains('Mui-disabled')).toBe(true);
     expect(key.checked).toBe(true);
     await addProperty(user, 'email', dialog);
     expect((within(dialog).getByRole('checkbox', { name: 'primaryKey: email' }) as HTMLInputElement).disabled).toBe(
@@ -284,5 +285,233 @@ describe('existing edge editing', () => {
     );
     expect(ddl).toContain('ALTER EDGE `Knows` ADD PROPERTIES {`notes` STRING,`source` STRING}');
     expect(ddl).not.toContain('MODIFY PROPERTIES');
+  });
+});
+
+describe('DECIMAL form round trips', () => {
+  it('does not MODIFY an existing DECIMAL key with implicit defaults after saving its form', async () => {
+    const node = new INodeTypeItem({
+      name: 'Person',
+      properties: [new IProperty({ name: 'id', type: PropertyDataType.DECIMAL, isPrimaryKey: true })],
+    });
+    mocks.schema.originalNodeTypeList = [node];
+    mocks.schema.updateNodeTypeList([new INodeTypeItem(node)]);
+    const user = userEvent.setup();
+    render(<Editor />);
+    await user.click(screen.getByRole('button', { name: 'Edit node' }));
+    await addProperty(user, 'extra', screen.getByRole('dialog'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      generateAlterGraphTypeGQL(
+        { graphTypeName: 'people', nodeTypeList: [node], edgeTypeList: [] },
+        { graphTypeName: 'people', nodeTypeList: mocks.schema.nodeTypeList.slice(), edgeTypeList: [] }
+      )
+    ).toBe('ALTER GRAPH TYPE `people` {\n  ALTER NODE `Person` ADD PROPERTIES {`extra` STRING}\n}');
+  });
+
+  it('does not retain stale decimal errors after switching to a scalar type', async () => {
+    const node = mocks.schema.nodeTypeList[0];
+    node.properties.push(new IProperty({ name: 'amount', type: PropertyDataType.DECIMAL, decimalPrecision: 257 }));
+    const user = userEvent.setup();
+    render(<Editor />);
+    await user.click(screen.getByRole('button', { name: 'Edit node' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getAllByRole('button', { name: 'More' }).at(-1)!);
+    await user.keyboard('{Escape}');
+    const type = within(dialog)
+      .getAllByRole('combobox', { name: /propType/ })
+      .at(-1)!;
+    await user.click(type);
+    await user.click(screen.getByRole('option', { name: 'STRING' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(node.properties[1].type).toBe(PropertyDataType.STRING);
+  });
+
+  it('blocks invalid DECIMAL edited in the real canvas before DDL validation', async () => {
+    const node = mocks.schema.nodeTypeList[0];
+    node.properties.push(
+      new IProperty({ name: 'amount', type: PropertyDataType.DECIMAL, decimalPrecision: 12, decimalScale: 0 })
+    );
+    const user = userEvent.setup();
+    render(<Editor withCanvas />);
+    await user.click(screen.getByRole('button', { name: 'Open node' }));
+    const editor = await screen.findByRole('region', { name: 'Node editor' });
+    await user.click(within(editor).getAllByRole('button', { name: 'More' }).at(-1)!);
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'decimalPrecision', hidden: true }), {
+      target: { value: '257' },
+    });
+    await waitFor(() => expect(node.properties[1].decimalPrecision).toBe(257));
+    const { validateGraphTypeDecimals } = await import('./validation');
+    expect(validateGraphTypeDecimals(mocks.schema.nodeTypeList.slice(), [])).toHaveLength(1);
+  });
+
+  it.each([false, true])(
+    'validates decimal boundaries and cleared inputs in the real form with edge=%s',
+    async (edge) => {
+      const node = mocks.schema.nodeTypeList[0];
+      const amount = new IProperty({
+        name: 'amount',
+        type: PropertyDataType.DECIMAL,
+        decimalPrecision: 12,
+        decimalScale: 0,
+      });
+      if (edge)
+        mocks.schema.updateEdgeTypeList([
+          new IEdgeTypeItem({ name: 'Pays', srcNode: node, dstNode: node, properties: [amount] }),
+        ]);
+      else node.properties.push(amount);
+      const user = userEvent.setup();
+      render(<Editor edge={edge} />);
+      await user.click(screen.getByRole('button', { name: 'Edit node' }));
+      const dialog = screen.getByRole('dialog');
+      const buttons = within(dialog).getAllByRole('button', { name: 'More' });
+      await user.click(buttons[buttons.length - 1]);
+      const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];
+      for (const [p, s, invalid] of [
+        ['256', '128', false],
+        ['257', '128', true],
+        ['12', '13', true],
+        ['12', '0', false],
+        ['12.5', '0', true],
+        ['', '11', true],
+        ['', '', false],
+        ['1', '0', false],
+      ] as const) {
+        await user.clear(precision);
+        if (p) await user.type(precision, p);
+        await user.clear(scale);
+        if (s) await user.type(scale, s);
+        await waitFor(() =>
+          expect(
+            precision.getAttribute('aria-invalid') === 'true' || scale.getAttribute('aria-invalid') === 'true'
+          ).toBe(invalid)
+        );
+      }
+      await user.keyboard('{Escape}');
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      const property = (edge ? mocks.schema.edgeTypeList[0] : node).properties.find((p) => p.name === 'amount');
+      expect(property).toMatchObject({ decimalPrecision: 1, decimalScale: 0 });
+    }
+  );
+
+  it('keeps disabled key values in submissions and applies MUI disabled styles', async () => {
+    const original = new INodeTypeItem({
+      name: 'Payment',
+      properties: [
+        new IProperty({
+          name: 'id',
+          type: PropertyDataType.DECIMAL,
+          decimalPrecision: 12,
+          decimalScale: 0,
+          isPrimaryKey: true,
+          nullable: false,
+        }),
+      ],
+    });
+    mocks.schema.originalNodeTypeList = [original];
+    mocks.schema.updateNodeTypeList([new INodeTypeItem(original)]);
+    const user = userEvent.setup();
+    render(<Editor />);
+    await user.click(screen.getByRole('button', { name: 'Edit node' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'More' }));
+    const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];
+    for (const field of [precision, scale]) {
+      expect(field.disabled).toBe(true);
+      expect(field.closest('.MuiInputBase-root')?.classList.contains('Mui-disabled')).toBe(true);
+    }
+    const nullable = screen.getByRole('checkbox', { name: 'nullable', hidden: true }) as HTMLInputElement;
+    expect(nullable.disabled).toBe(true);
+    expect(nullable.closest('.MuiCheckbox-root')?.classList.contains('Mui-disabled')).toBe(true);
+    await user.keyboard('{Escape}');
+    await addProperty(user, 'note', dialog);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(mocks.schema.nodeTypeList[0].properties[0]).toMatchObject({
+      type: PropertyDataType.DECIMAL,
+      isPrimaryKey: true,
+      nullable: false,
+      decimalPrecision: 12,
+      decimalScale: 0,
+    });
+    expect(mocks.schema.nodeTypeList[0].properties.map((p) => p.name)).toEqual(['id', 'note']);
+  });
+
+  it.each([false, true])(
+    'blocks invalid decimal on save without ever opening advanced settings with edge=%s',
+    async (edge) => {
+      const node = mocks.schema.nodeTypeList[0];
+      const property = new IProperty({ name: 'bad', type: PropertyDataType.DECIMAL, decimalPrecision: 0 });
+      if (edge)
+        mocks.schema.updateEdgeTypeList([
+          new IEdgeTypeItem({ name: 'Pays', srcNode: node, dstNode: node, properties: [property] }),
+        ]);
+      else node.properties.push(property);
+      const user = userEvent.setup();
+      render(<Editor edge={edge} />);
+      await user.click(screen.getByRole('button', { name: 'Edit node' }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+      expect(screen.getByRole('dialog')).toBeTruthy();
+      expect(screen.getByRole('status').textContent).toBe('decimalParametersInvalid');
+    }
+  );
+
+  it.each([false, true])('preserves edited precision and scale across two saves with edge=%s', async (edge) => {
+    const node = mocks.schema.nodeTypeList[0];
+    const amount = new IProperty({
+      name: 'amount',
+      type: PropertyDataType.DECIMAL,
+      decimalPrecision: 8,
+      decimalScale: 2,
+      nullable: false,
+      default: '0M',
+    });
+    if (edge) {
+      mocks.schema.updateEdgeTypeList([
+        new IEdgeTypeItem({ name: 'Knows', srcNode: node, dstNode: node, properties: [amount] }),
+      ]);
+    } else {
+      mocks.schema.originalNodeTypeList = [];
+      node.properties.push(amount);
+    }
+    const user = userEvent.setup();
+    render(<Editor edge={edge} />);
+
+    for (const edit of [true, false]) {
+      await user.click(screen.getByRole('button', { name: 'Edit node' }));
+      const dialog = screen.getByRole('dialog');
+      const moreButtons = within(dialog).getAllByRole('button', { name: 'More' });
+      await user.click(moreButtons[moreButtons.length - 1]);
+      // The mocked parent dialog is hidden by MUI's nested popover modal manager.
+      const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];
+      if (edit) {
+        await user.clear(precision);
+        await user.type(precision, '12');
+        await user.clear(scale);
+        await user.type(scale, '3');
+      } else {
+        expect(precision.value).toBe('12');
+        expect(scale.value).toBe('3');
+      }
+      await user.keyboard('{Escape}');
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      const current = {
+        graphTypeName: 'people',
+        nodeTypeList: mocks.schema.nodeTypeList.slice(),
+        edgeTypeList: mocks.schema.edgeTypeList.slice(),
+      };
+      const original = {
+        graphTypeName: 'people',
+        nodeTypeList: mocks.schema.originalNodeTypeList,
+        edgeTypeList: mocks.schema.originalEdgeTypeList,
+      };
+      const expected = '`amount` DECIMAL(12, 3) NOT NULL DEFAULT 0M';
+      expect(generateCreateGraphTypeGQL(current)).toContain(expected);
+      expect(generateAlterGraphTypeGQL(original, current)).toContain(expected);
+    }
   });
 });

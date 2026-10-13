@@ -16,7 +16,8 @@ vi.mock('@studio/services', async () => ({
 }));
 vi.mock('@studio/utils', () => ({ extractEdgeByEdgeTypeName: vi.fn() }));
 
-import { INodeTypeItem, type IEdgeTypeItem } from '@studio/interfaces';
+import { INodeTypeItem, IEdgeTypeItem } from '@studio/interfaces';
+import { execGql } from '@studio/services';
 import { SCHEMA_LAYOUT_READ_TIMEOUT_MS } from '@studio/services/schemaLayout';
 import SchemaStore from './schema';
 
@@ -73,4 +74,37 @@ describe('graph type layout restoration', () => {
     expect(store.nodeTypeList.map((node) => node.name)).toEqual(['A']);
     expect(vi.getTimerCount()).toBe(0);
   });
+});
+
+describe('DECIMAL describe metadata', () => {
+  it.each(['DECIMAL', 'DECIMAL(12)', 'DECIMAL(256,128)'])(
+    'preserves node and edge parameters loaded from %s',
+    async (data_type) => {
+      const store = new SchemaStore();
+      store.updateGraphTypeName('payments');
+      const node = new INodeTypeItem({ name: 'Payment' });
+      const edge = new IEdgeTypeItem({ name: 'Pays', srcNode: node, dstNode: node });
+      vi.mocked(execGql).mockResolvedValue({
+        code: 0,
+        data: {
+          tables: [
+            { type_name: 'Payment', property_name: 'amount', data_type, primary_key: 'Y', nullable: false },
+            { type_name: 'Pays', property_name: 'amount', data_type, multi_edge_key: '', nullable: true },
+          ],
+        },
+      } as never);
+      try {
+        await store.updateNodeTypeItemProperty([node]);
+        await store.updateEdgeTypeItemProperty([edge]);
+        const expected = data_type === 'DECIMAL' ? [10, 0] : data_type === 'DECIMAL(12)' ? [12, 0] : [256, 128];
+        for (const entity of [node, edge])
+          expect([entity.properties[0].decimalPrecision, entity.properties[0].decimalScale]).toEqual(expected);
+        expect(node.properties[0].isPrimaryKey).toBe(true);
+        expect(edge.properties[0].nullable).toBe(true);
+      } finally {
+        store.disposeReaction();
+        vi.clearAllMocks();
+      }
+    }
+  );
 });
