@@ -32,7 +32,7 @@ export function PrimaryKeyGuidance({
   if (!first) return hint;
   const details = (
     <Stack spacing={1.5}>
-      {issues.map((issue) => (
+      {(issues.length > 1 ? issues.slice(1) : issues).map((issue) => (
         <Box key={`${issue.index}-${issue.reason}`} sx={{ overflowWrap: 'anywhere' }}>
           <Typography variant="body2">{message(issue)}</Typography>
           <Typography variant="body2" sx={{ mt: 0.25 }}>
@@ -81,7 +81,7 @@ export function PrimaryKeyGuidance({
             '&.Mui-focusVisible': { outline: '2px solid currentColor', outlineOffset: 2 },
           }}
         >
-          ({issues.length - 1})
+          (+{issues.length - 1})
         </ButtonBase>
       </Tooltip>
     </Box>

@@ -45,7 +45,7 @@ export default {
   nodePrimaryKeyNullableAction: '请在该属性的“更多设置”中关闭“允许为空”。',
   nodePrimaryKeyDefaultAction: '请在该属性的“更多设置”中清空默认值。',
   nodePrimaryKeyTypeUnsupportedAction: '请选择其他属性类型，或改用其他属性作为主键。',
-  nodePrimaryKeyMoreIssues: '还有 {{count}} 项主键问题，查看全部问题及修改建议',
+  nodePrimaryKeyMoreIssues: '还有 {{count}} 项主键问题，查看其他问题及修改建议',
   propertySettings: '更多设置：{{property}}',
   nodePrimaryKeyImmutable: '请恢复已有主键设置。',
   nodePrimaryKeyImmutableHelp: '已有主键不可变更。不能删除主键属性，也不能修改其类型、可空性或默认值。',

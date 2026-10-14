@@ -162,7 +162,7 @@ describe('node primary key guidance', () => {
       expect(screen.getByRole('status').textContent).not.toContain(translations.nodePrimaryKeyInvalid);
     });
 
-    it('exposes every issue across composite key members on keyboard focus', async () => {
+    it('exposes only the remaining issues across composite key members on keyboard focus', async () => {
       store.language = language;
       renderForm('node', [], vi.fn(), [
         new IProperty({ name: 'id', isPrimaryKey: true, nullable: true, default: '0' }),
@@ -172,20 +172,21 @@ describe('node primary key guidance', () => {
       const more = screen.getByRole('button', {
         name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 2 }),
       });
-      expect(more.textContent).toBe('(2)');
+      expect(more.textContent).toBe('(+2)');
       expect(more.getAttribute('type')).toBe('button');
       expect(getComputedStyle(more).flexShrink).toBe('0');
       expect(getComputedStyle(more.parentElement!).gap).toBe('4px');
       more.focus();
       const tooltip = await screen.findByRole('tooltip');
-      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
+      expect(tooltip.textContent).not.toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
       expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyDefault, { property: 'id' }));
       expect(tooltip.textContent).toContain(
         interpolate(translations.nodePrimaryKeyTypeUnsupported, { property: 'tenant', type: 'LIST' })
       );
-      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyNullableAction);
+      expect(tooltip.textContent).not.toContain(translations.nodePrimaryKeyNullableAction);
       expect(tooltip.textContent).toContain(translations.nodePrimaryKeyDefaultAction);
       expect(tooltip.textContent).toContain(translations.nodePrimaryKeyTypeUnsupportedAction);
+      expect(tooltip.querySelectorAll('.MuiTypography-root')).toHaveLength(4);
       expect(tooltip.textContent).not.toContain('ordinary');
     });
 
@@ -244,21 +245,30 @@ describe('node primary key guidance', () => {
       renderForm('node', [], vi.fn(), [
         new IProperty({ name: '', isPrimaryKey: true, nullable: true, default: '0', type: PropertyDataType.LIST }),
       ]);
-      screen.getByRole('button', { name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 3 }) }).focus();
+      const more = screen.getByRole('button', {
+        name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 3 }),
+      });
+      expect(more.textContent).toBe('(+3)');
+      more.focus();
       const tooltip = await screen.findByRole('tooltip');
+      expect(screen.getByRole('status').textContent).toBe(
+        interpolate(translations.nodePrimaryKeyNameRequired, { index: 1 })
+      );
+      expect(tooltip.textContent).not.toContain(interpolate(translations.nodePrimaryKeyNameRequired, { index: 1 }));
+      expect(tooltip.textContent).not.toContain(translations.nodePrimaryKeyNameRequiredAction);
       for (const text of [
-        translations.nodePrimaryKeyNameRequired,
         translations.nodePrimaryKeyNullableUnnamed,
         translations.nodePrimaryKeyDefaultUnnamed,
         translations.nodePrimaryKeyTypeUnsupportedUnnamed,
       ]) {
         expect(tooltip.textContent).toContain(interpolate(text, { index: 1, type: 'LIST' }));
       }
+      expect(tooltip.querySelectorAll('.MuiTypography-root')).toHaveLength(6);
       expect(tooltip.textContent).not.toContain('“”');
       expect(tooltip.textContent).not.toContain('""');
     });
 
-    it('shows the full issue list on hover over the remaining-issue count', async () => {
+    it('shows only the additional issue on hover over the remaining-issue count', async () => {
       store.language = language;
       const { user } = renderForm('node', [], vi.fn(), [
         new IProperty({ name: 'id', isPrimaryKey: true, nullable: true, default: '0' }),
@@ -266,11 +276,14 @@ describe('node primary key guidance', () => {
       const more = screen.getByRole('button', {
         name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 1 }),
       });
-      expect(more.textContent).toBe('(1)');
+      expect(more.textContent).toBe('(+1)');
       await user.hover(more);
       const tooltip = await screen.findByRole('tooltip');
-      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
+      expect(tooltip.textContent).not.toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
+      expect(tooltip.textContent).not.toContain(translations.nodePrimaryKeyNullableAction);
       expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyDefault, { property: 'id' }));
+      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyDefaultAction);
+      expect(tooltip.querySelectorAll('.MuiTypography-root')).toHaveLength(2);
       expect(screen.queryByText('View details')).toBeNull();
       expect(screen.queryByText('查看详情')).toBeNull();
     });

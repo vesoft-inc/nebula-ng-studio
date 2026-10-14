@@ -47,7 +47,7 @@ export default {
   nodePrimaryKeyNullableAction: 'Open this property\'s "More settings" and turn off "Allow null values".',
   nodePrimaryKeyDefaultAction: 'Open this property\'s "More settings" and clear the default value.',
   nodePrimaryKeyTypeUnsupportedAction: 'Choose another property type, or use a different property as the primary key.',
-  nodePrimaryKeyMoreIssues: '{{count}} more primary key issues. View all issues and how to fix them.',
+  nodePrimaryKeyMoreIssues: '{{count}} more primary key issues. View these issues and how to fix them.',
   propertySettings: 'More settings: {{property}}',
   nodePrimaryKeyImmutable: 'Restore the existing primary key.',
   nodePrimaryKeyImmutableHelp:
