@@ -1,6 +1,6 @@
 {
   "name": "nebula-studio",
-  "version": "5.3.2",
+  "version": "5.3.2-rc.6",
   "description": "nebula-graph-studio",
   "private": true,
   "type": "module",
