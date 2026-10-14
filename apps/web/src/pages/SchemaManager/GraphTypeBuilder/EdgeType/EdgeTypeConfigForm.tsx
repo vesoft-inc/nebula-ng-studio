@@ -21,7 +21,6 @@ import {
   TextFieldElement,
   SelectElement,
   useWatch,
-  CheckboxElement,
   useFormContext,
   useFieldArray,
 } from 'react-hook-form-mui';
@@ -34,15 +33,19 @@ import { CloseFilled, AddFilled, MoreVertFilled, HelpCircleOutline } from '@veso
 
 import {
   TypeInfoContainer,
+  PropertyFormContainer,
   PropertyBodyCell,
   PropertyHeaderCell,
 } from '@studio/pages/SchemaManager/GraphTypeBuilder/styles';
 import { GraphTypeBuildMode, IEdgeTypeItem, ILabelItem, INodeTypeItem, IProperty } from '@studio/interfaces';
-import { DECIMAL_ACCURACY } from '@studio/utils/constant';
+import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
+import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
+import { getPropertyDecimalError } from '../validation';
 import { getDuplicateValues } from '@studio/utils';
 import { useStore } from '@studio/stores';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
+import { getPropertyFormValues, getPropertyModel } from '../formValues';
 
 interface EdgeTypeConfigFormProps {
   hasSrcAndDstNode?: boolean;
@@ -97,7 +100,12 @@ function MoreAction({ index, readonly }: { index: number; readonly: boolean }) {
             }}
             disablePortal
           >
-            <Box minWidth={288} height={148} padding={(theme) => `${theme.spacing(2)} ${theme.spacing(3)}`}>
+            <Box
+              width={560}
+              maxWidth="calc(100vw - 32px)"
+              minHeight={148}
+              padding={(theme) => `${theme.spacing(2)} ${theme.spacing(3)}`}
+            >
               <Stack direction="row" sx={{ mt: 1 }}>
                 {/* <PropertyHeaderCell>
                   <Typography>{t('isList', { ns: 'graphtype' })}</Typography>
@@ -109,7 +117,12 @@ function MoreAction({ index, readonly }: { index: number; readonly: boolean }) {
                       placement="top"
                       arrow
                       title={
-                        <Trans i18nKey="decimalPrecisionRange" values={{ DECIMAL_ACCURACY }} t={t} ns={'graphtype'} />
+                        <Trans
+                          i18nKey="decimalPrecisionRange"
+                          values={{ max: DECIMAL_MAX_PRECISION }}
+                          t={t}
+                          ns={'graphtype'}
+                        />
                       }
                     >
                       <HelpCircleOutline sx={{ ml: 1 }} fontSize="small" />
@@ -122,7 +135,9 @@ function MoreAction({ index, readonly }: { index: number; readonly: boolean }) {
                     <Tooltip
                       placement="top"
                       arrow
-                      title={<Trans i18nKey="decimalScaleRange" values={{ DECIMAL_ACCURACY }} t={t} ns={'graphtype'} />}
+                      title={
+                        <Trans i18nKey="decimalScaleRange" values={{ max: DECIMAL_MAX_SCALE }} t={t} ns={'graphtype'} />
+                      }
                     >
                       <HelpCircleOutline sx={{ ml: 1 }} fontSize="small" />
                     </Tooltip>
@@ -136,85 +151,21 @@ function MoreAction({ index, readonly }: { index: number; readonly: boolean }) {
                 </PropertyHeaderCell>
               </Stack>
               <Stack direction="row" sx={{ mt: 1 }}>
-                {/* <PropertyBodyCell>
-                  <CheckboxElement
-                    name={`properties[${index}].isList`}
-                    inputProps={{
-                      disabled: readonly,
-                    }}
-                  />
-                </PropertyBodyCell> */}
                 {properties[index]?.type === PropertyDataType.DECIMAL && (
-                  <PropertyBodyCell width={100}>
-                    <TextFieldElement
-                      size="small"
-                      name={`properties[${index}].decimalPrecision`}
-                      inputProps={{
-                        disabled: readonly,
-                        inputMode: 'numeric',
-                        pattern: '[0-9]*',
-                      }}
-                      onChange={() => {
-                        form.trigger('properties');
-                      }}
-                      fullWidth
-                      rules={{
-                        validate: (value) => {
-                          if (value && (Number(value) < 1 || Number(value) > DECIMAL_ACCURACY)) {
-                            return false;
-                          }
-                          return true;
-                        },
-                      }}
-                      type="number"
-                    />
-                  </PropertyBodyCell>
-                )}
-                {properties[index]?.type === PropertyDataType.DECIMAL && (
-                  <PropertyBodyCell width={100}>
-                    <TextFieldElement
-                      size="small"
-                      name={`properties[${index}].decimalScale`}
-                      inputProps={{
-                        disabled: readonly,
-                        inputMode: 'numeric',
-                        pattern: '[0-9]*',
-                      }}
-                      onChange={() => {
-                        form.trigger('properties');
-                      }}
-                      rules={{
-                        validate: (value) => {
-                          const MValue = form.getValues(`properties.${index}.decimalPrecision`);
-                          if (!MValue) return false;
-                          if (
-                            value &&
-                            (Number(value) < 1 || Number(value) > DECIMAL_ACCURACY || Number(value) > Number(MValue))
-                          ) {
-                            return false;
-                          }
-                          return true;
-                        },
-                      }}
-                      type="number"
-                    />
-                  </PropertyBodyCell>
+                  <DecimalFields index={index} disabled={readonly} />
                 )}
                 <PropertyBodyCell>
-                  <CheckboxElement
+                  <PropertyCheckbox
                     name={`properties.${index}.nullable`}
-                    inputProps={{
-                      disabled: readonly,
-                    }}
+                    disabled={readonly}
+                    label={t('nullable', { ns: 'graphtype' })}
                   />
                 </PropertyBodyCell>
                 <PropertyBodyCell>
                   <TextFieldElement
                     size="small"
                     name={`properties.${index}.default`}
-                    inputProps={{
-                      disabled: readonly,
-                    }}
+                    InputProps={{ disabled: readonly }}
                   />
                 </PropertyBodyCell>
               </Stack>
@@ -244,10 +195,12 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
 
   const handleAddProperty = () => {
     append(
-      new IProperty({
-        name: '',
-        type: PropertyDataType.STRING,
-      })
+      getPropertyFormValues(
+        new IProperty({
+          name: '',
+          type: PropertyDataType.STRING,
+        })
+      )
     );
   };
 
@@ -290,6 +243,8 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
     name: 'properties',
     defaultValue: (defaultValues?.properties || []).map((property) => new IProperty(property)),
   });
+
+  const decimalErrorProperty = (properties || []).find(getPropertyDecimalError);
 
   const labelOptions = [
     ...new Set(Array.from(schemaStore?.edgeTypeLabelMap.keys() || []).concat(selectedLabelOptions)),
@@ -365,7 +320,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
         style: {
           strokeColor: edgeStrokeColor,
         },
-        properties,
+        properties: properties.map(getPropertyModel),
       })
     );
   }, [
@@ -382,7 +337,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
   ]);
 
   return (
-    <Box sx={{ overflow: 'hidden' }}>
+    <PropertyFormContainer>
       <TypeInfoContainer>
         <Typography sx={{ mb: theme.spacing(2) }}>{t('edgeType', { ns: 'graphtype' })}</Typography>
         <Grid container rowSpacing={3}>
@@ -473,7 +428,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
           </Grid>
           {colorPicker && (
             <Grid size={{ xs: 6, md: 12 }}>
-              <Box {...bindFocus(popupState)} width="100%">
+              <Box {...(!readonly ? bindFocus(popupState) : {})} width="100%">
                 <TextFieldElement
                   label={t('color', { ns: 'graphtype' })}
                   slotProps={{
@@ -523,17 +478,16 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                 },
               }}
               textFieldProps={{
-                inputProps: {
-                  disabled: readonly,
-                },
+                disabled: readonly,
               }}
               autocompleteProps={{
+                disabled: readonly,
                 limitTags: 3,
                 size: 'small',
                 fullWidth: true,
                 filterSelectedOptions: true,
                 freeSolo: true,
-                autoSelect: false,
+                autoSelect: true,
                 clearIcon: <CloseFilled fontSize="small" />,
                 ChipProps: {
                   size: 'small',
@@ -547,7 +501,8 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                 filterOptions: (options: string[], params: FilterOptionsState<string>) => {
                   const filtered = labelOptionFilter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option);
+                  // MUI has already removed selected labels from options.
+                  const isExisting = labelOptions.includes(inputValue);
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(inputValue);
                   }
@@ -584,6 +539,11 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
       <Divider />
       <TypeInfoContainer>
         <Typography sx={{ mb: theme.spacing(2) }}>{t('properties', { ns: 'graphtype' })}</Typography>
+        {!readonly && decimalErrorProperty && (
+          <Typography role="status" variant="body2" color="error" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+            {t('decimalParametersInvalid', { property: decimalErrorProperty.name, ns: 'graphtype' })}
+          </Typography>
+        )}
         <Stack direction="row" sx={{ mt: 1 }}>
           <PropertyHeaderCell sx={{ flex: 0, flexBasis: '23%' }}>
             <Typography>{t('propName', { ns: 'graphtype' })}</Typography>
@@ -637,9 +597,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                       },
                       size: 'small',
                       fullWidth: true,
-                      inputProps: {
-                        disabled: readonly,
-                      },
+                      disabled: readonly,
                     }}
                     autocompleteProps={{
                       disabled: readonly,
@@ -685,9 +643,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                         textFieldProps={{
                           size: 'small',
                           fullWidth: true,
-                          inputProps: {
-                            disabled: readonly,
-                          },
+                          disabled: readonly,
                         }}
                         autocompleteProps={{
                           filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -744,9 +700,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                           textFieldProps={{
                             size: 'small',
                             fullWidth: true,
-                            inputProps: {
-                              disabled: readonly,
-                            },
+                            disabled: readonly,
                           }}
                           autocompleteProps={{
                             filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -800,9 +754,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
                           textFieldProps={{
                             size: 'small',
                             fullWidth: true,
-                            inputProps: {
-                              disabled: readonly,
-                            },
+                            disabled: readonly,
                           }}
                           autocompleteProps={{
                             filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -868,7 +820,11 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
               {curMultiEdgeKeyMode === MultiEdgeKeyMode.Customize && (
                 <Grid size={{ xs: 2 }}>
                   <PropertyBodyCell display="flex" justifyContent={readonly ? 'center' : 'space-between'}>
-                    <CheckboxElement sx={{ flex: 1 }} name={`properties.${index}.multiEdgeKey`} />
+                    <PropertyCheckbox
+                      disabled={readonly}
+                      name={`properties.${index}.multiEdgeKey`}
+                      label={t('multiEdgeKey', { ns: 'graphtype' })}
+                    />
                     <Box display="flex" alignItems="center">
                       <MoreAction index={index} readonly={readonly} />
                       {!readonly && (
@@ -900,7 +856,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
           )}
         </List>
       </TypeInfoContainer>
-    </Box>
+    </PropertyFormContainer>
   );
 }
 

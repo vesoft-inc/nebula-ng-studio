@@ -2,11 +2,13 @@ import {
   EdgeDirectionType,
   MultiEdgeKeyMode,
   PropertyDataType,
+  resolveDecimalParameters,
   parsePropertyDataType as parseSharedPropertyDataType,
 } from '@vesoft-inc/utils';
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
 import { RawEntityType } from '@studio/interfaces/console';
 import { isEqualIgnoringFields } from '@studio/utils';
+import { getNewNodeTypes } from '../validation';
 
 interface GraphTypeInfo {
   graphTypeName: string;
@@ -26,9 +28,7 @@ export function generateAlterGraphTypeGQL(original: GraphTypeInfo, current: Grap
   if (original.graphTypeName !== current.graphTypeName) {
     return `RENAME GRAPH TYPE \`${original.graphTypeName}\` TO \`${current.graphTypeName}\`\n`;
   }
-  const createNodeTypeList = current.nodeTypeList.filter(
-    (nodeType) => !original.nodeTypeList.find((ot) => isSameEntity(ot, nodeType))
-  );
+  const createNodeTypeList = getNewNodeTypes(original.nodeTypeList, current.nodeTypeList);
   const dropNodeTypeList = original.nodeTypeList.filter(
     (nodeType) => !current.nodeTypeList.find((nt) => isSameEntity(nt, nodeType))
   );
@@ -61,10 +61,14 @@ export function generateAlterGraphTypeGQL(original: GraphTypeInfo, current: Grap
     .map((nodeType) => '  DROP ' + generateEdgeTypeSubGQL(nodeType, false))
     .join(',\n');
   const alterNodeTypeGql = alterNodeTypeList
-    .map((nodeType) => '  ' + generateAlterEntityTypeGQL(nodeType, original.nodeTypeList, RawEntityType.NODE))
+    .map((nodeType) => generateAlterEntityTypeGQL(nodeType, original.nodeTypeList, RawEntityType.NODE))
+    .filter(Boolean)
+    .map((gql) => '  ' + gql)
     .join(',\n');
   const alterEdgeTypeGql = alterEdgeTypeList
-    .map((edgeType) => '  ' + generateAlterEntityTypeGQL(edgeType, original.edgeTypeList, RawEntityType.EDGE))
+    .map((edgeType) => generateAlterEntityTypeGQL(edgeType, original.edgeTypeList, RawEntityType.EDGE))
+    .filter(Boolean)
+    .map((gql) => '  ' + gql)
     .join(',\n');
   const alterContent = [
     alterEdgeTypeGql,
@@ -110,31 +114,9 @@ function generateNodeTypeSubGQL(nodeType: INodeTypeItem, showDetail = true) {
   }
   let property = ``;
   if (nodeType.properties.length > 0) {
-    property += `{${nodeType.properties.map((property) => {
-      const items = [];
-      items.push(`\`${property.name}\``);
-
-      if (property.type === PropertyDataType.LIST) {
-        items.push(`LIST<${property.itemType || PropertyDataType.STRING}>`);
-      } else if (property.type === PropertyDataType.SET) {
-        items.push(`SET<${property.itemType || PropertyDataType.STRING}>`);
-      } else if (property.type === PropertyDataType.MAP) {
-        items.push(
-          `MAP<${property.keyType || PropertyDataType.STRING}, ${property.valueType || PropertyDataType.STRING}>`
-        );
-      } else if (property.type === PropertyDataType.VECTOR) {
-        items.push(`VECTOR<${property.dimensionCount ?? 1}, FLOAT>`); // 目前只支持 FLOAT
-      } else {
-        items.push(property.type);
-      }
-
-      property.nullable === false && items.push('NOT NULL');
-      property.default && items.push(`DEFAULT ${generateDefaultValue(property)}`);
-      return items.join(' ');
-    })}, PRIMARY KEY(${nodeType.properties
-      .filter((p) => p.isPrimaryKey)
-      .map((p) => `\`${p.name}\``)
-      .join(',')})}`;
+    const primaryKeys = nodeType.properties.filter((p) => p.isPrimaryKey).map((p) => `\`${p.name}\``);
+    const primaryKey = primaryKeys.length > 0 ? `, PRIMARY KEY(${primaryKeys.join(',')})` : '';
+    property += `{${nodeType.properties.map(generatePropertyGQL).join(',')}${primaryKey}}`;
   }
   return `NODE \`${nodeType.name}\` (${label} ${property})`;
 }
@@ -145,10 +127,14 @@ function generatePropertyGQL(property: IProperty) {
   let type: string = property.type;
 
   if (type === PropertyDataType.DECIMAL) {
-    if (property.decimalPrecision === undefined && property.decimalScale === undefined) {
+    // Cleared number inputs can be empty strings; an explicit zero scale is not empty.
+    const precision = property.decimalPrecision?.toString().trim();
+    const scale = property.decimalScale?.toString().trim();
+    if (!precision && !scale) {
       type = `${PropertyDataType.DECIMAL}`;
     } else {
-      type = `${PropertyDataType.DECIMAL}(${property.decimalPrecision ?? 10}, ${property.decimalScale ?? 0})`;
+      const parameters = resolveDecimalParameters(property);
+      type = `${PropertyDataType.DECIMAL}(${parameters.decimalPrecision}, ${parameters.decimalScale})`;
     }
   } else if (property.type === PropertyDataType.LIST) {
     type = `LIST<${property.itemType || PropertyDataType.STRING}>`;
@@ -200,6 +186,14 @@ function generateAlterEntityTypeGQL(
   const modifyProperties = currentEntity.properties.filter((property) => {
     const originProperty = originEntity.properties.find((ot) => ot.id === property.id);
     if (!originProperty) return false;
+    // Omitted DECIMAL parameters and their effective defaults describe the same type.
+    if (property.type === PropertyDataType.DECIMAL && originProperty.type === PropertyDataType.DECIMAL) {
+      return !isEqualIgnoringFields<IProperty>(
+        { ...property, id: property.id, ...resolveDecimalParameters(property) },
+        { ...originProperty, id: originProperty.id, ...resolveDecimalParameters(originProperty) },
+        ['name', 'isPrimaryKey']
+      );
+    }
     return !isEqualIgnoringFields<IProperty>(property, originProperty, ['name', 'isPrimaryKey']);
   });
   const addLabelGql = addLabels.length > 0 ? `ADD LABELS ${addLabels.map((label) => `\`${label}\``).join('&')}` : '';

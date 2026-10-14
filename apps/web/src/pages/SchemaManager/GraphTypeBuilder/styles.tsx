@@ -64,6 +64,23 @@ export const TypeInfoContainer = styled(Box)`
   padding: 10px 16px;
 `;
 
+export const PropertyFormContainer = styled(Box)(({ theme }) => ({
+  overflow: 'hidden',
+  '& .MuiInputBase-root.Mui-disabled': {
+    backgroundColor: theme.palette.action.disabledBackground,
+    cursor: 'not-allowed',
+    '& .MuiInputBase-input': {
+      background: 'transparent',
+      WebkitTextFillColor: theme.palette.text.disabled,
+    },
+    '& .MuiSvgIcon-root': { color: theme.palette.action.disabled },
+    '& fieldset, &:hover fieldset': { borderColor: `${theme.palette.divider} !important` },
+  },
+  '& .MuiCheckbox-root.Mui-disabled, & .MuiIconButton-root.Mui-disabled': {
+    color: theme.palette.action.disabled,
+  },
+}));
+
 export const PropertyHeaderCell = styled(Box)`
   background-color: ${({ theme }) => theme.palette.vesoft.bgColor2};
   padding: ${({ theme }) => theme.spacing(1)};

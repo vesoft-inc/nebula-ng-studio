@@ -20,8 +20,8 @@ export class IProperty {
   multiEdgeKey?: boolean = false;
   default?: string;
   nullable?: boolean = false;
-  decimalPrecision?: number; // decimal(precision,scale) precision , 1 - 255
-  decimalScale?: number; // decimal(precision, scale) scale , 1 - 255
+  decimalPrecision?: number; // DECIMAL precision: 1..256
+  decimalScale?: number; // DECIMAL scale: 0..128, no greater than precision
   isList = false;
   itemType?: PropertyDataType; // item type for LIST/SET properties
   keyType?: PropertyDataType; // key type for MAP properties

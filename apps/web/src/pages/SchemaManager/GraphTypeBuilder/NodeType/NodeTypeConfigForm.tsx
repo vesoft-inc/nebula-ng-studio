@@ -15,14 +15,7 @@ import {
   type ListProps,
   Tooltip,
 } from '@mui/material';
-import {
-  AutocompleteElement,
-  TextFieldElement,
-  useWatch,
-  CheckboxElement,
-  useFieldArray,
-  useFormContext,
-} from 'react-hook-form-mui';
+import { AutocompleteElement, TextFieldElement, useWatch, useFieldArray, useFormContext } from 'react-hook-form-mui';
 import { Trans, useTranslation } from 'react-i18next';
 import PopupState from 'material-ui-popup-state';
 import { PropertyDataType } from '@vesoft-inc/utils';
@@ -32,16 +25,26 @@ import { CloseFilled, AddFilled, MoreVertFilled, HelpCircleOutline } from '@veso
 
 import {
   TypeInfoContainer,
+  PropertyFormContainer,
   PropertyBodyCell,
   PropertyHeaderCell,
 } from '@studio/pages/SchemaManager/GraphTypeBuilder/styles';
 import { GraphTypeBuildMode, INodeTypeItem, IProperty } from '@studio/interfaces';
-import { DECIMAL_ACCURACY } from '@studio/utils/constant';
+import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
+import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
 import { getDuplicateValues } from '@studio/utils';
 import { useStore } from '@studio/stores';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
 import { useEffect } from 'react';
+import {
+  getNodePrimaryKeyError,
+  getNodePrimaryKeyPropertyIssues,
+  getOriginalNodeType,
+  getPropertyDecimalError,
+} from '../validation';
+import { getPropertyFormValues, getPropertyModel } from '../formValues';
+import { PrimaryKeyGuidance } from './PrimaryKeyGuidance';
 
 interface NodeTypeConfigFormProps {
   colorPicker?: boolean;
@@ -71,10 +74,12 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
 
   const handleAddProperty = () => {
     append(
-      new IProperty({
-        name: '',
-        type: PropertyDataType.STRING,
-      })
+      getPropertyFormValues(
+        new IProperty({
+          name: '',
+          type: PropertyDataType.STRING,
+        })
+      )
     );
   };
 
@@ -106,14 +111,33 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
     defaultValue: (defaultValues?.properties || []).map((item) => new IProperty(item)),
   });
 
+  const targetId = useWatch({ control: form.control, name: 'id', defaultValue: defaultValues?.id });
+
+  const decimalErrorProperty = (properties || []).find(getPropertyDecimalError);
+
   const labelOptions = [...new Set(Array.from(schemaStore?.nodeTypeLabeMap.keys() || []).concat(selectedLabelOptions))];
+  const originalNode =
+    mode === GraphTypeBuildMode.Edit
+      ? getOriginalNodeType(schemaStore?.originalNodeTypeList || [], {
+          id: targetId || '',
+          name: name || '',
+        })
+      : undefined;
+  const primaryKeyError = getNodePrimaryKeyError({ properties: properties || [] }, originalNode);
+  const primaryKeyIssues = getNodePrimaryKeyPropertyIssues({ properties: properties || [] });
+  const isKeyDefinitionLocked = (index: number) => {
+    const value = properties[index];
+    const originalProperty =
+      originalNode?.properties.find((item) => item.id === value?.id) ||
+      originalNode?.properties.find((item) => item.name === value?.name);
+    return readonly || !!originalProperty?.isPrimaryKey;
+  };
 
   const popupState = usePopupState({
     variant: 'popover',
     popupId: 'node-color-picker',
   });
 
-  const targetId = form.formState.defaultValues?.id;
   useEffect(() => {
     if (!targetId) {
       return;
@@ -126,13 +150,13 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
         style: {
           strokeColor: nodeStrokeColor,
         },
-        properties,
+        properties: properties.map(getPropertyModel),
       })
     );
   }, [targetId, name, nodeStrokeColor, properties, selectedLabelOptions, onChange]);
 
   return (
-    <Box sx={{ overflow: 'hidden' }}>
+    <PropertyFormContainer>
       <TypeInfoContainer>
         <Typography sx={{ mb: theme.spacing(2) }}>{t('nodeType', { ns: 'graphtype' })}</Typography>
         <Grid container spacing={2}>
@@ -143,25 +167,21 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
               required
               name="name"
               fullWidth
-              inputProps={{
-                disabled: readonly,
-              }}
+              InputProps={{ disabled: readonly }}
             />
           </Grid>
           {colorPicker && (
             <Grid size={{ xs: 6, md: 12 }}>
-              <Box {...bindFocus(popupState)} width="100%">
+              <Box {...(!readonly ? bindFocus(popupState) : {})} width="100%">
                 <TextFieldElement
                   label={t('color', { ns: 'graphtype' })}
                   InputProps={{
                     startAdornment: <ColorBox sx={{ backgroundColor: nodeStrokeColor }} />,
+                    disabled: readonly,
                   }}
                   name="style.strokeColor"
                   size="small"
                   fullWidth
-                  inputProps={{
-                    disabled: readonly,
-                  }}
                 />
               </Box>
               <Popover
@@ -200,9 +220,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 },
               }}
               textFieldProps={{
-                inputProps: {
-                  disabled: readonly,
-                },
+                disabled: readonly,
               }}
               autocompleteProps={{
                 limitTags: 3,
@@ -211,7 +229,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterSelectedOptions: true,
                 handleHomeEndKeys: true,
                 freeSolo: true,
-                autoSelect: false,
+                autoSelect: true,
                 blurOnSelect: true,
                 disabled: readonly,
                 clearIcon: <CloseFilled fontSize="small" />,
@@ -230,7 +248,8 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                 filterOptions: (options: string[], params: FilterOptionsState<string>) => {
                   const filtered = labelOptionFilter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option);
+                  // MUI has already removed selected labels from options.
+                  const isExisting = labelOptions.includes(inputValue);
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(inputValue);
                   }
@@ -254,7 +273,15 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
       </TypeInfoContainer>
       <Divider />
       <TypeInfoContainer>
-        <Typography sx={{ mb: theme.spacing(2) }}>{t('properties', { ns: 'graphtype' })}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minHeight: 24, mb: 2 }}>
+          <Typography>{t('properties', { ns: 'graphtype' })}</Typography>
+          {!readonly && primaryKeyError && <PrimaryKeyGuidance error={primaryKeyError} issues={primaryKeyIssues} />}
+        </Box>
+        {!readonly && decimalErrorProperty && (
+          <Typography role="status" variant="body2" color="error" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+            {t('decimalParametersInvalid', { property: decimalErrorProperty.name, ns: 'graphtype' })}
+          </Typography>
+        )}
         <Stack direction="row" sx={{ mt: 1 }}>
           <PropertyHeaderCell sx={{ flex: 0, flexBasis: '23%' }}>
             <Typography>{t('propName', { ns: 'graphtype' })}</Typography>
@@ -262,8 +289,22 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
           <PropertyHeaderCell sx={{ flex: 1 }}>
             <Typography>{t('propType', { ns: 'graphtype' })}</Typography>
           </PropertyHeaderCell>
-          <PropertyHeaderCell sx={{ flex: 0, flexBasis: '26%' }}>
+          <PropertyHeaderCell sx={{ flex: 0, flexBasis: '26%', minWidth: 0, pl: 2, gap: 0.5 }}>
             <Typography>{t('primaryKey', { ns: 'graphtype' })}</Typography>
+            <Tooltip
+              title={t(originalNode ? 'nodePrimaryKeyImmutableHelp' : 'nodePrimaryKeyHelp', { ns: 'graphtype' })}
+              describeChild
+              arrow
+            >
+              <IconButton
+                type="button"
+                size="small"
+                aria-label={t('primaryKey', { ns: 'graphtype' })}
+                sx={{ p: 0.25, flexShrink: 0 }}
+              >
+                <HelpCircleOutline sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
           </PropertyHeaderCell>
         </Stack>
         <List {...slotProps?.propertyList}>
@@ -297,12 +338,12 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                     textFieldProps={{
                       size: 'small',
                       fullWidth: true,
-                      inputProps: {
-                        disabled: readonly,
-                      },
+                      disabled: isKeyDefinitionLocked(index),
+                      InputProps: { disabled: isKeyDefinitionLocked(index) },
+                      inputProps: { disabled: isKeyDefinitionLocked(index) },
                     }}
                     autocompleteProps={{
-                      disabled: readonly,
+                      readOnly: isKeyDefinitionLocked(index),
                       size: 'small',
                       fullWidth: true,
                       disableClearable: true,
@@ -346,9 +387,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                       textFieldProps={{
                         size: 'small',
                         fullWidth: true,
-                        inputProps: {
-                          disabled: readonly,
-                        },
+                        disabled: readonly,
                       }}
                       autocompleteProps={{
                         filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -405,9 +444,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                         textFieldProps={{
                           size: 'small',
                           fullWidth: true,
-                          inputProps: {
-                            disabled: readonly,
-                          },
+                          disabled: readonly,
                         }}
                         autocompleteProps={{
                           filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -461,9 +498,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                         textFieldProps={{
                           size: 'small',
                           fullWidth: true,
-                          inputProps: {
-                            disabled: readonly,
-                          },
+                          disabled: readonly,
                         }}
                         autocompleteProps={{
                           filterOptions: (options: string[], params: FilterOptionsState<string>) => {
@@ -519,18 +554,23 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
               </Grid>
               <Grid size={{ xs: 3 }}>
                 <PropertyBodyCell display="flex" justifyContent={'center'}>
-                  <CheckboxElement
-                    inputProps={{
-                      disabled: readonly,
-                    }}
-                    size="small"
-                    name={`properties[${index}].isPrimaryKey`}
+                  <PropertyCheckbox
+                    disabled={readonly || !!originalNode}
+                    label={`${t('primaryKey', { ns: 'graphtype' })}: ${properties[index]?.name || index + 1}`}
+                    name={`properties.${index}.isPrimaryKey`}
                   />
                   <Box>
                     <PopupState variant="popper" popupId={`moreaction-${index}`}>
                       {(popupState) => (
                         <>
-                          <IconButton size="small" {...bindTrigger(popupState)}>
+                          <IconButton
+                            size="small"
+                            aria-label={t('propertySettings', {
+                              property: properties[index]?.name || index + 1,
+                              ns: 'graphtype',
+                            })}
+                            {...bindTrigger(popupState)}
+                          >
                             <MoreVertFilled />
                           </IconButton>
                           <Popover
@@ -546,8 +586,9 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                             disablePortal
                           >
                             <Box
-                              minWidth={288}
-                              height={148}
+                              width={560}
+                              maxWidth="calc(100vw - 32px)"
+                              minHeight={148}
                               padding={(theme) => `${theme.spacing(2)} ${theme.spacing(3)}`}
                             >
                               <Stack direction="row" sx={{ mt: 1 }}>
@@ -563,7 +604,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                       title={
                                         <Trans
                                           i18nKey="decimalPrecisionRange"
-                                          values={{ DECIMAL_ACCURACY }}
+                                          values={{ max: DECIMAL_MAX_PRECISION }}
                                           t={t}
                                           ns={'graphtype'}
                                         />
@@ -582,7 +623,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                       title={
                                         <Trans
                                           i18nKey="decimalScaleRange"
-                                          values={{ DECIMAL_ACCURACY }}
+                                          values={{ max: DECIMAL_MAX_SCALE }}
                                           t={t}
                                           ns={'graphtype'}
                                         />
@@ -593,94 +634,29 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                   </PropertyHeaderCell>
                                 )}
                                 <PropertyHeaderCell>
-                                  <Typography>Nullable</Typography>
+                                  <Typography>{t('nullable', { ns: 'graphtype' })}</Typography>
                                 </PropertyHeaderCell>
                                 <PropertyHeaderCell>
                                   <Typography>{t('defaultValue', { ns: 'graphtype' })}</Typography>
                                 </PropertyHeaderCell>
                               </Stack>
                               <Stack direction="row" sx={{ mt: 1 }}>
-                                {/* <PropertyBodyCell>
-                                  <CheckboxElement
-                                    name={`properties[${index}].isList`}
-                                    inputProps={{
-                                      disabled: readonly,
-                                    }}
-                                  />
-                                </PropertyBodyCell> */}
                                 {properties[index]?.type === PropertyDataType.DECIMAL && (
-                                  <PropertyBodyCell width={100}>
-                                    <TextFieldElement
-                                      size="small"
-                                      name={`properties[${index}].decimalPrecision`}
-                                      inputProps={{
-                                        disabled: readonly,
-                                        inputMode: 'numeric',
-                                        pattern: '[0-9]*',
-                                      }}
-                                      onChange={() => {
-                                        form.trigger('properties');
-                                      }}
-                                      fullWidth
-                                      rules={{
-                                        validate: (value) => {
-                                          if (value && (Number(value) < 1 || Number(value) > DECIMAL_ACCURACY)) {
-                                            return false;
-                                          }
-                                          return true;
-                                        },
-                                      }}
-                                      type="number"
-                                    />
-                                  </PropertyBodyCell>
-                                )}
-                                {properties[index]?.type === PropertyDataType.DECIMAL && (
-                                  <PropertyBodyCell width={100}>
-                                    <TextFieldElement
-                                      size="small"
-                                      name={`properties[${index}].decimalScale`}
-                                      inputProps={{
-                                        disabled: readonly,
-                                        inputMode: 'numeric',
-                                        pattern: '[0-9]*',
-                                      }}
-                                      onChange={() => {
-                                        form.trigger('properties');
-                                      }}
-                                      rules={{
-                                        validate: (value) => {
-                                          const MValue = form.getValues(`properties.${index}.decimalPrecision`);
-                                          if (!MValue) return false;
-                                          if (
-                                            value &&
-                                            (Number(value) < 1 ||
-                                              Number(value) > DECIMAL_ACCURACY ||
-                                              Number(value) > Number(MValue))
-                                          ) {
-                                            return false;
-                                          }
-                                          return true;
-                                        },
-                                      }}
-                                      type="number"
-                                    />
-                                  </PropertyBodyCell>
+                                  <DecimalFields index={index} disabled={isKeyDefinitionLocked(index)} />
                                 )}
                                 <PropertyBodyCell>
-                                  <CheckboxElement
-                                    name={`properties[${index}].nullable`}
-                                    inputProps={{
-                                      disabled: readonly,
-                                    }}
+                                  <PropertyCheckbox
+                                    name={`properties.${index}.nullable`}
+                                    disabled={isKeyDefinitionLocked(index)}
+                                    label={t('nullable', { ns: 'graphtype' })}
                                   />
                                 </PropertyBodyCell>
                                 <PropertyBodyCell>
                                   <TextFieldElement
                                     size="small"
                                     name={`properties[${index}].default`}
-                                    inputProps={{
-                                      disabled: readonly,
-                                    }}
+                                    InputProps={{ disabled: isKeyDefinitionLocked(index) }}
+                                    inputProps={{ 'aria-label': t('defaultValue', { ns: 'graphtype' }) }}
                                   />
                                 </PropertyBodyCell>
                               </Stack>
@@ -691,7 +667,12 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                     </PopupState>
 
                     {!readonly && (
-                      <IconButton size="small" onClick={handleDelete(index)}>
+                      <IconButton
+                        size="small"
+                        onClick={handleDelete(index)}
+                        disabled={isKeyDefinitionLocked(index)}
+                        aria-label={`${t('delete', { ns: 'common' })}: ${properties[index]?.name || index + 1}`}
+                      >
                         <CloseFilled />
                       </IconButton>
                     )}
@@ -720,7 +701,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
           </PropertyBodyCell>
         </List>
       </TypeInfoContainer>
-    </Box>
+    </PropertyFormContainer>
   );
 }
 

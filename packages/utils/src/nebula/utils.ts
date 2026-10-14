@@ -4,7 +4,6 @@ import { IProperty } from './interfaces/schema';
 import {
   PropertyDataType,
   EdgeDirectionType,
-  DecimalTypePattern,
   ListTypePattern,
   SetTypePattern,
   ForwardEdgePattern,
@@ -14,24 +13,15 @@ import {
   parseMapTypeSignature,
   VectorTypePattern,
 } from '../constant';
+import { parseDecimalType } from './decimal';
 
 // veditor's uuid should be a string without '-'
 export const createUuid = (): string => uuid().replaceAll('-', '');
 
 // SchemaManager > GraphTypeBuilder > VisualBuilder util
 export function parsePropertyDataType(type: string): Partial<IProperty> {
-  if (type.startsWith(PropertyDataType.DECIMAL)) {
-    const matched = type.match(DecimalTypePattern);
-    if (!matched) {
-      return { type: PropertyDataType.DECIMAL, decimalPrecision: 0, decimalScale: 0 };
-    }
-    const [, decimalPrecision, decimalScale] = matched;
-    return {
-      type: PropertyDataType.DECIMAL,
-      decimalPrecision: Number(decimalPrecision) || 0,
-      decimalScale: Number(decimalScale) || 0,
-    };
-  }
+  const decimal = parseDecimalType(type);
+  if (decimal) return { type: PropertyDataType.DECIMAL, ...decimal };
   // GEOGRAPHY(Any) -> GEOGRAPHY
   if (type.toLowerCase().startsWith('geography')) {
     const matched = type.match(GeographyTypePattern);

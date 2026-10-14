@@ -1,6 +1,6 @@
-import { Box, Button, ButtonGroup, Container, TextField, useTheme } from '@mui/material';
+import { Alert, Box, Button, ButtonGroup, Container, Tooltip, useTheme } from '@mui/material';
 import { BreadCrumbs } from '@vesoft-inc/ui-components';
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 import { FormContainer, TextFieldElement, useForm } from 'react-hook-form-mui';
@@ -21,16 +21,20 @@ import NodeTypeTable from './NodeType';
 import EdgeTypeTable from './EdgeType';
 import Preview from './Preview';
 import { GraphTypeBuildMode } from '@studio/interfaces';
+import { ActiveItemInfo } from '@studio/stores/graphtype/schema';
 import LabelTable from './LabelTable';
 import { createSketch, execGql, migrateGraphTypeLayout, resolveSchemaPath } from '@studio/services';
 import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
 import { CloseFilled, EditFilled } from '@vesoft-inc/icons';
 import { encodeUrl, isStudioTarget } from '@studio/utils';
+import { VisualEditorType } from '@studio/utils/constant';
 import GroupButton from '@studio/components/GroupButton';
 import TitleEllipsis from '@studio/components/TitleEllipsis';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
-import { getCanvasLayout, reactFlowInstance } from './VisualBuilder/store';
+import { getCanvasLayout, reactFlowInstance, setActiveItem } from './VisualBuilder/store';
 import { MassiveGraphConfirmMask } from './VisualBuilder/MassiveGraphConfirmMask';
+import { validateGraphTypeDecimals, validateGraphTypePrimaryKeys } from './validation';
+import { getGraphTypeSubmissionError } from './submissionError';
 
 enum CreateGraphTypeStep {
   create,
@@ -67,6 +71,10 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   const message = useModal().message;
   const navigate = useNavigate();
   const [curNgql, setCurNgql] = useState('');
+  const [pendingInvalidItem, setPendingInvalidItem] = useState<ActiveItemInfo | null>(null);
+  const [submissionError, setSubmissionError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef<symbol | null>(null);
   const location = useLocation();
   const params = useParams<{ graphTypeName: string }>();
   const readonlyMode = mode === GraphTypeBuildMode.Readonly;
@@ -98,6 +106,15 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
       graphTypeName: '',
     },
   });
+  const graphTypeName = form.watch('graphTypeName');
+  const getPrimaryKeyErrors = () =>
+    validateGraphTypePrimaryKeys({
+      mode,
+      nodeTypeList: graphtypeStore.schemaStore?.nodeTypeList.slice() || [],
+      originalNodeTypeList: graphtypeStore.schemaStore?.originalNodeTypeList || [],
+      graphTypeName,
+      originalGraphTypeName: graphtypeStore.schemaStore?.graphtypeName,
+    });
 
   useEffect(() => {
     initGraphTypes();
@@ -109,6 +126,10 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
 
   useEffect(() => {
     setCurStep(CreateGraphTypeStep.create); // Reset to initial status on location change (menu item changed)
+    setPendingInvalidItem(null);
+    setSubmissionError('');
+    setIsSubmitting(false);
+    submittingRef.current = null;
     graphtypeStore.updateMode(mode);
     switch (mode) {
       case GraphTypeBuildMode.Create:
@@ -137,6 +158,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
         break;
     }
     return () => {
+      submittingRef.current = null;
       graphtypeStore.destroySchemaStore();
     };
   }, [mode, location.pathname]);
@@ -154,8 +176,31 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     }
   }, [graphtypeStore.schemaStore?.graphtypeName]);
 
+  useEffect(() => {
+    setSubmissionError('');
+  }, [graphTypeName, curStep]);
+
+  const validateSchema = () => {
+    const schema = graphtypeStore.schemaStore;
+    const decimalError = validateGraphTypeDecimals(schema?.nodeTypeList || [], schema?.edgeTypeList || [])[0];
+    const firstError = getPrimaryKeyErrors()[0];
+    if (!firstError && !decimalError) return true;
+    setCurStep(CreateGraphTypeStep.create);
+    setCurTab(CreateFunction.VisualBuilder);
+    setHasConfirmedHeavyRender(true);
+    if (firstError) setPendingInvalidItem({ type: VisualEditorType.Tag, value: firstError.node });
+    else if (decimalError) {
+      const node = schema?.nodeTypeList.find((node) => node.id === decimalError.entity.id);
+      const edge = schema?.edgeTypeList.find((edge) => edge.id === decimalError.entity.id);
+      if (node) setPendingInvalidItem({ type: VisualEditorType.Tag, value: node });
+      else if (edge) setPendingInvalidItem({ type: VisualEditorType.Edge, value: edge });
+    }
+    return false;
+  };
+
   const handeNextClick = () => {
     form.handleSubmit(() => {
+      if (!validateSchema()) return;
       setCurStep(curStep + 1);
     })();
   };
@@ -183,6 +228,8 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
 
   const detectNameConflicts = (): string[] => {
     if (!graphtypeStore.schemaStore) return [];
+    // A graph-type rename does not submit edits to its contained entities.
+    if (form.getValues('graphTypeName') !== graphtypeStore.schemaStore.graphtypeName) return [];
     const { nodeTypeList, edgeTypeList, originalEdgeTypeList, originalNodeTypeList } = graphtypeStore.schemaStore;
 
     const droppedNodeNames = originalNodeTypeList
@@ -264,26 +311,50 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   };
 
   const handleCreateGraphType = async () => {
+    if (submittingRef.current || readonlyMode) return;
+    setSubmissionError('');
+    if (!validateSchema()) return;
+    let gql: string;
     if (mode === GraphTypeBuildMode.Edit) {
       const conflicts = detectNameConflicts();
       if (conflicts.length > 0) {
-        message.error(t('nameConflictError', { ns: 'graphtype', names: conflicts.join(', ') }));
+        setSubmissionError(t('nameConflictError', { ns: 'graphtype', names: conflicts.join(', ') }));
+        return;
       }
-      const gql = getAlterGraphTypeNgql();
-      if (!gql.trim().length) return message.error(t('updateContentEmptyError', { ns: 'graphtype' }));
-      const res = await execGql(getAlterGraphTypeNgql());
-      if (res.code === 0) {
-        message.success(t('alterGraphTypeSuccess', { ns: 'graphtype' }));
-        carryLayoutToRenamedGraphType();
-        navigate('/schema-manager/graphtype');
+      gql = getAlterGraphTypeNgql();
+      if (!gql.trim().length) {
+        setSubmissionError(t('updateContentEmptyError', { ns: 'graphtype' }));
+        return;
       }
-      return;
+    } else {
+      gql = getCreateGraphTypeNgql();
     }
-    if (mode === GraphTypeBuildMode.Create || mode === GraphTypeBuildMode.Sketch) {
-      const res = await execGql(getCreateGraphTypeNgql());
-      if (res.code === 0) {
-        message.success(t('createGraphTypeSuccess', { ns: 'graphtype' }));
-        navigate('/schema-manager/graphtype');
+
+    const request = Symbol('graph-type-submission');
+    submittingRef.current = request;
+    setIsSubmitting(true);
+    const fallback = t('graphTypeSubmitFailed', { ns: 'graphtype' });
+    try {
+      // This page owns persistent feedback; suppress the fetcher's transient toast.
+      const res = await execGql(gql, { errTip: false });
+      if (submittingRef.current !== request) return;
+      if (res?.code !== 0) {
+        setSubmissionError(getGraphTypeSubmissionError(res, fallback));
+        return;
+      }
+      message.success(
+        t(mode === GraphTypeBuildMode.Edit ? 'alterGraphTypeSuccess' : 'createGraphTypeSuccess', { ns: 'graphtype' })
+      );
+      if (mode === GraphTypeBuildMode.Edit) carryLayoutToRenamedGraphType();
+      navigate('/schema-manager/graphtype');
+    } catch (error) {
+      if (submittingRef.current === request) {
+        setSubmissionError(getGraphTypeSubmissionError(error, fallback));
+      }
+    } finally {
+      if (submittingRef.current === request) {
+        submittingRef.current = null;
+        setIsSubmitting(false);
       }
     }
   };
@@ -503,6 +574,23 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     setHasConfirmedHeavyRender(false);
   }, [graphtypeStore.schemaStore?.graphtypeName]);
 
+  useEffect(() => {
+    if (
+      !pendingInvalidItem ||
+      curStep !== CreateGraphTypeStep.create ||
+      curTab !== CreateFunction.VisualBuilder ||
+      shouldConfirmHeavyRender
+    ) {
+      return;
+    }
+    // Builder initialization and StrictMode replay reset selection; select after both finish.
+    const timeout = window.setTimeout(() => {
+      setActiveItem(pendingInvalidItem);
+      setPendingInvalidItem(null);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [pendingInvalidItem, curStep, curTab, shouldConfirmHeavyRender]);
+
   return (
     <ContentContainer>
       <Box display="flex" justifyContent="space-between">
@@ -545,6 +633,11 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
           </Button>
         )}
       </Box>
+      {submissionError && (
+        <Alert severity="error" sx={{ mb: 2, flexShrink: 0 }}>
+          {submissionError}
+        </Alert>
+      )}
       <StepContainer display={curStep === CreateGraphTypeStep.create ? 'flex' : 'none'}>
         <Box display="flex" alignItems="center" position="relative">
           {!readonlyMode && (
@@ -568,15 +661,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
                   size="small"
                   fullWidth
                   sx={{ width: 220 }}
-                  component={(props) => (
-                    <TextField
-                      {...props}
-                      inputProps={{
-                        size: 'small',
-                        disabled: curStep === CreateGraphTypeStep.preview,
-                      }}
-                    />
-                  )}
+                  inputProps={{ disabled: curStep === CreateGraphTypeStep.preview }}
                 />
               </FormContainer>
             </ActionContainer>
@@ -632,12 +717,14 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
       {!readonlyMode && (
         <FooterContainer sx={{ zIndex: theme.zIndex.drawer }}>
           {curStep === CreateGraphTypeStep.create && curTab === CreateFunction.VisualBuilder && isStudioTarget && (
-            <Button variant="text" sx={{ mr: '10px' }} onClick={handleSaveSketch}>
-              {t('saveAsSketch', { ns: 'graphtype' })}
-            </Button>
+            <Tooltip title={t('saveAsSketchHelp', { ns: 'graphtype' })} describeChild arrow>
+              <Button variant="text" sx={{ mr: '10px' }} onClick={handleSaveSketch}>
+                {t('saveAsSketch', { ns: 'graphtype' })}
+              </Button>
+            </Tooltip>
           )}
           <Button
-            disabled={curStep === CreateGraphTypeStep.create}
+            disabled={curStep === CreateGraphTypeStep.create || isSubmitting}
             variant="outlined"
             onClick={handlePreviousClick}
             sx={{ width: '120px' }}
@@ -650,7 +737,12 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
             </Button>
           )}
           {curStep === CreateGraphTypeStep.preview && (
-            <Button variant="contained" sx={{ ml: '10px', minWidth: '120px' }} onClick={handleCreateGraphType}>
+            <Button
+              variant="contained"
+              sx={{ ml: '10px', minWidth: '120px' }}
+              onClick={handleCreateGraphType}
+              loading={isSubmitting}
+            >
               {(mode === GraphTypeBuildMode.Create || mode === GraphTypeBuildMode.Sketch) &&
                 t('createGraphType', { ns: 'graphtype' })}
               {mode === 'edit' && t('commitEdit', { ns: 'graphtype' })}

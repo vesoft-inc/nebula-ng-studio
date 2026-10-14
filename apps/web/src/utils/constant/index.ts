@@ -23,8 +23,6 @@ export const EmptyResultId = 'empty-result';
 export const DecimalTypePattern = /^DECIMAL\((\d+),\s*(\d+)\)$/;
 export const ListTypePattern = /^LIST<(.+)>$/;
 
-export const DECIMAL_ACCURACY = 255;
-
 export const DEFAULT_SCHEMA_PATH = '/default_schema';
 export const LANG_KEY = 'studio-lng';
 
