@@ -23,6 +23,34 @@ export function validateGraphTypeDecimals(nodes: INodeTypeItem[], edges: IEdgeTy
 
 type NodeIdentity = Pick<INodeTypeItem, 'id' | 'name'>;
 export type NodePrimaryKeyError = 'nodePrimaryKeyRequired' | 'nodePrimaryKeyInvalid' | 'nodePrimaryKeyImmutable';
+export type NodePrimaryKeyPropertyIssue = {
+  property: IProperty;
+  index: number;
+  reason:
+    | 'nodePrimaryKeyNameRequired'
+    | 'nodePrimaryKeyNullable'
+    | 'nodePrimaryKeyDefault'
+    | 'nodePrimaryKeyTypeUnsupported';
+};
+
+export const getNodePrimaryKeyPropertyIssues = (
+  node: Pick<INodeTypeItem, 'properties'>
+): NodePrimaryKeyPropertyIssue[] =>
+  node.properties.flatMap((property, index) => {
+    if (!property.isPrimaryKey) return [];
+    const reasons: NodePrimaryKeyPropertyIssue['reason'][] = [];
+    if (!property.name.trim()) reasons.push('nodePrimaryKeyNameRequired');
+    if (property.nullable === true) reasons.push('nodePrimaryKeyNullable');
+    if (property.default) reasons.push('nodePrimaryKeyDefault');
+    if (
+      [PropertyDataType.LIST, PropertyDataType.SET, PropertyDataType.MAP, PropertyDataType.VECTOR].includes(
+        property.type
+      ) ||
+      property.type.startsWith(PropertyDataType.GEOGRAPHY)
+    )
+      reasons.push('nodePrimaryKeyTypeUnsupported');
+    return reasons.map((reason) => ({ property, index, reason }));
+  });
 
 export const getOriginalNodeType = (original: INodeTypeItem[], current: NodeIdentity) =>
   original.find((node) => node.id === current.id) || original.find((node) => node.name === current.name);
@@ -57,17 +85,7 @@ export const getNodePrimaryKeyError = (
     if (changed) return 'nodePrimaryKeyImmutable';
   }
   if (!keys.length) return 'nodePrimaryKeyRequired';
-  const invalid = keys.some(
-    (property) =>
-      !property.name.trim() ||
-      property.nullable === true ||
-      !!property.default ||
-      [PropertyDataType.LIST, PropertyDataType.SET, PropertyDataType.MAP, PropertyDataType.VECTOR].includes(
-        property.type
-      ) ||
-      property.type.startsWith(PropertyDataType.GEOGRAPHY)
-  );
-  return invalid ? 'nodePrimaryKeyInvalid' : null;
+  return getNodePrimaryKeyPropertyIssues(node).length ? 'nodePrimaryKeyInvalid' : null;
 };
 
 export const validateGraphTypePrimaryKeys = ({

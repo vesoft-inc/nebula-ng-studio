@@ -37,8 +37,14 @@ import { useStore } from '@studio/stores';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
 import { useEffect } from 'react';
-import { getNodePrimaryKeyError, getOriginalNodeType, getPropertyDecimalError } from '../validation';
+import {
+  getNodePrimaryKeyError,
+  getNodePrimaryKeyPropertyIssues,
+  getOriginalNodeType,
+  getPropertyDecimalError,
+} from '../validation';
 import { getPropertyFormValues, getPropertyModel } from '../formValues';
+import { PrimaryKeyGuidance } from './PrimaryKeyGuidance';
 
 interface NodeTypeConfigFormProps {
   colorPicker?: boolean;
@@ -118,6 +124,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
         })
       : undefined;
   const primaryKeyError = getNodePrimaryKeyError({ properties: properties || [] }, originalNode);
+  const primaryKeyIssues = getNodePrimaryKeyPropertyIssues({ properties: properties || [] });
   const isKeyDefinitionLocked = (index: number) => {
     const value = properties[index];
     const originalProperty =
@@ -268,16 +275,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
       <TypeInfoContainer>
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, minHeight: 24, mb: 2 }}>
           <Typography>{t('properties', { ns: 'graphtype' })}</Typography>
-          {!readonly && primaryKeyError && (
-            <Typography
-              role="status"
-              variant="body2"
-              color="warning.dark"
-              sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
-            >
-              {t(primaryKeyError, { ns: 'graphtype' })}
-            </Typography>
-          )}
+          {!readonly && primaryKeyError && <PrimaryKeyGuidance error={primaryKeyError} issues={primaryKeyIssues} />}
         </Box>
         {!readonly && decimalErrorProperty && (
           <Typography role="status" variant="body2" color="error" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
@@ -565,7 +563,14 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                     <PopupState variant="popper" popupId={`moreaction-${index}`}>
                       {(popupState) => (
                         <>
-                          <IconButton size="small" {...bindTrigger(popupState)}>
+                          <IconButton
+                            size="small"
+                            aria-label={t('propertySettings', {
+                              property: properties[index]?.name || index + 1,
+                              ns: 'graphtype',
+                            })}
+                            {...bindTrigger(popupState)}
+                          >
                             <MoreVertFilled />
                           </IconButton>
                           <Popover
@@ -629,7 +634,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                   </PropertyHeaderCell>
                                 )}
                                 <PropertyHeaderCell>
-                                  <Typography>Nullable</Typography>
+                                  <Typography>{t('nullable', { ns: 'graphtype' })}</Typography>
                                 </PropertyHeaderCell>
                                 <PropertyHeaderCell>
                                   <Typography>{t('defaultValue', { ns: 'graphtype' })}</Typography>
@@ -651,6 +656,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
                                     size="small"
                                     name={`properties[${index}].default`}
                                     InputProps={{ disabled: isKeyDefinitionLocked(index) }}
+                                    inputProps={{ 'aria-label': t('defaultValue', { ns: 'graphtype' }) }}
                                   />
                                 </PropertyBodyCell>
                               </Stack>

@@ -317,7 +317,11 @@ describe('DECIMAL form round trips', () => {
     render(<Editor />);
     await user.click(screen.getByRole('button', { name: 'Edit node' }));
     const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getAllByRole('button', { name: 'More' }).at(-1)!);
+    await user.click(
+      within(dialog)
+        .getAllByRole('button', { name: /More|propertySettings/ })
+        .at(-1)!
+    );
     await user.keyboard('{Escape}');
     const type = within(dialog)
       .getAllByRole('combobox', { name: /propType/ })
@@ -338,7 +342,11 @@ describe('DECIMAL form round trips', () => {
     render(<Editor withCanvas />);
     await user.click(screen.getByRole('button', { name: 'Open node' }));
     const editor = await screen.findByRole('region', { name: 'Node editor' });
-    await user.click(within(editor).getAllByRole('button', { name: 'More' }).at(-1)!);
+    await user.click(
+      within(editor)
+        .getAllByRole('button', { name: /More|propertySettings/ })
+        .at(-1)!
+    );
     fireEvent.change(screen.getByRole('spinbutton', { name: 'decimalPrecision', hidden: true }), {
       target: { value: '257' },
     });
@@ -366,7 +374,7 @@ describe('DECIMAL form round trips', () => {
       render(<Editor edge={edge} />);
       await user.click(screen.getByRole('button', { name: 'Edit node' }));
       const dialog = screen.getByRole('dialog');
-      const buttons = within(dialog).getAllByRole('button', { name: 'More' });
+      const buttons = within(dialog).getAllByRole('button', { name: /More|propertySettings/ });
       await user.click(buttons[buttons.length - 1]);
       const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];
       for (const [p, s, invalid] of [
@@ -417,7 +425,7 @@ describe('DECIMAL form round trips', () => {
     render(<Editor />);
     await user.click(screen.getByRole('button', { name: 'Edit node' }));
     const dialog = screen.getByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: 'More' }));
+    await user.click(within(dialog).getByRole('button', { name: /More|propertySettings/ }));
     const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];
     for (const field of [precision, scale]) {
       expect(field.disabled).toBe(true);
@@ -483,7 +491,7 @@ describe('DECIMAL form round trips', () => {
     for (const edit of [true, false]) {
       await user.click(screen.getByRole('button', { name: 'Edit node' }));
       const dialog = screen.getByRole('dialog');
-      const moreButtons = within(dialog).getAllByRole('button', { name: 'More' });
+      const moreButtons = within(dialog).getAllByRole('button', { name: /More|propertySettings/ });
       await user.click(moreButtons[moreButtons.length - 1]);
       // The mocked parent dialog is hidden by MUI's nested popover modal manager.
       const [precision, scale] = screen.getAllByRole('spinbutton', { hidden: true }) as HTMLInputElement[];

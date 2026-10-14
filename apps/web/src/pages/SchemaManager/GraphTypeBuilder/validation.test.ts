@@ -4,6 +4,7 @@ import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@st
 import {
   getNewNodeTypes,
   getNodePrimaryKeyError,
+  getNodePrimaryKeyPropertyIssues,
   validateGraphTypePrimaryKeys,
   validateGraphTypeDecimals,
 } from './validation';
@@ -36,6 +37,42 @@ describe('DECIMAL schema validation', () => {
 });
 
 describe('node primary key validation', () => {
+  it.each([
+    { property: { ...key, name: ' ' }, reason: 'nodePrimaryKeyNameRequired' },
+    { property: { ...key, nullable: true }, reason: 'nodePrimaryKeyNullable' },
+    { property: { ...key, default: '0' }, reason: 'nodePrimaryKeyDefault' },
+    ...[
+      PropertyDataType.LIST,
+      PropertyDataType.SET,
+      PropertyDataType.MAP,
+      PropertyDataType.VECTOR,
+      PropertyDataType.GEOGRAPHY,
+      PropertyDataType.GEOGRAPHY_ANY,
+      PropertyDataType.GEOGRAPHY_POINT,
+      PropertyDataType.GEOGRAPHY_LINESTRING,
+      PropertyDataType.GEOGRAPHY_POLYGON,
+    ].map((type) => ({ property: { ...key, type }, reason: 'nodePrimaryKeyTypeUnsupported' })),
+  ])('returns a specific reason for $property.type: $reason', ({ property, reason }) => {
+    const person = node('Person', [property]);
+    expect(getNodePrimaryKeyPropertyIssues(person)).toEqual([{ property: person.properties[0], index: 0, reason }]);
+  });
+
+  it('reports all constraints for all selected members without including regular properties', () => {
+    const person = node('Person', [
+      { name: '', nullable: true, default: '0', type: PropertyDataType.LIST },
+      key,
+      { ...key, name: '', nullable: true, default: '0', type: PropertyDataType.LIST },
+      { ...key, name: 'tenant', nullable: true },
+    ]);
+    expect(getNodePrimaryKeyPropertyIssues(person).map(({ index, reason }) => [index, reason])).toEqual([
+      [2, 'nodePrimaryKeyNameRequired'],
+      [2, 'nodePrimaryKeyNullable'],
+      [2, 'nodePrimaryKeyDefault'],
+      [2, 'nodePrimaryKeyTypeUnsupported'],
+      [3, 'nodePrimaryKeyNullable'],
+    ]);
+  });
+
   it.each([{ properties: [] }, { properties: [{ name: 'name' }] }])(
     'requires a key even when the node has properties: %j',
     ({ properties }) => {

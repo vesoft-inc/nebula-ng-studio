@@ -5,12 +5,14 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { PropertyDataType } from '@vesoft-inc/utils';
 import { FormContainer } from 'react-hook-form-mui';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '@studio/interfaces';
 import NodeTypeConfigForm from './NodeType/NodeTypeConfigForm';
 import EdgeTypeConfigForm from './EdgeType/EdgeTypeConfigForm';
 import en from '@studio/utils/i18n/en_US/graphtype';
 import zh from '@studio/utils/i18n/zh_CN/graphtype';
+import { getEdgeTypeFormValues, getNodeTypeFormValues } from './formValues';
 
 const store = vi.hoisted(() => ({
   language: 'keys',
@@ -27,9 +29,11 @@ const store = vi.hoisted(() => ({
 vi.mock('@studio/stores', () => ({ useStore: () => store }));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, options?: Record<string, unknown>) => {
       const translations = store.language === 'en' ? en : store.language === 'zh' ? zh : null;
-      return translations?.[key as keyof typeof en] || key;
+      return (translations?.[key as keyof typeof en] || key).replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
+        String(options?.[name] ?? '')
+      );
     },
   }),
 }));
@@ -46,7 +50,9 @@ const renderForm = (type: 'node' | 'edge', labels: string[] = [], onChange = vi.
   const person = new INodeTypeItem({ name: 'person', labels, properties });
   store.graphtypeStore.schemaStore.nodeTypeList = [person];
   const values =
-    type === 'node' ? person : new IEdgeTypeItem({ name: 'knows', labels, srcNode: person, dstNode: person });
+    type === 'node'
+      ? getNodeTypeFormValues(person)
+      : getEdgeTypeFormValues(new IEdgeTypeItem({ name: 'knows', labels, srcNode: person, dstNode: person }));
   const onSubmit = vi.fn();
 
   render(
@@ -122,13 +128,152 @@ describe('node primary key guidance', () => {
     }
   );
 
-  it('keeps invalid-key guidance compact while exposing the constraints in help', async () => {
+  it('identifies the invalid property and reason while retaining general key help', async () => {
     const { user } = renderForm('node', [], vi.fn(), [
       new IProperty({ name: 'id', isPrimaryKey: true, nullable: true }),
     ]);
-    expect(screen.getByRole('status').textContent).toBe('nodePrimaryKeyInvalid');
+    expect(screen.getByRole('status').textContent).toBe('nodePrimaryKeyNullable');
     await user.hover(screen.getByRole('button', { name: 'primaryKey' }));
     expect((await screen.findByRole('tooltip')).textContent).toBe('nodePrimaryKeyHelp');
+  });
+
+  describe.each(['en', 'zh'])('actionable %s key guidance', (language) => {
+    const translations = language === 'en' ? en : zh;
+    const interpolate = (text: string, values: Record<string, unknown>) =>
+      text.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(values[name]));
+
+    it.each([
+      {
+        name: '',
+        reason: interpolate(translations.nodePrimaryKeyNameRequired, { index: 1 }),
+      },
+      { nullable: true, reason: interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }) },
+      { default: '0', reason: interpolate(translations.nodePrimaryKeyDefault, { property: 'id' }) },
+      {
+        type: PropertyDataType.LIST,
+        reason: interpolate(translations.nodePrimaryKeyTypeUnsupported, { property: 'id', type: 'LIST' }),
+      },
+    ])('describes the property and reason in a complete sentence: $reason', ({ reason, ...property }) => {
+      store.language = language;
+      renderForm('node', [], vi.fn(), [new IProperty({ name: 'id', isPrimaryKey: true, ...property })]);
+      expect(screen.getByRole('status').textContent).toBe(reason);
+      expect(screen.getByRole('status').textContent).not.toMatch(/^id\s*[:：]/);
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByRole('status').textContent).not.toContain(translations.nodePrimaryKeyInvalid);
+    });
+
+    it('exposes every issue across composite key members on keyboard focus', async () => {
+      store.language = language;
+      renderForm('node', [], vi.fn(), [
+        new IProperty({ name: 'id', isPrimaryKey: true, nullable: true, default: '0' }),
+        new IProperty({ name: 'tenant', isPrimaryKey: true, type: PropertyDataType.LIST }),
+        new IProperty({ name: 'ordinary', nullable: true, default: '0' }),
+      ]);
+      const more = screen.getByRole('button', {
+        name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 2 }),
+      });
+      expect(more.textContent).toBe('(2)');
+      expect(more.getAttribute('type')).toBe('button');
+      expect(getComputedStyle(more).flexShrink).toBe('0');
+      expect(getComputedStyle(more.parentElement!).gap).toBe('4px');
+      more.focus();
+      const tooltip = await screen.findByRole('tooltip');
+      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
+      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyDefault, { property: 'id' }));
+      expect(tooltip.textContent).toContain(
+        interpolate(translations.nodePrimaryKeyTypeUnsupported, { property: 'tenant', type: 'LIST' })
+      );
+      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyNullableAction);
+      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyDefaultAction);
+      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyTypeUnsupportedAction);
+      expect(tooltip.textContent).not.toContain('ordinary');
+    });
+
+    it('updates to the remaining reason and clears the hint when all settings are corrected', async () => {
+      store.language = language;
+      const { user } = renderForm('node', [], vi.fn(), [
+        new IProperty({ name: 'id', isPrimaryKey: true, nullable: true, default: '0' }),
+      ]);
+      await user.click(
+        screen.getByRole('button', { name: interpolate(translations.propertySettings, { property: 'id' }) })
+      );
+      await user.click(screen.getByRole('checkbox', { name: translations.nullable, hidden: true }));
+      expect(screen.getByRole('status', { hidden: true }).textContent).toBe(
+        interpolate(translations.nodePrimaryKeyDefault, { property: 'id' })
+      );
+      expect(
+        screen.queryByRole('button', {
+          name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 1 }),
+          hidden: true,
+        })
+      ).toBeNull();
+      await user.clear(screen.getByRole('textbox', { name: translations.defaultValue, hidden: true }));
+      await waitFor(() => expect(screen.queryByRole('status', { hidden: true })).toBeNull());
+      expect(
+        screen.queryByRole('button', { name: /more primary key issues|还有 .*项主键问题/, hidden: true })
+      ).toBeNull();
+    });
+
+    it('provides a clear fix for a single issue, not only multiple issues', async () => {
+      store.language = language;
+      const { user } = renderForm('node', [], vi.fn(), [
+        new IProperty({ name: 'id', isPrimaryKey: true, nullable: true }),
+      ]);
+      expect(screen.queryByRole('button', { name: /more primary key issues|还有 .*项主键问题/ })).toBeNull();
+      await user.hover(screen.getByRole('status'));
+      const tooltip = await screen.findByRole('tooltip');
+      expect(tooltip.textContent).toContain(translations.nodePrimaryKeyNullableAction);
+      expect(tooltip.textContent).toContain(translations.nullable);
+    });
+
+    it('keeps a long property name identifiable without letting it expand the compact hint', async () => {
+      store.language = language;
+      const name = 'very_long_primary_key_property_name_'.repeat(4);
+      const { user } = renderForm('node', [], vi.fn(), [new IProperty({ name, isPrimaryKey: true, nullable: true })]);
+      const status = screen.getByRole('status');
+      expect(status.textContent).toBe(interpolate(translations.nodePrimaryKeyNullable, { property: name }));
+      expect(getComputedStyle(status).maxWidth).toBe('100%');
+      expect(getComputedStyle(status).textOverflow).toBe('ellipsis');
+      await user.hover(status);
+      expect((await screen.findByRole('tooltip')).textContent).toContain(status.textContent);
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('uses the row number in complete sentences when an unnamed key has multiple issues', async () => {
+      store.language = language;
+      renderForm('node', [], vi.fn(), [
+        new IProperty({ name: '', isPrimaryKey: true, nullable: true, default: '0', type: PropertyDataType.LIST }),
+      ]);
+      screen.getByRole('button', { name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 3 }) }).focus();
+      const tooltip = await screen.findByRole('tooltip');
+      for (const text of [
+        translations.nodePrimaryKeyNameRequired,
+        translations.nodePrimaryKeyNullableUnnamed,
+        translations.nodePrimaryKeyDefaultUnnamed,
+        translations.nodePrimaryKeyTypeUnsupportedUnnamed,
+      ]) {
+        expect(tooltip.textContent).toContain(interpolate(text, { index: 1, type: 'LIST' }));
+      }
+      expect(tooltip.textContent).not.toContain('“”');
+      expect(tooltip.textContent).not.toContain('""');
+    });
+
+    it('shows the full issue list on hover over the remaining-issue count', async () => {
+      store.language = language;
+      const { user } = renderForm('node', [], vi.fn(), [
+        new IProperty({ name: 'id', isPrimaryKey: true, nullable: true, default: '0' }),
+      ]);
+      const more = screen.getByRole('button', {
+        name: interpolate(translations.nodePrimaryKeyMoreIssues, { count: 1 }),
+      });
+      expect(more.textContent).toBe('(1)');
+      await user.hover(more);
+      const tooltip = await screen.findByRole('tooltip');
+      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyNullable, { property: 'id' }));
+      expect(tooltip.textContent).toContain(interpolate(translations.nodePrimaryKeyDefault, { property: 'id' }));
+      expect(screen.queryByText('View details')).toBeNull();
+      expect(screen.queryByText('查看详情')).toBeNull();
+    });
   });
 });
 
