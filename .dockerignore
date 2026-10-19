@@ -26,3 +26,7 @@ apps/server/vendor
 apps/server/**/*.crt
 apps/server/**/*.pem
 packages/utils/types
+
+# Host bind mounts from the Docker deployment examples.
+studio/data
+studio-logs
