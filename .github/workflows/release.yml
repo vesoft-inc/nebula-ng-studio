@@ -39,6 +39,7 @@ jobs:
       image: ${{ steps.request.outputs.image }}
       release_state: ${{ steps.request.outputs.release_state }}
       tag_exists: ${{ steps.request.outputs.tag_exists }}
+      notes_base_tag: ${{ steps.notes-base.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,6 +188,18 @@ jobs:
             echo "tag_exists=${tag_exists}"
           } >> "${GITHUB_OUTPUT}"
 
+      - name: Resolve the release notes baseline
+        id: notes-base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STUDIO_VERSION: ${{ steps.request.outputs.studio_version }}
+          TARGET_SHA: ${{ steps.request.outputs.target_sha }}
+        run: |
+          set -euo pipefail
+          # Freeze the published, reachable baseline before any new release tags are created.
+          notes_base_tag=$(node scripts/release-notes-base.mjs "${STUDIO_VERSION}" "${TARGET_SHA}")
+          echo "tag=${notes_base_tag}" >> "${GITHUB_OUTPUT}"
+
   quality-gate:
     name: Public CI quality gate
     needs: preflight
@@ -223,6 +236,7 @@ jobs:
           RELEASE_STATE: ${{ needs.preflight.outputs.release_state }}
           TAG_EXISTS: ${{ needs.preflight.outputs.tag_exists }}
           RELEASE_SOURCE: ${{ needs.preflight.outputs.release_source }}
+          NOTES_BASE_TAG: ${{ needs.preflight.outputs.notes_base_tag }}
           DOCKERHUB_IMAGE: ${{ env.STUDIO_DOCKERHUB_IMAGE }}
         run: |
           set -euo pipefail
@@ -247,6 +261,11 @@ jobs:
             echo "- Annotated tag: \`${TAG_NAME}\` (already exists: \`${TAG_EXISTS}\`)"
             echo "- Source commit: \`${TARGET_SHA}\`"
             echo "- Release source: \`${RELEASE_SOURCE}\`"
+            if [ -n "${NOTES_BASE_TAG}" ]; then
+              echo "- Release notes range: \`${NOTES_BASE_TAG}..${TAG_NAME}\`"
+            else
+              echo "- Release notes range: full history through \`${TAG_NAME}\` (no prior published baseline)"
+            fi
             echo "- OCI image: \`${IMAGE}:${STUDIO_VERSION}\`"
             echo "- Docker Hub image: \`${DOCKERHUB_IMAGE}:${STUDIO_VERSION}\`"
             echo "- Existing Release state: \`${RELEASE_STATE}\`"
@@ -680,6 +699,7 @@ jobs:
           STUDIO_VERSION: ${{ needs.preflight.outputs.studio_version }}
           TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
           IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
+          NOTES_BASE_TAG: ${{ needs.preflight.outputs.notes_base_tag }}
           IMAGE: ${{ needs.preflight.outputs.image }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           DOCKERHUB_IMAGE: ${{ env.STUDIO_DOCKERHUB_IMAGE }}
@@ -706,7 +726,7 @@ jobs:
           }
 
           notes="${RUNNER_TEMP}/release-notes.md"
-          prev_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*-*' "${TARGET_SHA}^" 2>/dev/null || true)
+          prev_tag="${NOTES_BASE_TAG}"
           {
             echo '## Changes'
             echo
