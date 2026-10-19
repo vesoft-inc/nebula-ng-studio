@@ -140,7 +140,9 @@ LABEL org.opencontainers.image.title="NebulaGraph Studio" \
       org.opencontainers.image.ref.name="${GIT_REF}" \
       org.opencontainers.image.licenses="${LICENSES}"
 
-RUN groupadd --system --gid 10001 studio \
+# Debian's util-linux provides setpriv for dropping privileges after mount setup.
+RUN command -v setpriv >/dev/null \
+    && groupadd --system --gid 10001 studio \
     && useradd --uid 10001 --gid studio --home-dir /app --shell /usr/sbin/nologin --no-create-home studio \
     && mkdir -p /app/data /app/logs /etc/ssl/certs \
     && chown -R studio:studio /app
@@ -154,8 +156,11 @@ COPY --from=server-builder --chown=studio:studio /workspace/apps/server/etc ./et
 # path (the Debian-style name does not exist there); the runtime image is Debian
 # and has no /etc/ssl at all, so the bundle is copied to the Debian path.
 COPY --from=server-builder /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /etc/ssl/certs/ca-certificates.crt
+COPY --chmod=0555 scripts/docker-entrypoint.sh /usr/local/bin/studio-entrypoint.sh
 
-USER studio:studio
+# The entrypoint initializes mounted directories, then execs Studio as 10001:10001.
+# Deployments that provide their own directory permissions can override --user.
+USER root
 
 VOLUME ["/app/data"]
 
@@ -164,9 +169,9 @@ EXPOSE 7001
 # The probe follows the listener scheme: a deployment that terminates TLS in Studio
 # overrides STUDIO_HEALTHCHECK_URL with its https URL, as scripts/studio.service does.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ./studio -healthcheck "${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/health}"
+  CMD /usr/local/bin/studio-entrypoint.sh -healthcheck "${STUDIO_HEALTHCHECK_URL:-http://127.0.0.1:7001/api-studio/health}"
 
 STOPSIGNAL SIGTERM
 
-ENTRYPOINT ["./studio"]
+ENTRYPOINT ["/usr/local/bin/studio-entrypoint.sh"]
 CMD ["-f", "etc/config-release.yaml"]
