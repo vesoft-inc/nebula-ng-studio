@@ -49,7 +49,7 @@ See [`deploy/linux-packages.md`](deploy/linux-packages.md) for native package in
 
 ## ⚙️ Configuration
 
-Studio Server reads the YAML selected by `-f <path>`. Configuration values may reference environment variables with `$VAR` or `${VAR}`. Use environment variables for secrets instead of storing them directly in YAML.
+Configuration values may reference environment variables with `$VAR` or `${VAR}`. Use environment variables for secrets instead of storing them directly in YAML.
 
 ## 🧩 Compatibility
 
