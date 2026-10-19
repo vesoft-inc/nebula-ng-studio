@@ -27,3 +27,7 @@ dist
 kubeconfig
 
 docs/local/
+
+# Host bind mounts from the Docker deployment examples.
+/studio/data/
+/studio-logs/

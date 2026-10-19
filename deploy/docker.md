@@ -41,6 +41,27 @@ volumes:
 
 Run `docker compose up -d` and open <http://localhost:7001>.
 
+## Host data directories and permissions
+
+To keep SQLite data in a host directory, replace `studio-data:/app/data` with a bind mount in the service's `volumes` list:
+
+```yaml
+services:
+  studio:
+    volumes:
+      - ./studio/data:/app/data
+```
+
+With `docker run`, use `-v "$PWD/studio/data:/app/data"`. Docker creates a missing host directory when using this short mount syntax. Relative Compose paths are resolved from the Compose file's directory.
+
+At startup, the image's entrypoint runs as root, initializes `/app/data` and `/app/logs`, then switches to UID/GID `10001:10001` before starting Studio. It repairs ownership and adds missing owner read/write permissions to existing files, including restored databases; directories also receive owner search permission. It only changes entries that need repair and does not follow symbolic links or recurse into other filesystems. The script uses `exec` to replace itself with Studio, so Studio receives stop signals directly (or through Docker's init when `init: true` is used).
+
+Use dedicated Studio data and log directories: initialization changes the corresponding host files' ownership and permissions. Stop Studio and back up existing data before changing the mount. Switching from the named volume does not copy its database into the host directory; migrate the data first if you need to preserve it.
+
+For deployments that require a non-root container from the start, use `--user 10001:10001` with `docker run`, or add `user: '10001:10001'` to the Compose service. The entrypoint then skips ownership repair and checks that `/app/data` and `/app/logs` are writable/searchable by that user. Prepare both directories and any existing database files for the selected UID/GID before startup. A different non-root UID/GID is also supported when both directories are writable by that identity.
+
+Automatic repair requires writable storage that permits ownership changes. Read-only mounts, NFS root-squash, or host security policies can require deployment-side configuration. Custom SQLite or log paths outside `/app/data` and `/app/logs` also require deployment-managed permissions. Version and healthcheck commands skip directory initialization.
+
 ## Secrets and configuration
 
 Set `STUDIO_IMAGE_TAG` to an exact version to pin the Compose image.
@@ -99,11 +120,13 @@ services:
       - ./studio-logs:/app/logs
 ```
 
-The host log directory must be writable by UID/GID 10001. Keep it separate from the SQLite data volume. Run only one Studio instance because login sessions are stored in the Server process.
+The entrypoint initializes the host log directory for UID/GID 10001 unless a non-root `--user`/`user:` override is configured. Keep it separate from the SQLite data volume. Run only one Studio instance because login sessions are stored in the Server process.
+
+The image's default exec user is root even after Studio drops privileges. For interactive commands, use `docker compose exec --user 10001:10001 studio sh` or `docker exec --user 10001:10001 <container> sh`. To inspect Studio's running identity, check its process in `/proc`; `docker exec <container> id` reports the exec user's identity, not Studio's.
 
 ## Data and upgrades
 
-The named volume keeps SQLite data across container replacement. `docker compose down` preserves it; `docker compose down --volumes` deletes it. The image runs as UID/GID 10001. Keep the default `/app/data/studio.db` path unless a custom data mount has the correct permissions.
+The named volume keeps SQLite data across container replacement. `docker compose down` preserves it; `docker compose down --volumes` deletes it. Studio runs as UID/GID 10001 after entrypoint initialization, unless a non-root user override is configured. Keep the default `/app/data/studio.db` path unless a custom data mount has the correct permissions.
 
 Before changing versions, stop Studio and back up the SQLite volume or MySQL database. Test the target version against a copy before upgrading production, then pull the image and start it. Confirm both health endpoints after the upgrade.
 

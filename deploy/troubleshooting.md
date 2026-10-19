@@ -22,7 +22,9 @@ Confirm the Graphd version is in the supported 5.x protocol family, and verify a
 
 ## Studio cannot write SQLite data
 
-The container runs as a non-root user. Keep the default `/app/data/studio.db` path, or make a custom bind mount writable by UID/GID 10001. Back up the database before changing ownership or mount layout.
+By default, the entrypoint initializes `/app/data` and `/app/logs` as root, then runs Studio as UID/GID 10001. A host directory such as `./studio/data:/app/data` is initialized automatically, including existing database files. See [host data directories and permissions](docker.md#host-data-directories-and-permissions).
+
+If startup reports `Studio entrypoint:`, check that the mount is writable and permits ownership changes. Read-only mounts, NFS root-squash, and host security policies can block initialization. With a non-root `--user` or Compose `user:` override, automatic repair is skipped; both directories and any existing database files must already be accessible to that UID/GID. Custom database paths and symlink targets outside the initialized directories require their own permissions. Back up the database before changing ownership or mount layout.
 
 ## OAuth2 login does not start or never returns
 
