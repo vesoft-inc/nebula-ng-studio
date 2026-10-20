@@ -134,7 +134,7 @@ jobs:
                 release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}")
               else
                 release=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
-                  jq -s --arg tag "${tag_name}" --arg name "NebulaGraph Studio ${studio_version}" '
+                  jq -s --arg tag "${tag_name}" --arg name "${tag_name}" '
                     map(select(type == "array")) | add // []
                     | map(select(.tag_name == $tag or (.draft == true and .name == $name)))
                     | if length == 1 then .[0] else empty end') || return 1
@@ -714,7 +714,7 @@ jobs:
                 release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}")
               else
                 release=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
-                  jq -s --arg tag "${TAG_NAME}" --arg name "NebulaGraph Studio ${STUDIO_VERSION}" '
+                  jq -s --arg tag "${TAG_NAME}" --arg name "${TAG_NAME}" '
                     map(select(type == "array")) | add // []
                     | map(select(.tag_name == $tag or (.draft == true and .name == $name)))
                     | if length == 1 then .[0] else empty end') || return 1
@@ -780,7 +780,7 @@ jobs:
               --draft
               --verify-tag
               --target "${TARGET_SHA}"
-              --title "NebulaGraph Studio ${STUDIO_VERSION}"
+              --title "${TAG_NAME}"
               --notes-file "${notes}"
             )
             if [ "${IS_PRERELEASE}" = true ]; then
