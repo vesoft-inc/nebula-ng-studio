@@ -4,7 +4,7 @@ These are separate starting configurations, not layers merged at runtime. Studio
 
 | File | Used by | Paths |
 | --- | --- | --- |
-| `config.yaml` | Local development | Relative paths under the working directory |
+| `config-dev.yaml` | Local development (`pnpm dev:server` passes `-f etc/config-dev.yaml`) | Relative paths under the working directory |
 | `config-release.yaml` | Docker image (copied to `/app/etc/config.yaml`) and Linux tar archive (copied to `etc/config.yaml`) | Relative SQLite path; file logs under the working directory |
 | `config-package.yaml` | DEB and RPM build; installed as `/etc/nebula-studio/config.yaml` | SQLite in `/var/lib/nebula-studio`, logs in `/var/log/nebula-studio` |
 

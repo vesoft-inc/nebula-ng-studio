@@ -37,7 +37,7 @@ func TestReleaseConfigKeepsOAuth2DisabledWithoutProviderPreset(t *testing.T) {
 
 func TestBundledGraphdDefaultsExpandEnvironment(t *testing.T) {
 	configPaths := map[string]string{
-		"development": "../../etc/config.yaml",
+		"development": "../../etc/config-dev.yaml",
 		"release":     "../../etc/config-release.yaml",
 		"package":     "../../etc/config-package.yaml",
 	}

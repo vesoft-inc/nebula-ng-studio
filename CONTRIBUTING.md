@@ -42,7 +42,7 @@ pnpm dev:server
 pnpm dev
 ```
 
-The Studio dev server runs at <http://127.0.0.1:3000> and proxies `/api` to the Server at <http://127.0.0.1:7001>. Graphd is external; enter an address reachable from the Server process on the login page.
+`pnpm dev:server` loads [`apps/server/etc/config-dev.yaml`](apps/server/etc/config-dev.yaml). The Studio dev server runs at <http://127.0.0.1:3000> and proxies `/api` to the Server at <http://127.0.0.1:7001>. Graphd is external; enter an address reachable from the Server process on the login page.
 
 ## Repository checks
 
@@ -69,7 +69,7 @@ pnpm build:server
 
 `pnpm build` builds Studio into `apps/web/dist`, then runs its separate `copy:server` script to replace `apps/server/assets/public` with the Web output served by the Studio Server. Neither the Web output nor the copied Server assets are tracked.
 
-`pnpm build:server` first builds and stages the Studio frontend, then writes the Server binary to `apps/server/bin/studio`. Run the local binary from `apps/server` so its fixed `assets/public` path resolves correctly.
+`pnpm build:server` first builds and stages the Studio frontend, then writes the Server binary to `apps/server/bin/studio`. Run the local binary from `apps/server` with `./bin/studio -f etc/config-dev.yaml` so its fixed `assets/public` path resolves correctly and it uses the development configuration.
 
 ## Integration profile
 

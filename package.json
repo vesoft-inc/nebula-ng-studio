@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "turbo run nebula-studio#dev",
-    "dev:server": "go -C apps/server run .",
+    "dev:server": "go -C apps/server run . -f etc/config-dev.yaml",
     "dev:gui": "turbo run nebula-gui#dev",
     "build": "turbo run nebula-studio#build",
     "build:gui": "turbo run nebula-gui#build",
