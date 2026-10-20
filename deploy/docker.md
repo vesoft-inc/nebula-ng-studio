@@ -74,14 +74,14 @@ STUDIO_ENCRYPT_PASSPHRASE='<16-or-24-or-32-byte-value>' \
 docker compose up -d
 ```
 
-For other settings, add a complete, readable YAML file as a read-only mount. Keep the existing data volume:
+The image reads `/app/etc/config.yaml` by default. For other settings, mount a complete, readable YAML file at that path as read-only. Keep the existing data volume:
 
 ```yaml
 services:
   studio:
     volumes:
       - studio-data:/app/data
-      - /absolute/path/config.yaml:/app/etc/config-release.yaml:ro
+      - /absolute/path/config.yaml:/app/etc/config.yaml:ro
 ```
 
 The host file must already exist. Environment secret values take precedence over the YAML values.

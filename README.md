@@ -49,6 +49,14 @@ See [`deploy/linux-packages.md`](deploy/linux-packages.md) for native package in
 
 ## ⚙️ Configuration
 
+Studio reads a YAML configuration file. Its location depends on the deployment:
+
+| Deployment                                                  | Configuration file                               |
+| ----------------------------------------------------------- | ------------------------------------------------ |
+| [Docker](deploy/docker.md#secrets-and-configuration)        | `/app/etc/config.yaml` inside the container      |
+| [DEB/RPM](deploy/linux-packages.md#files-and-configuration) | `/etc/nebula-studio/config.yaml`                 |
+| [Linux tar archive](deploy/linux-tar.md#configure)          | `etc/config.yaml` inside the extracted directory |
+
 Configuration values may reference environment variables with `$VAR` or `${VAR}`. Use environment variables for secrets instead of storing them directly in YAML.
 
 ## 🧩 Compatibility

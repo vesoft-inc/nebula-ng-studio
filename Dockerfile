@@ -151,7 +151,7 @@ WORKDIR /app
 
 COPY --from=server-builder --chown=studio:studio /out/studio ./studio
 COPY --from=server-builder --chown=studio:studio /workspace/apps/server/assets/public ./assets/public
-COPY --from=server-builder --chown=studio:studio /workspace/apps/server/etc ./etc
+COPY --from=server-builder --chown=studio:studio /workspace/apps/server/etc/config-release.yaml ./etc/config.yaml
 # The builder is Oracle Linux, whose ca-certificates ships the bundle at the RHEL
 # path (the Debian-style name does not exist there); the runtime image is Debian
 # and has no /etc/ssl at all, so the bundle is copied to the Debian path.
@@ -174,4 +174,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["/usr/local/bin/studio-entrypoint.sh"]
-CMD ["-f", "etc/config-release.yaml"]
+CMD ["-f", "etc/config.yaml"]

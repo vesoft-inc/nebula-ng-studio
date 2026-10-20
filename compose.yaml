@@ -21,7 +21,7 @@ services:
       - studio-data:/app/data
       - type: bind
         source: ${STUDIO_CONFIG_FILE:-./apps/server/etc/config-release.yaml}
-        target: /app/etc/config-release.yaml
+        target: /app/etc/config.yaml
         read_only: true
         bind:
           create_host_path: false
