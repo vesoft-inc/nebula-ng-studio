@@ -152,7 +152,7 @@ func TestOAuth2AuthorizationCallbackAndDisconnect(t *testing.T) {
 	require.Equal(t, "Bearer access-from-idp", userInfoAuthorization)
 
 	authCookie := findResponseCookie(t, callbackRecorder, cfg.Auth.TokenName)
-	authData, err := auth.Decode(authCookie.Value, cfg.Auth.TokenSecret, cfg.Auth.EncryptPassphrase)
+	authData, err := auth.Decode(authCookie.Value, cfg.Auth)
 	require.NoError(t, err)
 	require.Equal(t, "alice", authData.Username)
 	require.Equal(t, "graphd.example.test:9669", authData.Address)

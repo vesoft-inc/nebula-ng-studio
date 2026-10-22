@@ -30,7 +30,7 @@ func ValidateAuthCookie(r *http.Request, config *config.Config) (*auth.AuthData,
 	if err != nil {
 		return nil, err
 	}
-	authInfo, err := auth.Decode(tokenCookie.Value, config.Auth.TokenSecret, config.Auth.EncryptPassphrase)
+	authInfo, err := auth.Decode(tokenCookie.Value, config.Auth)
 	if err != nil {
 		return nil, err
 	}

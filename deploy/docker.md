@@ -25,6 +25,7 @@ services:
       - '${STUDIO_PORT:-7001}:7001'
     environment:
       - STUDIO_TOKEN_SECRET
+      - STUDIO_TOKEN_ISSUER
       - STUDIO_ENCRYPT_PASSPHRASE
       - STUDIO_GRAPHD_DEFAULT_HOST
       - STUDIO_GRAPHD_DEFAULT_PORT
@@ -73,6 +74,17 @@ STUDIO_TOKEN_SECRET='<stable-random-value>' \
 STUDIO_ENCRYPT_PASSPHRASE='<16-or-24-or-32-byte-value>' \
 docker compose up -d
 ```
+
+`STUDIO_TOKEN_ISSUER` is optional and defaults to the neutral value `auth-service`. Set the same
+stable value on every replica if the deployment requires a custom JWT issuer. The issuer must not
+contain the signing secret.
+
+When upgrading from a release affected by the JWT issuer disclosure, generate a new
+`STUDIO_TOKEN_SECRET` with `openssl rand -base64 48` and replace the previous value. Deploy the
+new secret to every replica at the same time, without a legacy-secret fallback. This deliberately
+invalidates all existing Studio sessions, so users must log in again. Do not reuse the old signing
+secret. Keep `STUDIO_TOKEN_ISSUER` consistent across replicas. If a rollback is necessary, use a
+release that includes the issuer validation fix and keep the new secret.
 
 The image reads `/app/etc/config.yaml` by default. For other settings, mount a complete, readable YAML file at that path as read-only. Keep the existing data volume:
 

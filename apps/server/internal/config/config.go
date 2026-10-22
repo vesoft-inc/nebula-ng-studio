@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -65,6 +66,7 @@ type Database struct {
 
 type Auth struct {
 	TokenName          string
+	TokenIssuer        string `json:",optional"`
 	TokenSecret        string `json:",optional"`
 	EncryptPassphrase  string `json:",optional"`
 	TokenMaxAge        int64
@@ -86,6 +88,7 @@ type Nebula struct {
 }
 
 const (
+	defaultTokenIssuer   = "auth-service"
 	tokenSecretEnv       = "STUDIO_TOKEN_SECRET"
 	encryptPassphraseEnv = "STUDIO_ENCRYPT_PASSPHRASE"
 )
@@ -104,6 +107,15 @@ var tokenSecretSource, encryptPassphraseSource secretSource
 
 func GetConfig() *Config {
 	return configIns
+}
+
+// EffectiveTokenIssuer returns the configured JWT issuer or a neutral default.
+func (a Auth) EffectiveTokenIssuer() string {
+	issuer := strings.TrimSpace(a.TokenIssuer)
+	if issuer == "" {
+		return defaultTokenIssuer
+	}
+	return issuer
 }
 
 func (c *Config) Validate() error {
@@ -155,6 +167,11 @@ func (c *Config) completeAuth() error {
 	)
 	if err != nil {
 		return err
+	}
+
+	c.Auth.TokenIssuer = c.Auth.EffectiveTokenIssuer()
+	if strings.Contains(c.Auth.TokenIssuer, c.Auth.TokenSecret) {
+		return fmt.Errorf("Auth.TokenIssuer must not contain Auth.TokenSecret")
 	}
 	return nil
 }

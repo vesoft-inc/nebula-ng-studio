@@ -123,6 +123,7 @@ func Decrypt(encrypted string, passphrase string) ([]byte, error) {
 func CreateToken(authData *AuthData, config *config.Config) (string, error) {
 	now := time.Now()
 	expiresAt := now.Add(time.Duration(config.Auth.TokenMaxAge) * time.Second).Unix()
+	issuer := config.Auth.EffectiveTokenIssuer()
 	authDataBytes, err := json.Marshal(authData)
 	if err != nil {
 		return "", err
@@ -136,7 +137,7 @@ func CreateToken(authData *AuthData, config *config.Config) (string, error) {
 			EncryptedAuthData: encryptedAuthData,
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: &jwt.NumericDate{Time: time.Unix(expiresAt, 0)},
-				Issuer:    config.Auth.TokenSecret,
+				Issuer:    issuer,
 			},
 		})
 	return token.SignedString([]byte(config.Auth.TokenSecret))
@@ -204,7 +205,7 @@ func AuthMiddlewareWithCtx(svcCtx *svc.ServiceContext) rest.Middleware {
 				return
 			}
 
-			auth, authErr := Decode(tokenCookie.Value, svcCtx.Config.Auth.TokenSecret, svcCtx.Config.Auth.EncryptPassphrase)
+			auth, authErr := Decode(tokenCookie.Value, svcCtx.Config.Auth)
 			if authErr != nil {
 				svcCtx.ResponseHandler.Handle(w, r, nil, withErrorMessage(ecode.ErrSession, authErr))
 				return
@@ -365,30 +366,30 @@ func recreateOAuth2Client(authData *AuthData) (*nebula.Client, error) {
 	return client, nil
 }
 
-func Decode(tokenString, secret string, passphrase string) (*AuthData, error) {
+func Decode(tokenString string, authConfig config.Auth) (*AuthData, error) {
 	claims := authClaims{}
+	expectedIssuer := authConfig.EffectiveTokenIssuer()
 	token, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(secret), nil
-	})
+		return []byte(authConfig.TokenSecret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
 	}
-	// Capturing signature invalid error in the situation of data tamper,
-	// other validation errors are ignored
-	if ve, ok := err.(*jwt.ValidationError); ok {
-		if ve.Errors == jwt.ValidationErrorSignatureInvalid {
-			return nil, errors.New("token signature validation failed")
-		}
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	if claims.Issuer != expectedIssuer {
+		return nil, errors.New("token has invalid issuer")
 	}
 
 	if _, ok := token.Claims.(*authClaims); !ok {
 		return nil, errors.New("couldn't handle this token")
 	}
 
-	decryptedAuthData, err := Decrypt(claims.EncryptedAuthData, passphrase)
+	decryptedAuthData, err := Decrypt(claims.EncryptedAuthData, authConfig.EncryptPassphrase)
 	if err != nil {
 		return nil, err
 	}

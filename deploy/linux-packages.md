@@ -45,6 +45,17 @@ sudo systemctl enable nebula-studio.service  # optional: start during boot
 
 The package manager protects `config.yaml` during upgrades. For stable login sessions, set `STUDIO_TOKEN_SECRET` and `STUDIO_ENCRYPT_PASSPHRASE` in `studio.env`, make it readable only by root, and restart Studio.
 
+`STUDIO_TOKEN_ISSUER` is optional and defaults to the neutral value `auth-service`. Set the same
+stable value on every replica if the deployment requires a custom JWT issuer. The issuer must not
+contain the signing secret.
+
+When upgrading from a release affected by the JWT issuer disclosure, generate a new
+`STUDIO_TOKEN_SECRET` with `openssl rand -base64 48`, replace the previous value in `studio.env`,
+and restart Studio. Do not reuse the old signing secret, and do not add a legacy-secret fallback.
+This intentionally invalidates all existing Studio sessions and requires users to log in again.
+Keep `STUDIO_TOKEN_ISSUER` stable across upgrades. If a rollback is necessary, use a release that
+includes the issuer validation fix and keep the new secret.
+
 To prefill the Graphd address on the login page, set `STUDIO_GRAPHD_DEFAULT_HOST` and `STUDIO_GRAPHD_DEFAULT_PORT` in `studio.env` and restart Studio. The packaged YAML expands these variables. If you replace their YAML entries with literal values, the environment variables no longer affect those entries.
 
 ## Upgrade and remove

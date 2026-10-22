@@ -1,18 +1,27 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/config"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/svc"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/oauth2auth"
+)
+
+const (
+	testJWTIssuer            = "tenant-auth-issuer"
+	testJWTTokenSecret       = "jwt-test-signing-secret-do-not-expose"
+	testJWTEncryptPassphrase = "0123456789abcdef"
 )
 
 func TestRefreshOAuth2TokenAllowsValidAccessTokenWithoutRefreshToken(t *testing.T) {
@@ -163,6 +172,7 @@ func TestRefreshOAuth2TokenReportsRefreshTokenOnlySessionChange(t *testing.T) {
 func TestSetRefreshedOAuth2AuthCookieClearsAccessToken(t *testing.T) {
 	cfg := testOAuth2RefreshConfig("https://idp.example.test/token")
 	cfg.Auth.TokenName = "studio_token"
+	cfg.Auth.TokenIssuer = testJWTIssuer
 	cfg.Auth.TokenSecret = "login-secret"
 	cfg.Auth.EncryptPassphrase = "0123456789abcdef"
 	cfg.Auth.TokenMaxAge = int64(time.Hour.Seconds())
@@ -181,7 +191,7 @@ func TestSetRefreshedOAuth2AuthCookieClearsAccessToken(t *testing.T) {
 	cookies := recorder.Result().Cookies()
 	require.Len(t, cookies, 1)
 	require.Equal(t, cfg.Auth.TokenName, cookies[0].Name)
-	decoded, err := Decode(cookies[0].Value, cfg.Auth.TokenSecret, cfg.Auth.EncryptPassphrase)
+	decoded, err := Decode(cookies[0].Value, cfg.Auth)
 	require.NoError(t, err)
 	require.Equal(t, "alice", decoded.Username)
 	require.Equal(t, "client-1", decoded.ClientID)
@@ -232,6 +242,157 @@ func TestUnconfiguredCookieIsRejected(t *testing.T) {
 	handler(recorder, req)
 
 	require.False(t, nextCalled)
+}
+
+func TestCreateTokenDoesNotExposeSigningSecret(t *testing.T) {
+	cfg := testJWTConfig()
+	authData := testJWTAuthData()
+
+	tokenString, err := CreateToken(authData, &cfg)
+	require.NoError(t, err)
+
+	tokenParts := strings.Split(tokenString, ".")
+	require.Len(t, tokenParts, 3)
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(tokenParts[1])
+	require.NoError(t, err)
+	payload := string(payloadJSON)
+	require.NotContains(t, payload, testJWTTokenSecret)
+	require.NotContains(t, tokenString, testJWTTokenSecret)
+
+	var claims struct {
+		Issuer string `json:"iss"`
+	}
+	require.NoError(t, json.Unmarshal(payloadJSON, &claims))
+	require.Equal(t, testJWTIssuer, claims.Issuer)
+
+	decoded, err := Decode(tokenString, cfg.Auth)
+	require.NoError(t, err)
+	require.Equal(t, authData, decoded)
+}
+
+func TestCreateTokenUsesNeutralDefaultIssuer(t *testing.T) {
+	cfg := testJWTConfig()
+	cfg.Auth.TokenIssuer = ""
+
+	tokenString, err := CreateToken(testJWTAuthData(), &cfg)
+	require.NoError(t, err)
+
+	tokenParts := strings.Split(tokenString, ".")
+	require.Len(t, tokenParts, 3)
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(tokenParts[1])
+	require.NoError(t, err)
+
+	var claims struct {
+		Issuer string `json:"iss"`
+	}
+	require.NoError(t, json.Unmarshal(payloadJSON, &claims))
+	require.Equal(t, "auth-service", claims.Issuer)
+	require.NotContains(t, strings.ToLower(claims.Issuer), "nebula")
+	require.NotContains(t, strings.ToLower(claims.Issuer), "studio")
+
+	_, err = Decode(tokenString, cfg.Auth)
+	require.NoError(t, err)
+}
+
+func TestDecodeRejectsInvalidJWT(t *testing.T) {
+	validExpiry := time.Now().Add(time.Hour)
+	tests := []struct {
+		name             string
+		token            func(t *testing.T) string
+		expectedErrorSub string
+	}{
+		{
+			name: "wrong issuer",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, "another-service", validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodHS256, []byte(testJWTTokenSecret))
+			},
+			expectedErrorSub: "token has invalid issuer",
+		},
+		{
+			name: "legacy issuer exposes signing secret",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, testJWTTokenSecret, validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodHS256, []byte(testJWTTokenSecret))
+			},
+			expectedErrorSub: "token has invalid issuer",
+		},
+		{
+			name: "missing issuer",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, "", validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodHS256, []byte(testJWTTokenSecret))
+			},
+			expectedErrorSub: "token has invalid issuer",
+		},
+		{
+			name: "wrong signing key",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, testJWTIssuer, validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodHS256, []byte("wrong-test-signing-key"))
+			},
+			expectedErrorSub: "signature",
+		},
+		{
+			name: "non-HS256 algorithm",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, testJWTIssuer, validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodHS512, []byte(testJWTTokenSecret))
+			},
+			expectedErrorSub: "signing method",
+		},
+		{
+			name: "unsigned algorithm",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, testJWTIssuer, validExpiry)
+				return signTestJWT(t, claims, jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType)
+			},
+			expectedErrorSub: "signing method",
+		},
+		{
+			name: "expired token",
+			token: func(t *testing.T) string {
+				claims := newTestAuthClaims(t, testJWTIssuer, time.Now().Add(-time.Minute))
+				return signTestJWT(t, claims, jwt.SigningMethodHS256, []byte(testJWTTokenSecret))
+			},
+			expectedErrorSub: "token is expired",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Decode(tt.token(t), config.Auth{
+				TokenIssuer:       testJWTIssuer,
+				TokenSecret:       testJWTTokenSecret,
+				EncryptPassphrase: testJWTEncryptPassphrase,
+			})
+			require.Error(t, err)
+			require.ErrorContains(t, err, tt.expectedErrorSub)
+		})
+	}
+}
+
+func TestDecodeRejectsTamperedToken(t *testing.T) {
+	cfg := testJWTConfig()
+	tokenString, err := CreateToken(testJWTAuthData(), &cfg)
+	require.NoError(t, err)
+
+	tokenParts := strings.Split(tokenString, ".")
+	require.Len(t, tokenParts, 3)
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(tokenParts[1])
+	require.NoError(t, err)
+
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal(payloadJSON, &payload))
+	payload["exp"] = time.Now().Add(2 * time.Hour).Unix()
+	tamperedPayload, err := json.Marshal(payload)
+	require.NoError(t, err)
+	tokenParts[1] = base64.RawURLEncoding.EncodeToString(tamperedPayload)
+	tamperedToken := strings.Join(tokenParts, ".")
+
+	_, err = Decode(tamperedToken, cfg.Auth)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "signature")
 }
 
 func TestRefreshOAuth2TokenDeduplicatesConcurrentRefreshes(t *testing.T) {
@@ -299,6 +460,51 @@ func TestRefreshOAuth2TokenDeduplicatesConcurrentRefreshes(t *testing.T) {
 		require.Equal(t, "access-refreshed", stored.AccessToken)
 		require.Equal(t, "refresh-refreshed", stored.RefreshToken)
 	}
+}
+
+func testJWTConfig() config.Config {
+	cfg := config.Config{}
+	cfg.Auth.TokenIssuer = testJWTIssuer
+	cfg.Auth.TokenSecret = testJWTTokenSecret
+	cfg.Auth.EncryptPassphrase = testJWTEncryptPassphrase
+	cfg.Auth.TokenMaxAge = int64(time.Hour.Seconds())
+	return cfg
+}
+
+func testJWTAuthData() *AuthData {
+	return &AuthData{
+		Address:          "127.0.0.1:9669",
+		Username:         "alice",
+		Password:         "synthetic-password",
+		ClientID:         "client-1",
+		CoreVersion:      "3.8.0",
+		Version:          "test",
+		Token:            "",
+		OAuth2SessionID:  "oauth2-session",
+		OAuth2ServerName: "test-idp",
+	}
+}
+
+func newTestAuthClaims(t *testing.T, issuer string, expiry time.Time) authClaims {
+	t.Helper()
+	authDataJSON, err := json.Marshal(testJWTAuthData())
+	require.NoError(t, err)
+	encryptedAuthData, err := Encrypt(authDataJSON, testJWTEncryptPassphrase)
+	require.NoError(t, err)
+	return authClaims{
+		EncryptedAuthData: encryptedAuthData,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			ExpiresAt: &jwt.NumericDate{Time: expiry},
+		},
+	}
+}
+
+func signTestJWT(t *testing.T, claims authClaims, method jwt.SigningMethod, key interface{}) string {
+	t.Helper()
+	tokenString, err := jwt.NewWithClaims(method, claims).SignedString(key)
+	require.NoError(t, err)
+	return tokenString
 }
 
 func testOAuth2RefreshConfig(tokenURL string) config.Config {

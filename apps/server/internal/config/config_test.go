@@ -107,6 +107,88 @@ func TestLiteralGraphdDefaultsIgnoreEnvironment(t *testing.T) {
 	}
 }
 
+func TestEffectiveTokenIssuer(t *testing.T) {
+	tests := []struct {
+		name   string
+		issuer string
+		want   string
+	}{
+		{name: "empty uses neutral default", want: "auth-service"},
+		{name: "whitespace uses neutral default", issuer: "  ", want: "auth-service"},
+		{name: "custom issuer is trimmed", issuer: "  tenant-auth  ", want: "tenant-auth"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authConfig := Auth{TokenIssuer: tt.issuer}
+			if got := authConfig.EffectiveTokenIssuer(); got != tt.want {
+				t.Fatalf("expected token issuer %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestBundledTokenIssuerExpandsEnvironment(t *testing.T) {
+	configPaths := map[string]string{
+		"development": "../../etc/config-dev.yaml",
+		"release":     "../../etc/config-release.yaml",
+		"package":     "../../etc/config-package.yaml",
+	}
+
+	for configName, configPath := range configPaths {
+		t.Run(configName, func(t *testing.T) {
+			t.Setenv(tokenSecretEnv, "token-secret-value-for-tests")
+			t.Setenv(encryptPassphraseEnv, "0123456789abcdef")
+
+			t.Run("unset uses neutral default", func(t *testing.T) {
+				unsetEnvForTest(t, "STUDIO_TOKEN_ISSUER")
+				var c Config
+				if err := conf.Load(configPath, &c, conf.UseEnv()); err != nil {
+					t.Fatalf("load config: %v", err)
+				}
+				if err := c.completeAuth(); err != nil {
+					t.Fatalf("complete auth config: %v", err)
+				}
+				if got, want := c.Auth.TokenIssuer, "auth-service"; got != want {
+					t.Fatalf("expected token issuer %q, got %q", want, got)
+				}
+			})
+
+			t.Run("custom environment value", func(t *testing.T) {
+				t.Setenv("STUDIO_TOKEN_ISSUER", "tenant-auth")
+				var c Config
+				if err := conf.Load(configPath, &c, conf.UseEnv()); err != nil {
+					t.Fatalf("load config: %v", err)
+				}
+				if err := c.completeAuth(); err != nil {
+					t.Fatalf("complete auth config: %v", err)
+				}
+				if got, want := c.Auth.TokenIssuer, "tenant-auth"; got != want {
+					t.Fatalf("expected token issuer %q, got %q", want, got)
+				}
+			})
+		})
+	}
+}
+
+func TestCompleteAuthRejectsIssuerContainingSecret(t *testing.T) {
+	unsetEnvForTest(t, tokenSecretEnv)
+	unsetEnvForTest(t, encryptPassphraseEnv)
+
+	c := Config{}
+	c.Auth.TokenIssuer = "tenant-auth-super-secret"
+	c.Auth.TokenSecret = "super-secret"
+	c.Auth.EncryptPassphrase = "0123456789abcdef"
+
+	err := c.completeAuth()
+	if err == nil {
+		t.Fatal("expected issuer containing the signing secret to be rejected")
+	}
+	if !strings.Contains(err.Error(), "Auth.TokenIssuer must not contain Auth.TokenSecret") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func unsetEnvForTest(t *testing.T, name string) {
 	t.Helper()
 	value, wasSet := os.LookupEnv(name)

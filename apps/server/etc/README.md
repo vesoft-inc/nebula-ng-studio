@@ -8,4 +8,4 @@ These are separate starting configurations, not layers merged at runtime. Studio
 | `config-release.yaml` | Docker image (copied to `/app/etc/config.yaml`) and Linux tar archive (copied to `etc/config.yaml`) | Relative SQLite path; file logs under the working directory |
 | `config-package.yaml` | DEB and RPM build; installed as `/etc/nebula-studio/config.yaml` | SQLite in `/var/lib/nebula-studio`, logs in `/var/log/nebula-studio` |
 
-For a deployment, edit the installed or mounted configuration rather than these source templates. Authentication secrets can be supplied through `STUDIO_TOKEN_SECRET` and `STUDIO_ENCRYPT_PASSPHRASE`.
+For a deployment, edit the installed or mounted configuration rather than these source templates. Authentication secrets can be supplied through `STUDIO_TOKEN_SECRET` and `STUDIO_ENCRYPT_PASSPHRASE`. `STUDIO_TOKEN_ISSUER` optionally overrides the JWT issuer and defaults to `auth-service`; use the same value on every replica.
