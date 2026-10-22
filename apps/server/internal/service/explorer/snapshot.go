@@ -2,7 +2,6 @@ package explorer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -57,33 +56,20 @@ func (s *SnapshotService) Add(request *types.AddSnapshotParams) (*types.Snapshot
 }
 
 func (s *SnapshotService) List(request *types.GetSnapshotsParams) (*types.GetSnapshotsResult, error) {
+	filter, err := parseSnapshotListFilter(request.Filter)
+	if err != nil {
+		return nil, s.withErrorMessage(ecode.ErrParam, err)
+	}
 	database, user, err := s.dependencies()
 	if err != nil {
 		return nil, err
 	}
 
-	filter := make(map[string]interface{})
-	if request.Filter != "" {
-		if err := json.Unmarshal([]byte(request.Filter), &filter); err != nil {
-			return nil, s.withErrorMessage(ecode.ErrParam, err)
-		}
-	}
-
-	query := database.Model(&db.Snapshot{}).
-		Where("host = ? AND username = ?", user.Address, user.Username)
-	if name, exists := filter["name"]; exists {
-		nameValue, ok := name.(string)
-		if !ok {
-			return nil, s.withErrorMessage(ecode.ErrParam, errors.New("snapshot name filter must be a string"))
-		}
-		query = query.Where("name LIKE ?", "%"+nameValue+"%")
-		delete(filter, "name")
-	}
-	delete(filter, "host")
-	delete(filter, "username")
-	if len(filter) > 0 {
-		query = query.Where(filter)
-	}
+	query := applySnapshotListFilter(
+		database.Model(&db.Snapshot{}).
+			Where("host = ? AND username = ?", user.Address, user.Username),
+		filter,
+	)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {

@@ -2,7 +2,6 @@ package explorer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -40,21 +39,16 @@ func (s *GlobalConfigService) Add(request *types.AddGlobalConfigParams) (*types.
 }
 
 func (s *GlobalConfigService) List(request *types.GetGlobalConfigsParams) (*types.GetGlobalConfigsResult, error) {
+	filter, err := parseGlobalConfigListFilter(request.Filter)
+	if err != nil {
+		return nil, s.withErrorMessage(ecode.ErrParam, err)
+	}
 	database, err := s.database()
 	if err != nil {
 		return nil, err
 	}
 
-	filter := make(map[string]interface{})
-	if request.Filter != "" {
-		if err := json.Unmarshal([]byte(request.Filter), &filter); err != nil {
-			return nil, s.withErrorMessage(ecode.ErrParam, err)
-		}
-	}
-	query := database.Model(&db.GlobalConfig{})
-	if len(filter) > 0 {
-		query = query.Where(filter)
-	}
+	query := applyGlobalConfigListFilter(database.Model(&db.GlobalConfig{}), filter)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {

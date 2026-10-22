@@ -3,6 +3,7 @@ package explorer
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,7 @@ import (
 	db "github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/model"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/svc"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/auth"
+	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/ecode"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -47,4 +49,24 @@ func contextWithUser(username string) context.Context {
 		Address:  "127.0.0.1:9669",
 		Username: username,
 	})
+}
+
+func countDatabaseQueries(t *testing.T, database *gorm.DB) *atomic.Int32 {
+	t.Helper()
+	var count atomic.Int32
+	require.NoError(t, database.Callback().Query().Before("gorm:query").Register(
+		"test:count_database_queries",
+		func(*gorm.DB) {
+			count.Add(1)
+		},
+	))
+	return &count
+}
+
+func requireErrParam(t *testing.T, err error) {
+	t.Helper()
+	require.Error(t, err)
+	codeErr, ok := ecode.AsCodeError(err)
+	require.True(t, ok, "expected a coded error, got %v", err)
+	require.Equal(t, ecode.CCBadRequest, codeErr.GetCategoryCode())
 }
