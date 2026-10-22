@@ -8,6 +8,7 @@ import (
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/svc"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/types"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/auth"
+	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/ecode"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/utils"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -49,11 +50,14 @@ func (s *sketchService) CreateSketch(request *types.CreateSketchRequest) (*types
 	if err != nil {
 		return nil, err
 	}
-	auth := s.ctx.Value(auth.CtxKeyUserInfo{}).(*auth.AuthData)
+	user, err := s.currentUser()
+	if err != nil {
+		return nil, err
+	}
 	sketch := &db.Sketch{
-		Host:        auth.Address,
+		Host:        user.Address,
 		IfNotExists: request.IfNotExists,
-		Username:    auth.Username,
+		Username:    user.Username,
 		Name:        request.Name,
 		Schema:      request.Schema,
 		Snapshot:    request.Snapshot,
@@ -72,9 +76,16 @@ func (s *sketchService) Delete(request *types.DeleteSketchRequest) error {
 	if err != nil {
 		return err
 	}
-	result := database.Delete(&db.Sketch{}, "id = ?", request.ID)
+	user, err := s.currentUser()
+	if err != nil {
+		return err
+	}
+	result := sketchIDQuery(database, user, request.ID).Delete(&db.Sketch{})
 	if result.Error != nil {
 		return s.gormErrorWrapper(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return sketchNotFoundError()
 	}
 	return nil
 }
@@ -84,10 +95,12 @@ func (s *sketchService) GetList(request *types.GetSketchesRequest) (*types.Sketc
 	if err != nil {
 		return nil, err
 	}
-	auth := s.ctx.Value(auth.CtxKeyUserInfo{}).(*auth.AuthData)
+	user, err := s.currentUser()
+	if err != nil {
+		return nil, err
+	}
 	var sketchList []db.Sketch
-	filters := database.Where("host = ?", auth.Address)
-	filters = filters.Where("username = ?", auth.Username)
+	filters := sketchOwnerQuery(database, user)
 	if request.Keyword != "" {
 		filters = filters.Where("name LIKE ?", "%"+request.Keyword+"%")
 	}
@@ -105,7 +118,9 @@ func (s *sketchService) GetList(request *types.GetSketchesRequest) (*types.Sketc
 		})
 	}
 	var total int64
-	database.Model(&db.Sketch{}).Where("host = ? AND username = ?", auth.Address, auth.Username).Count(&total)
+	if err := sketchOwnerQuery(database, user).Model(&db.Sketch{}).Count(&total).Error; err != nil {
+		return nil, s.gormErrorWrapper(err)
+	}
 	return &types.SketchList{
 		Items:    items,
 		Total:    total,
@@ -119,7 +134,11 @@ func (s *sketchService) Update(request *types.UpdateSketchRequest) error {
 	if err != nil {
 		return err
 	}
-	result := database.Model(&db.Sketch{}).Where("id = ?", request.ID).Updates(map[string]interface{}{
+	user, err := s.currentUser()
+	if err != nil {
+		return err
+	}
+	result := sketchIDQuery(database, user, request.ID).Model(&db.Sketch{}).Updates(map[string]interface{}{
 		"name":          request.Name,
 		"schema":        request.Schema,
 		"snapshot":      request.Snapshot,
@@ -127,6 +146,15 @@ func (s *sketchService) Update(request *types.UpdateSketchRequest) error {
 	})
 	if result.Error != nil {
 		return s.gormErrorWrapper(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		var count int64
+		if err := sketchIDQuery(database, user, request.ID).Model(&db.Sketch{}).Count(&count).Error; err != nil {
+			return s.gormErrorWrapper(err)
+		}
+		if count == 0 {
+			return sketchNotFoundError()
+		}
 	}
 	return nil
 }
@@ -136,9 +164,12 @@ func (s *sketchService) GetTotal() (*types.SketchTotalNumResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	auth := s.ctx.Value(auth.CtxKeyUserInfo{}).(*auth.AuthData)
+	user, err := s.currentUser()
+	if err != nil {
+		return nil, err
+	}
 	var total int64
-	result := database.Model(&db.Sketch{}).Where("host = ?", auth.Address).Count(&total)
+	result := sketchOwnerQuery(database, user).Model(&db.Sketch{}).Count(&total)
 	if result.Error != nil {
 		return nil, s.gormErrorWrapper(result.Error)
 	}
@@ -152,14 +183,47 @@ func (s *sketchService) GetSketchItem(request *types.GetSketchItemRequest) (*typ
 	if err != nil {
 		return nil, err
 	}
-	var sketchItem types.Sketch
-	result := database.Model(&db.Sketch{}).Where("id = ?", request.ID).Find(&sketchItem)
+	user, err := s.currentUser()
+	if err != nil {
+		return nil, err
+	}
+	var sketch db.Sketch
+	result := sketchIDQuery(database, user, request.ID).Take(&sketch)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, sketchNotFoundError()
+	}
 	if result.Error != nil {
 		return nil, s.gormErrorWrapper(result.Error)
 	}
 	return &types.GetSketchItemResult{
-		Item: sketchItem,
+		Item: types.Sketch{
+			ID:          sketch.ID,
+			Name:        sketch.Name,
+			IfNotExists: sketch.IfNotExists,
+			Schema:      sketch.Schema,
+			Snapshot:    sketch.Snapshot,
+		},
 	}, nil
+}
+
+func (s *sketchService) currentUser() (*auth.AuthData, error) {
+	user, ok := s.ctx.Value(auth.CtxKeyUserInfo{}).(*auth.AuthData)
+	if !ok || user == nil || user.Address == "" || user.Username == "" {
+		return nil, ecode.WithUnauthorized(errors.New("missing studio auth data"))
+	}
+	return user, nil
+}
+
+func sketchOwnerQuery(database *gorm.DB, user *auth.AuthData) *gorm.DB {
+	return database.Where("host = ? AND username = ?", user.Address, user.Username)
+}
+
+func sketchIDQuery(database *gorm.DB, user *auth.AuthData, id int) *gorm.DB {
+	return sketchOwnerQuery(database, user).Where("id = ?", id)
+}
+
+func sketchNotFoundError() error {
+	return ecode.WithNotFound(errors.New("sketch not found"))
 }
 
 func (s *sketchService) database() (*gorm.DB, error) {
