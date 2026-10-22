@@ -78,15 +78,15 @@ func Sm4Decrypt(encrypted string, passphrase string) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(data) < sm4.BlockSize {
+	if len(data) <= sm4.BlockSize {
 		return nil, errors.New("ciphertext too short")
 	}
 
 	iv := data[:sm4.BlockSize]
 	ciphertext := data[sm4.BlockSize:]
 
-	if len(ciphertext)%sm4.BlockSize != 0 {
-		return nil, errors.New("ciphertext is not a multiple of the block size")
+	if len(ciphertext) == 0 || len(ciphertext)%sm4.BlockSize != 0 {
+		return nil, errors.New("invalid ciphertext length")
 	}
 
 	// CBC decrypt
@@ -104,6 +104,10 @@ func pkcs7Pad(input []byte, blockSize int) []byte {
 }
 
 func pkcs7Unpad(input []byte, blockSize int) ([]byte, error) {
+	if len(input) == 0 || blockSize <= 0 || blockSize > 255 || len(input)%blockSize != 0 {
+		return nil, errors.New("invalid padding")
+	}
+
 	padding := int(input[len(input)-1])
 	if padding < 1 || padding > blockSize {
 		return nil, errors.New("invalid padding")
