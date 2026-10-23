@@ -1,5 +1,4 @@
 import { makeObservable, observable, runInAction } from 'mobx';
-import { getRootStore } from '@studio/stores';
 import { IconGroupType } from '@studio/utils/explorer/constant';
 import { IconGroup, IconItem } from '@studio/interfaces/explorer';
 import {
@@ -31,10 +30,6 @@ export class IconGroupStore {
     currentGroupId: undefined as string | undefined,
     initailized: false,
   };
-
-  get rootStore() {
-    return getRootStore();
-  }
 
   constructor() {
     makeObservable(this, {

@@ -15,7 +15,6 @@ import type { ForceGraphInstance, LinkObject, NodeObject } from '@vesoft-inc/for
 import type { GraphStore } from './graph';
 import { ITransform } from '@studio/interfaces/explorer/explorer';
 import pipeline from '@studio/utils/graph/base/pipeline';
-import { getRootStore } from '../_ref';
 import { EdgeDirectionType, GREY_SCALE_ALPHA, hexToRgba } from '@vesoft-inc/utils';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { throttle } from 'lodash';
@@ -55,7 +54,7 @@ export class TwoGraphStore {
   }
 
   get theme() {
-    return getRootStore().themeStore.theme;
+    return themeStore.theme;
   }
 
   get hoveringNodeNeibors() {
