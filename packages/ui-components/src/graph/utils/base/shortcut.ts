@@ -12,10 +12,25 @@ export const addCanvasShortcut = (
   } = {}
 ) => {
   const { graph: graphStore } = explorerItem;
+  const container = graphStore.graphContainer;
+  if (!container) return () => {};
+  let zooming = false;
+
+  const stopZoom = () => {
+    if (!zooming) return;
+    graphStore.twoGraph?.onZoomMouseUp();
+    zooming = false;
+  };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    // ignore keydown event when focus on input or textarea
-    if (['TEXTAREA', 'INPUT'].includes((e.target as HTMLElement).tagName)) {
+    if (e.defaultPrevented || e.isComposing) return;
+    const target = e.target;
+    if (
+      target instanceof Element &&
+      target.closest(
+        'input, textarea, select, button, a[href], [role="button"], [role="textbox"], [contenteditable]:not([contenteditable="false"])'
+      )
+    ) {
       return;
     }
     const { twoGraph } = graphStore;
@@ -24,33 +39,39 @@ export const addCanvasShortcut = (
         // edit mode uses Enter-free flows: two selected nodes define a new edge instead
         if (graphStore.explorerStore.graphEdit.editMode) break;
         if (graphStore.nodesSelected.size) {
+          e.preventDefault();
           explorerItem.graph.queryRelation(ALL_EDGE_TYPE_KEY, EdgeDirectionType.AnyDirection, 1);
         }
         break;
       case e.key === '_':
         // shift + '-' zoom out
+        e.preventDefault();
         twoGraph?.onZoomMouseUp();
         twoGraph?.zoom('out');
+        zooming = true;
         break;
       case e.key === '+':
         // shift + '+' zoom in
+        e.preventDefault();
         twoGraph?.onZoomMouseUp();
         twoGraph?.zoom('in');
+        zooming = true;
         break;
       // case e.keyCode === 76 && e.shiftKey:
       //   // shift + l open show modal
       //   setPanelType(MENU_TYPE.propertyView);
       //   break;
-      case e.keyCode === 90 && (e.metaKey || e.ctrlKey) && !e.shiftKey && shortcut.undo !== false:
-        // shift + z undo
+      case e.key.toLowerCase() === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey && shortcut.undo !== false:
+        e.preventDefault();
         graphStore.undo();
         break;
-      case e.keyCode === 90 && (e.metaKey || e.ctrlKey) && e.shiftKey && shortcut.redo !== false:
-        // ctrl+ shift + z redo
+      case e.key.toLowerCase() === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey && shortcut.redo !== false:
+        e.preventDefault();
         graphStore.redo();
         break;
       case e.key === 'Backspace' && shortcut.delete !== false:
         //  del delete
+        e.preventDefault();
         if (graphStore.explorerStore.graphEdit.editMode) {
           graphStore.explorerStore.graphEdit.openDeleteConfirm();
         } else {
@@ -66,32 +87,29 @@ export const addCanvasShortcut = (
         graphStore.replaceNodeSelected(nodes);
         break;
       }
-      case e.key === 'Tab':
-        // tab
-        e.preventDefault();
-        break;
       default:
         break;
     }
   };
 
   const handleKeyUp = (e: KeyboardEvent) => {
-    const { twoGraph } = graphStore;
-    switch (true) {
-      case e.keyCode === 189 && e.shiftKey:
-      case e.keyCode === 187 && e.shiftKey:
-        twoGraph?.onZoomMouseUp();
-        break;
-      default:
-        break;
-    }
+    if (['_', '-', '+', '='].includes(e.key)) stopZoom();
   };
 
-  window.addEventListener('keydown', handleKeyDown);
-  window.addEventListener('keyup', handleKeyUp);
+  const handleFocusOut = (e: FocusEvent) => {
+    if (!(e.relatedTarget instanceof Node) || !container.contains(e.relatedTarget)) stopZoom();
+  };
+
+  container.addEventListener('keydown', handleKeyDown);
+  container.addEventListener('keyup', handleKeyUp);
+  container.addEventListener('focusout', handleFocusOut);
+  window.addEventListener('blur', stopZoom);
 
   return () => {
-    window.removeEventListener('keydown', handleKeyDown);
-    window.removeEventListener('keyup', handleKeyUp);
+    container.removeEventListener('keydown', handleKeyDown);
+    container.removeEventListener('keyup', handleKeyUp);
+    container.removeEventListener('focusout', handleFocusOut);
+    window.removeEventListener('blur', stopZoom);
+    stopZoom();
   };
 };

@@ -147,5 +147,12 @@ export class BrushSelect {
     (['pointerdown', 'pointermove', 'pointerup', 'pointerout'] as const).forEach((eventName) => {
       this.container.removeEventListener(eventName, this[eventName]);
     });
+    document.removeEventListener('keyup', this.pointerup);
+    this.selectDom.remove();
+    this.selectStart = undefined;
+    this.selectEnd = undefined;
+    this.isMoving = false;
+    this.isRightSelecting = false;
+    this.runBoxSelect = undefined;
   };
 }

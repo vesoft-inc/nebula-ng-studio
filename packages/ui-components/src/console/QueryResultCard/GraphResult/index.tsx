@@ -93,30 +93,17 @@ function GraphResult(props: GraphResultProps) {
             const brushSelect = hooks.addBrushSelect();
             // const destroyTooltip = hooks.addTooltip();
 
-            // Hotkeys should only work on the own graph container.
-            let clearup4Shortcuts: () => void = () => null;
-            const containerFocusFn = () => {
-              const removeShortcuts = hooks.addShortcuts(explorerItem, {
-                undo: false,
-                redo: false,
-                delete: false,
-                enter: false,
-              });
-              clearup4Shortcuts = removeShortcuts;
-            };
-            const containerBlurFn = () => {
-              clearup4Shortcuts();
-            };
-            explorerItem.graph.graphContainer?.addEventListener('mouseenter', containerFocusFn);
-            explorerItem.graph.graphContainer?.addEventListener('mouseleave', containerBlurFn);
+            const removeShortcuts = hooks.addShortcuts(explorerItem, {
+              undo: false,
+              redo: false,
+              delete: false,
+              enter: false,
+            });
 
             hooks.addCleanup(() => {
               brushSelect.destroy();
               // destroyTooltip();
-              clearup4Shortcuts();
-
-              explorerItem.graph.graphContainer?.removeEventListener('mouseenter', containerFocusFn);
-              explorerItem.graph.graphContainer?.removeEventListener('mouseleave', containerBlurFn);
+              removeShortcuts();
             });
 
             const data = graph.parseSubGraph(result.data?.tables || [], explorerItem.nodeTypePrimaryKeysMap, {

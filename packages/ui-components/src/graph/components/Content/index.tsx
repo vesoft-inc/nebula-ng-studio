@@ -29,7 +29,7 @@ export const CommonGraphContent = observer(function ({
    *   const graph =initGraph();
    *   const destroyTooltip = addTooltip();
    *   const brushSelect = addBrushSelect();
-   *   const removeShortcuts = addShortcuts();
+   *   const removeShortcuts = addShortcuts(explorerItem);
    *   addCleanup(() => {
    *     destroyTooltip();
    *     brushSelect.destroy();
@@ -120,7 +120,7 @@ export const CommonGraphContent = observer(function ({
       },
       addTooltip: () => initTooltip({ container: graphDom, explorerItem }),
       addBrushSelect: () => new BrushSelect({ container: graphDom, runBoxSelect }),
-      addShortcuts: (shortcuts) => addCanvasShortcut(shortcuts),
+      addShortcuts: addCanvasShortcut,
       addCleanup: (fn) => cleanupFns.push(fn),
     });
 
@@ -184,6 +184,8 @@ export const CommonGraphContent = observer(function ({
     >
       <Box
         component="div"
+        tabIndex={0}
+        onPointerDown={(event) => event.currentTarget.focus({ preventScroll: true })}
         className={`${veEditorBackCls} ${showBackGrid && veEditorBackGridCls[theme.palette.mode]}`}
         height="100%"
         sx={{
