@@ -60,7 +60,7 @@ function QueryPage({ services }: { services: ConsoleServices }) {
 
 需要自定义页面布局时，在 `UiProvider` 内使用 `ConsoleProvider`，共享同一个 controller 和 settings，再组合 `QueryComposer`、`QueryResultList`。完整工作台使用的也是这些组件。
 
-`UiProvider` 可接收宿主的 theme、i18n、modalStore。自定义 i18n 需要加载 `/locales` 导出的 `uiResources`；内置的 CSS baseline 使默认字体、字号和页面基线与 Studio 一致；嵌入已有主题应用时可设 `cssBaseline={false}`。宿主已经渲染全局弹窗时设置 `renderGlobalModal={false}`。Monaco 的主题属于同一页面的全局设置，因此同一页面上的编辑器需使用一致的主题模式。
+`UiProvider` 可接收宿主的 theme、i18n、modalStore。显式传入或从父级 MUI ThemeProvider 继承普通 MUI 主题时，会按其明暗模式补齐缺失的 Vesoft 颜色，保留宿主已有的主题配置及颜色覆盖，不修改原主题。自定义 i18n 需要加载 `/locales` 导出的 `uiResources`；内置的 CSS baseline 使默认字体、字号和页面基线与 Studio 一致；嵌入已有主题应用时可设 `cssBaseline={false}`。宿主已经渲染全局弹窗时设置 `renderGlobalModal={false}`。Monaco 的主题属于同一页面的全局设置，因此同一页面上的编辑器需使用一致的主题模式。
 
 ## Schema 与 Schema Editor
 
