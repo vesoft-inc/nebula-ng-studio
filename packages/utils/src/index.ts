@@ -14,3 +14,4 @@ export * from './interface';
 export * from './funcs';
 export * from './crypto';
 export * from './request';
+export { mergeAbortSignals } from './request/signals';
