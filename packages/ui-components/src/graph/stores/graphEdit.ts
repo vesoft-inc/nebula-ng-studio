@@ -1,4 +1,4 @@
-import { makeAutoObservable, observable } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import { GraphEntityType } from '@vesoft-inc/utils';
 import type { DescGraphTypeResult, GQLResult } from '@vesoft-inc/utils';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
@@ -249,6 +249,7 @@ export class GraphEditStore {
   };
 
   submit = async (values: Record<string, string>): Promise<GraphEditSubmitResult> => {
+    if (this.submitting) return { ok: false };
     const modal = this.modal;
     if (!modal || modal.kind === 'delete') return { ok: false };
     const meta = this.modalEntityMeta;
@@ -260,17 +261,20 @@ export class GraphEditStore {
     this.submitting = true;
     try {
       if (modal.kind === 'node') {
-        return modal.mode === 'add'
+        return await (modal.mode === 'add'
           ? this.insertNode(meta, values)
-          : this.updateNode(meta, modal.entity as NodeObject, values);
+          : this.updateNode(meta, modal.entity as NodeObject, values));
       }
-      return modal.mode === 'add' ? this.insertEdge(meta, modal, values) : this.updateEdge(meta, modal, values);
+      return await (modal.mode === 'add' ? this.insertEdge(meta, modal, values) : this.updateEdge(meta, modal, values));
     } finally {
-      this.submitting = false;
+      runInAction(() => {
+        this.submitting = false;
+      });
     }
   };
 
   confirmDelete = async () => {
+    if (this.submitting) return;
     const modal = this.modal;
     if (!modal || modal.kind !== 'delete') return;
     this.submitting = true;
@@ -321,7 +325,9 @@ export class GraphEditStore {
       this.message?.success(this.explorerStore.translate('deleteSuccess', { ns: 'explorer' }));
       this.closeModal();
     } finally {
-      this.submitting = false;
+      runInAction(() => {
+        this.submitting = false;
+      });
     }
   };
 
