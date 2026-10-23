@@ -22,6 +22,7 @@ export default function GqlEditor(props: GqlEditorProps) {
   } | null>(null);
   const [height, setHeight] = useState(26);
   const [rows, setRows] = useState(1);
+  const topPadding = rows <= 1 ? 8 : 0;
 
   useEffect(() => {
     if (!instance) return;
@@ -128,7 +129,8 @@ export default function GqlEditor(props: GqlEditorProps) {
     const updateHeight = () => {
       const count = editor.getModel()?.getLineCount() ?? 1;
       setRows(count);
-      setHeight(editor.getContentHeight() + editor.getOption(monaco.editor.EditorOption.lineHeight) + 8);
+      // Monaco includes its line height and internal padding in this measurement.
+      setHeight(editor.getContentHeight());
       latest.current.onRowCountChange?.(count);
     };
     disposables.push(editor.onDidContentSizeChange(updateHeight));
@@ -150,7 +152,7 @@ export default function GqlEditor(props: GqlEditorProps) {
       readOnly={props.readOnly}
       themeMode={theme.palette.mode}
       linePrefix={rows <= 1 ? props.prompt : undefined}
-      height={props.autoHeight ? height : props.height}
+      height={props.autoHeight ? height + topPadding : props.height}
       placeholder={props.placeholder}
       onMount={(editor, monaco) => {
         if (monaco) setInstance({ editor, monaco });
@@ -158,7 +160,8 @@ export default function GqlEditor(props: GqlEditorProps) {
       className={
         props.autoHeight
           ? css`
-              padding-top: ${rows <= 1 ? 8 : 0}px;
+              box-sizing: border-box;
+              padding-top: ${topPadding}px;
               min-height: 40px;
               max-height: ${props.maxHeight ?? '400px'};
               overflow-y: auto;
