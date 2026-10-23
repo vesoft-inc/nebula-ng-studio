@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { AddFilled, SearchFilled, SettingsFilled } from '@vesoft-inc/icons';
@@ -108,6 +108,7 @@ function Snapshots({ onOpen }: SnapshotListProps) {
   const editModalOpen = editSnapShot !== undefined;
   const totalPage = Math.ceil(total / pageSize);
   const form = useForm<SearchForm>();
+  const previousSchemaPath = useRef(currentSchema?.path);
   const fetchPage = useCallback(
     (page: number) => {
       const { graph, name } = form.getValues();
@@ -115,25 +116,10 @@ function Snapshots({ onOpen }: SnapshotListProps) {
     },
     [form, getSnapshots]
   );
-  useEffect(() => {
-    // Paging and filtering fetch explicitly; updating the response page must not trigger another request.
-    if (currentSchema?.path) {
-      fetchPage(explorerStore.currentPage);
-    }
-  }, [currentSchema?.path, explorerStore, fetchPage]);
-
   const { t } = useTranslation(['explorer', 'common']);
   const graphs = graphItems.slice();
   const modal = useModal();
   const showEmpty = snapshots.length === 0 && !hasSearched && !loading;
-
-  const handleSchemaChanged = async () => {
-    explorerStore.updateGraphWorkspace(undefined);
-    explorerStore.updatePage(1);
-    form.reset();
-    setHasSearched(false);
-    await explorerStore.getGraphItems();
-  };
 
   const handleFilter = useMemo(
     () =>
@@ -144,6 +130,25 @@ function Snapshots({ onOpen }: SnapshotListProps) {
     [fetchPage]
   );
   useEffect(() => () => handleFilter.cancel(), [handleFilter]);
+  useEffect(() => {
+    const changed = previousSchemaPath.current !== currentSchema?.path;
+    previousSchemaPath.current = currentSchema?.path;
+    if (!currentSchema?.path) return;
+    if (changed) {
+      // The catalog changes before the selector's completion callback. Reset and fetch
+      // together here so the new Schema never receives the previous page's search.
+      handleFilter.cancel();
+      explorerStore.updateGraphWorkspace(undefined);
+      explorerStore.updatePage(1);
+      form.reset();
+      setHasSearched(false);
+      setEditSnapShot(undefined);
+      void getSnapshots(1);
+    } else {
+      // Paging and filtering fetch explicitly; response page updates must not refetch.
+      void fetchPage(explorerStore.currentPage);
+    }
+  }, [currentSchema?.path, explorerStore, fetchPage, form, getSnapshots, handleFilter]);
 
   const handleDelete = async (id: string) => {
     form.reset();
@@ -178,7 +183,10 @@ function Snapshots({ onOpen }: SnapshotListProps) {
       <FormContainer formContext={form}>
         <Box display="flex" flexWrap="wrap" columnGap={1} rowGap={2} mb={2}>
           <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            <ExplorerSchemaSelector onSchemaChanged={handleSchemaChanged} onSwitchingChange={setSwitchingSchema} />
+            <ExplorerSchemaSelector
+              onSchemaChanged={explorerStore.getGraphItems}
+              onSwitchingChange={setSwitchingSchema}
+            />
           </Box>
           <AutocompleteElement
             label={t('graph', { ns: 'explorer' })}

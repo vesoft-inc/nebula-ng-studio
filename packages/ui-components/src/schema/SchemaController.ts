@@ -1,4 +1,4 @@
-import { GQLResult, GraphEntityType, safeArray } from '@vesoft-inc/utils';
+import { GQLResult, GraphEntityType, safeArray, type ServerResponse } from '@vesoft-inc/utils';
 import {
   DescEdgeTypeResult,
   DescNodeTypeResult,
@@ -40,16 +40,21 @@ export default class SchemaStore {
   }
 
   private generation = 0;
+  private sessionGeneration = 0;
+  private schemaSwitchQueue: Promise<void> = Promise.resolve();
+  private pendingSchemaSwitches = 0;
   private abort = new AbortController();
 
   constructor(public readonly services: SchemaServices) {
-    makeAutoObservable<this, 'abort'>(this, {
+    makeAutoObservable<this, 'abort' | 'schemaSwitchQueue' | 'sessionGeneration'>(this, {
       selectedKeys: observable.shallow,
       deps: false,
       reactionDisposer: false,
       currentSchemaPath: false,
       services: false,
       abort: false,
+      schemaSwitchQueue: false,
+      sessionGeneration: false,
     });
     this.bindSchemaReaction();
   }
@@ -65,6 +70,9 @@ export default class SchemaStore {
    */
   reset = () => {
     this.generation += 1;
+    this.sessionGeneration += 1;
+    this.schemaSwitchQueue = Promise.resolve();
+    this.pendingSchemaSwitches = 0;
     this.abort.abort();
     this.abort = new AbortController();
     this.reactionDisposer?.();
@@ -72,6 +80,7 @@ export default class SchemaStore {
     this.schemas.clear();
     this.selectedKeys.clear();
     this.currentSchema = emptyCurrentSchema();
+    this.createGraphModalInfo = { visible: false };
     this.loading = true;
     this.bindSchemaReaction();
   };
@@ -388,18 +397,43 @@ export default class SchemaStore {
     this.createGraphModalInfo = info;
   };
 
-  switchSchema = async (schemaPath: string) => {
-    const generation = this.generation;
-    const res = await (this.services.switchSchema?.(schemaPath) ?? this.sessionSetSchema(schemaPath));
-    if (res.code === 0 && generation === this.generation) {
-      this.updateCurrentSchame(
-        this.schemas.find((schema) => schema.path === schemaPath) ?? {
-          path: schemaPath,
-          name: schemaPath.split('/').pop() ?? '',
+  get switchingSchema() {
+    return this.pendingSchemaSwitches > 0;
+  }
+
+  switchSchema = (schemaPath: string): Promise<ServerResponse<object>> => {
+    const sessionGeneration = this.sessionGeneration;
+    this.pendingSchemaSwitches += 1;
+    // Session mutations must finish in order; ignoring an old response cannot undo its server-side effect.
+    const request = this.schemaSwitchQueue
+      .then(async () => {
+        if (sessionGeneration !== this.sessionGeneration) {
+          throw new DOMException('Schema switch cancelled', 'AbortError');
         }
+        const res = await (this.services.switchSchema?.(schemaPath) ?? this.sessionSetSchema(schemaPath));
+        if (sessionGeneration !== this.sessionGeneration) {
+          throw new DOMException('Schema switch cancelled', 'AbortError');
+        }
+        if (res.code === 0) {
+          this.updateCurrentSchame(
+            this.schemas.find((schema) => schema.path === schemaPath) ?? {
+              path: schemaPath,
+              name: schemaPath.split('/').pop() ?? '',
+            }
+          );
+        }
+        return res;
+      })
+      .finally(
+        action(() => {
+          if (sessionGeneration === this.sessionGeneration) this.pendingSchemaSwitches -= 1;
+        })
       );
-    }
-    return res;
+    this.schemaSwitchQueue = request.then(
+      () => undefined,
+      () => undefined
+    );
+    return request;
   };
 
   updateLoading = (loading: boolean) => {

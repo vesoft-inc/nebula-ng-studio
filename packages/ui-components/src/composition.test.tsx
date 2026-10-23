@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { StrictMode } from 'react';
+import { Fragment, StrictMode } from 'react';
 import { observer } from 'mobx-react-lite';
 import { UiProvider } from './provider';
 import { SchemaWorkbench } from './schema/SchemaWorkbench';
@@ -181,6 +181,77 @@ describe('standalone business workbenches', () => {
     await screen.findByRole('button', { name: 'latest-1' });
     await act(async () => completePage());
     expect(screen.getByRole('button', { name: 'latest-1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'page 1' }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it.each([false, true])('starts a fresh snapshot search after switching Schema (StrictMode=%s)', async (strict) => {
+    let schemaPath = '/a';
+    const query: QueryExecutor = async <T extends object>(gql: string) => {
+      if (gql.startsWith('SESSION SET SCHEMA')) schemaPath = '/b';
+      if (gql === 'SHOW CURRENT_SCHEMA' || gql === 'SHOW SCHEMAS') {
+        const paths = gql === 'SHOW CURRENT_SCHEMA' ? [schemaPath] : ['/a', '/b'];
+        return {
+          code: 0,
+          message: '',
+          data: { tables: paths.map((path) => ({ name: path.slice(1), path, owner: 'user' })) } as unknown as T,
+        };
+      }
+      return execute<T>(gql);
+    };
+    const list = vi.fn<SnapshotServices['list']>(async ({ page, pageSize, filter }) => {
+      const { name, schema_path } = JSON.parse(filter!);
+      return {
+        code: 0,
+        message: '',
+        data: {
+          total: 27,
+          page,
+          pageSize,
+          items: [
+            {
+              id: `${schema_path}-${name || 'all'}-${page}`,
+              name: `${schema_path}-${name || 'all'}-${page}`,
+              graph: 'demo',
+              graph_type: 'people',
+              created_at: '',
+              updated_at: '',
+              schemaPath: schema_path,
+            },
+          ],
+        },
+      };
+    });
+    const Wrapper = strict ? StrictMode : Fragment;
+    render(
+      <Wrapper>
+        <UiProvider locale="en_US">
+          <ExplorerWorkbench
+            services={{
+              execute: query,
+              snapshots: { list, create: vi.fn(), read: vi.fn(), update: vi.fn(), delete: vi.fn() },
+            }}
+          />
+        </UiProvider>
+      </Wrapper>
+    );
+    await screen.findByRole('button', { name: '/a-all-1' });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Exploration Name' }), { target: { value: 'needle' } });
+    await screen.findByRole('button', { name: '/a-needle-1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Go to page 3' }));
+    await screen.findByRole('button', { name: '/a-needle-3' });
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Schema' }));
+    fireEvent.click(await screen.findByRole('option', { name: '/b' }));
+    await waitFor(() => {
+      const requests = list.mock.calls
+        .map(([request]) => request)
+        .filter((request) => JSON.parse(request.filter!).schema_path === '/b');
+      expect(requests).toHaveLength(1);
+      expect(requests[0].page).toBe(1);
+      expect(JSON.parse(requests[0].filter!)).toEqual({ schema_path: '/b' });
+    });
+    expect(await screen.findByRole('button', { name: '/b-all-1' })).toBeTruthy();
+    expect((screen.getByRole('textbox', { name: 'Exploration Name' }) as HTMLInputElement).value).toBe('');
     expect(screen.getByRole('button', { name: 'page 1' }).getAttribute('aria-current')).toBe('page');
   });
 

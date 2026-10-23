@@ -122,10 +122,13 @@ function SchemaList({ onOpen, onSchemaChange }: SchemaListProps) {
   };
 
   const handleOpenSchema = async (schema: ISchemaItem) => {
-    const res = await schemaStore.switchSchema(schema.path);
-    if (res.code !== 0) return;
-
-    onOpen?.(schema);
+    if (schemaStore.switchingSchema) return;
+    try {
+      const res = await schemaStore.switchSchema(schema.path);
+      if (res.code === 0) onOpen?.(schema);
+    } catch {
+      // Transport errors are presented by the host; cancelled switches must not navigate.
+    }
   };
 
   return (
@@ -159,6 +162,7 @@ function SchemaList({ onOpen, onSchemaChange }: SchemaListProps) {
               >
                 <CardActionArea
                   onClick={() => handleOpenSchema(schema)}
+                  disabled={schemaStore.switchingSchema}
                   aria-label={`${t('path', { ns: 'common' })}: ${schema.path}`}
                   sx={{
                     p: 2,

@@ -62,6 +62,7 @@ export const SchemaSidebar = observer(function SchemaSidebar({
         schemas: controller.schemas,
         schemaLabel: controller.currentSchema.path.split('/').pop(),
         collapsed,
+        switching: controller.switchingSchema,
         onSwitchSchema: async (schema) => {
           const result = await controller.switchSchema(schema.path);
           if (result.code !== 0) return false;

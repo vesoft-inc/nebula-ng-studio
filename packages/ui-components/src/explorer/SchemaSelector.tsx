@@ -33,7 +33,7 @@ function ExplorerSchemaSelector({ onSchemaChanged, onSwitchingChange }: Explorer
   }, [explorerStore]);
 
   const handleChangeSchema = async (schema: ISchemaItem | null) => {
-    if (switchingRef.current) return;
+    if (switchingRef.current || schemaStore.switchingSchema) return;
     if (!schema || schema.path === currentSchema?.path) return;
 
     switchingRef.current = true;
@@ -45,6 +45,8 @@ function ExplorerSchemaSelector({ onSchemaChanged, onSwitchingChange }: Explorer
 
       explorerStore.services.onSchemaChanged?.(schema.path);
       await onSchemaChanged?.(schema);
+    } catch {
+      // A failed or cancelled switch must not trigger schema navigation.
     } finally {
       switchingRef.current = false;
       setSwitching(false);
@@ -56,7 +58,7 @@ function ExplorerSchemaSelector({ onSchemaChanged, onSwitchingChange }: Explorer
     <Autocomplete
       size="small"
       disableClearable={!!currentSchema?.path}
-      disabled={switching}
+      disabled={switching || schemaStore.switchingSchema}
       loading={loading}
       loadingText={t('loadingSchemas', { ns: 'explorer' })}
       noOptionsText={t('noMatchingSchemas', { ns: 'explorer' })}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Box, Divider, List, ListItemButton, Popover, Typography } from '@mui/material';
 import { NonCollapsibleHeader, SiderItemHeader } from './styles';
 import { MenuUp, MenuDown, SitemapOutline } from '@vesoft-inc/icons';
@@ -12,6 +12,7 @@ export interface SchemaSelectorProps {
   schemaLabel?: string;
   schemas: ISchemaItem[];
   collapsed: boolean;
+  switching?: boolean;
   onSwitchSchema: (schema: ISchemaItem) => Promise<boolean>;
   onCreateSchema: (path: string) => Promise<boolean>;
   onViewAllSchemas: () => void;
@@ -20,18 +21,39 @@ export interface SchemaSelectorProps {
 const popoverId = 'schema-selector';
 
 function SchemaSelector(props: SchemaSelectorProps) {
-  const { paperWidth, schemaLabel, schemas, collapsed, onSwitchSchema, onCreateSchema, onViewAllSchemas } = props;
+  const {
+    paperWidth,
+    schemaLabel,
+    schemas,
+    collapsed,
+    switching = false,
+    onSwitchSchema,
+    onCreateSchema,
+    onViewAllSchemas,
+  } = props;
   const { t } = useTranslation(['common']);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const [pending, setPending] = useState(false);
+  const switchingRef = useRef(false);
   const open = Boolean(anchorEl);
   const handleClose = () => {
     setAnchorEl(null);
   };
 
   const handleChangeSchema = (schema: ISchemaItem) => async () => {
-    const switched = await onSwitchSchema(schema);
-    if (switched) handleClose();
+    if (switching || switchingRef.current) return;
+    switchingRef.current = true;
+    setPending(true);
+    try {
+      const switched = await onSwitchSchema(schema);
+      if (switched) handleClose();
+    } catch {
+      // The host presents transport errors; a cancelled switch must leave the selector usable.
+    } finally {
+      switchingRef.current = false;
+      setPending(false);
+    }
   };
 
   const handleCreateSchema = async (path: string) => {
@@ -44,6 +66,7 @@ function SchemaSelector(props: SchemaSelectorProps) {
       {!collapsed ? (
         <SiderItemHeader
           variant="text"
+          disabled={switching || pending}
           sx={{
             fontSize: 16,
             lineHeight: 24,
@@ -105,7 +128,7 @@ function SchemaSelector(props: SchemaSelectorProps) {
             }}
           >
             {schemas.map((schema) => (
-              <ListItemButton key={schema.path} onClick={handleChangeSchema(schema)}>
+              <ListItemButton key={schema.path} disabled={switching || pending} onClick={handleChangeSchema(schema)}>
                 <Typography sx={{ fontSize: 14, fontWeight: 'bold' }}>{schema.path}</Typography>
               </ListItemButton>
             ))}

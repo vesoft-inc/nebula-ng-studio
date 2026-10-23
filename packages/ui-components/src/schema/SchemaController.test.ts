@@ -140,3 +140,114 @@ describe('catalog request isolation', () => {
     second.destroy();
   });
 });
+
+describe('schema switch ordering', () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<T>((done, fail) => {
+      resolve = done;
+      reject = fail;
+    });
+    return { promise, resolve, reject };
+  }
+  const success = { code: 0, message: '' };
+
+  it.each([false, true])('serializes session changes (host service: %s)', async (useHostService) => {
+    const firstResponse = deferred<typeof success>();
+    const secondResponse = deferred<typeof success>();
+    let serverSchema = '/initial';
+    const switchSession = vi.fn((path: string) => {
+      const response = path === '/first' ? firstResponse : secondResponse;
+      return response.promise.then((result) => {
+        serverSchema = path;
+        return result;
+      });
+    });
+    const store = new SchemaStore({
+      execute: vi.fn((gql: string) => switchSession(gql.includes('/first') ? '/first' : '/second')),
+      ...(useHostService ? { switchSchema: switchSession } : {}),
+    });
+    store.updateCurrentSchame({ path: '/initial' });
+    try {
+      const first = store.switchSchema('/first');
+      const second = store.switchSchema('/second');
+      expect(store.switchingSchema).toBe(true);
+      await vi.waitFor(() => expect(switchSession).toHaveBeenCalledTimes(1));
+      firstResponse.resolve(success);
+      await first;
+      expect(store.currentSchema.path).toBe(serverSchema);
+      expect(store.switchingSchema).toBe(true);
+      await vi.waitFor(() => expect(switchSession).toHaveBeenCalledTimes(2));
+      secondResponse.resolve(success);
+      await second;
+      expect(serverSchema).toBe('/second');
+      expect(store.currentSchema.path).toBe(serverSchema);
+      expect(store.switchingSchema).toBe(false);
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it.each(['reject', 'error response'])('continues the queue after an earlier %s', async (failure) => {
+    const firstResponse = deferred<typeof success>();
+    const switchSchema = vi.fn().mockReturnValueOnce(firstResponse.promise).mockResolvedValue(success);
+    const store = new SchemaStore({ execute: vi.fn(), switchSchema });
+    store.updateCurrentSchame({ path: '/initial' });
+    try {
+      const first = store.switchSchema('/first');
+      const firstResult = first.catch((error) => error);
+      const second = store.switchSchema('/second');
+      if (failure === 'reject') firstResponse.reject(new Error('transport failure'));
+      else firstResponse.resolve({ code: 1, message: 'switch failed' });
+      await firstResult;
+      await second;
+      expect(store.currentSchema.path).toBe('/second');
+      expect(store.switchingSchema).toBe(false);
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it('cancels queued switches on reset without clearing a new session request', async () => {
+    const oldResponse = deferred<typeof success>();
+    const newResponse = deferred<typeof success>();
+    const switchSchema = vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise);
+    const store = new SchemaStore({ execute: vi.fn(), switchSchema });
+    try {
+      const first = store.switchSchema('/old-first').catch((error: Error) => error.name);
+      const second = store.switchSchema('/old-second').catch((error: Error) => error.name);
+      await vi.waitFor(() => expect(switchSchema).toHaveBeenCalledOnce());
+      store.reset();
+      const next = store.switchSchema('/new-session');
+      await vi.waitFor(() => expect(switchSchema).toHaveBeenCalledTimes(2));
+      oldResponse.resolve(success);
+      expect(await first).toBe('AbortError');
+      expect(await second).toBe('AbortError');
+      expect(switchSchema.mock.calls.map(([path]) => path)).toEqual(['/old-first', '/new-session']);
+      expect(store.switchingSchema).toBe(true);
+      newResponse.resolve(success);
+      await next;
+      expect(store.currentSchema.path).toBe('/new-session');
+      expect(store.switchingSchema).toBe(false);
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it('accepts a host service that synchronizes the schema before returning', async () => {
+    const store = new SchemaStore({
+      execute: vi.fn(),
+      switchSchema: async (path) => {
+        store.updateCurrentSchame({ path });
+        return success;
+      },
+    });
+    try {
+      await expect(store.switchSchema('/host-schema')).resolves.toEqual(success);
+      expect(store.currentSchema.path).toBe('/host-schema');
+    } finally {
+      store.destroy();
+    }
+  });
+});
