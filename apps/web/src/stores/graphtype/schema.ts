@@ -33,13 +33,13 @@ type SessionRefs = {
 type CanvasSync = {
   updateNodes: (nodeTypeList: INodeTypeItem[], savedLayout: NodeLayoutMap | null) => void;
   updateEdges: (edgeTypeList: IEdgeTypeItem[]) => void;
-  updateNode: (nodeTypeItem: INodeTypeItem) => void;
-  updateEdge: (edgeTypeItem: IEdgeTypeItem) => void;
 };
 
 class SchemaStore {
   session?: SessionRefs;
   canvas?: CanvasSync;
+  /** Schema edits request a sync; VisualBuilder performs it after rendering is allowed. */
+  canvasRevision = 0;
   activeItem?: ActiveItemInfo;
   originalNodeTypeList: INodeTypeItem[] = [];
   originalEdgeTypeList: IEdgeTypeItem[] = [];
@@ -77,9 +77,9 @@ class SchemaStore {
     this.canvas = canvas;
   };
 
-  private syncCanvas = () => {
-    this.canvas?.updateNodes(this.nodeTypeList.slice(), this.savedLayout);
+  syncCanvas = () => {
     this.canvas?.updateEdges(this.edgeTypeList.slice());
+    this.canvas?.updateNodes(this.nodeTypeList.slice(), this.savedLayout);
   };
 
   // Transform data from DDL to editor
@@ -90,7 +90,7 @@ class SchemaStore {
     const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, this.session?.schemaStore.currentSchema.path);
 
     // Load the saved layout alongside the DDL so it is already in place when
-    // `updateNodeTypeList` triggers the first canvas render. A missing or
+    // VisualBuilder synchronizes the loaded schema to the canvas. A missing or
     // unreadable layout must never prevent the editor from opening.
     const [[nodeTypes, edgeTypes], savedLayout] = await Promise.all([
       this.transformGrapTypeByDDL(graphTypeName),
@@ -142,12 +142,12 @@ class SchemaStore {
 
   updateNodeTypeList = (nodeTypeList: INodeTypeItem[]) => {
     this.nodeTypeList.replace(nodeTypeList);
-    this.canvas?.updateNodes(this.nodeTypeList.slice(), this.savedLayout);
+    this.canvasRevision += 1;
   };
 
   updateEdgeTypeList = (edgeTypeList: IEdgeTypeItem[]) => {
     this.edgeTypeList.replace(edgeTypeList);
-    this.canvas?.updateEdges(this.edgeTypeList.slice());
+    this.canvasRevision += 1;
   };
 
   updateGraphTypeName = (name: string) => {
@@ -305,7 +305,7 @@ class SchemaStore {
     node.style = style;
     this.nodeTypeList.push(node);
     this.nodeTypeList.replace(this.nodeTypeList); // force update
-    this.syncCanvas();
+    this.canvasRevision += 1;
   };
 
   initReactions = () => {
@@ -353,7 +353,7 @@ class SchemaStore {
   updateNodeType = (id: string, node: INodeTypeItem) => {
     const current = this.nodeTypeList.find((item) => item.id === id);
     current?.updateValues(node);
-    if (current) this.canvas?.updateNode(current);
+    if (current) this.canvasRevision += 1;
   };
 
   setActiveItem = (info?: ActiveItemInfo) => {
@@ -363,13 +363,13 @@ class SchemaStore {
   updateEdgeType = (id: string, edge: Omit<IEdgeTypeItem, 'id'>) => {
     const current = this.edgeTypeList.find((item) => item.id === id);
     current?.updateValues(edge);
-    if (current) this.canvas?.updateEdge(current);
+    if (current) this.canvasRevision += 1;
   };
 
   addEdgeType = (edge: IEdgeTypeItem) => {
     this.edgeTypeList.push(edge);
     this.edgeTypeList.replace(this.edgeTypeList); // force update
-    this.syncCanvas();
+    this.canvasRevision += 1;
   };
 
   deleteNodeType = (item: INodeTypeItem) => {
@@ -378,12 +378,12 @@ class SchemaStore {
       this.edgeTypeList.remove(edge);
     });
     this.nodeTypeList.replace(this.nodeTypeList.filter((node) => node.id !== item.id));
-    this.syncCanvas();
+    this.canvasRevision += 1;
   };
 
   deleteEdgeType = (item: IEdgeTypeItem) => {
     this.edgeTypeList.replace(this.edgeTypeList.filter((edge) => edge.id !== item.id));
-    this.syncCanvas();
+    this.canvasRevision += 1;
   };
 
   disposeReaction = () => {

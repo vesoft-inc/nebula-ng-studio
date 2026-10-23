@@ -21,6 +21,16 @@ import { commonStore, schemaStore as rootSchemaStore } from '@studio/stores/sess
 import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { resolveSchemaPath } from '@studio/services';
 
+const CanvasSync = observer(function CanvasSync() {
+  const { schemaStore, canvasStore: canvas } = useGraphTypeStore();
+  // Subscribe separately so schema edits do not recreate the configuration form's callbacks.
+  // Mounting under VisualBuilder also defers layout work until large graphs are confirmed.
+  useEffect(() => {
+    schemaStore?.syncCanvas();
+  }, [schemaStore, canvas, schemaStore?.canvasRevision, schemaStore?.savedLayout]);
+  return null;
+});
+
 function VisualBuilder() {
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
@@ -90,12 +100,14 @@ function VisualBuilder() {
 
   return (
     <GraphContainer ref={reactFlowWrapper} className={canvas.fullScreen ? fullScreenCls : undefined}>
+      <CanvasSync />
       <GraphCanvas
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onNodeAdd={(position) => {
           const newNode = new INodeTypeItem({ style: { position } });
+          canvas.addNodeAtPosition(newNode, position);
           schemaStore?.addNodeType(newNode);
           canvas.setActiveItem({ type: VisualEditorType.Tag, value: newNode });
         }}

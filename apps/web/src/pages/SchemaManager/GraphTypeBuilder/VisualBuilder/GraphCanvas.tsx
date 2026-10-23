@@ -6,8 +6,9 @@ import {
   Connection,
   NodeChange,
   EdgeChange,
+  type ReactFlowInstance,
 } from '@xyflow/react';
-import { ComponentProps, useEffect, useRef } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import GraphMarkerDefinitions from './GraphMarkerDefinitions';
 import CustomNode from './CustomNode';
@@ -46,6 +47,7 @@ const GraphCanvasComponent = ({
   const readonly = canvas?.readonly ?? true;
 
   const suppressNextNodeClickRef = useRef(false);
+  const [instance, setInstance] = useState<ReactFlowInstance<ReactFlowNode, ReactFlowEdge> | null>(null);
 
   const nodes = canvas?.nodes.slice() ?? [];
   const edges = canvas?.edges.slice() ?? [];
@@ -127,10 +129,11 @@ const GraphCanvasComponent = ({
   };
 
   useEffect(() => {
+    canvas?.setInstance(instance);
     return () => {
       canvas?.setInstance(null);
     };
-  }, []);
+  }, [canvas, instance]);
 
   return (
     <ReactFlowProvider>
@@ -179,7 +182,7 @@ const GraphCanvasComponent = ({
         onInit={(instance) => {
           instance.zoomTo(0.1);
           instance.fitView();
-          canvas?.setInstance(instance);
+          setInstance(instance);
           onInit?.();
         }}
         style={{
