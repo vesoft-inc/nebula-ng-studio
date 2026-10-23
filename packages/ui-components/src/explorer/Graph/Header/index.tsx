@@ -96,6 +96,7 @@ function GraphHeader({ onBack, blocker }: { onBack?: () => void; blocker?: Explo
     savingRef.current = true;
     setIsSaving(true);
     try {
+      const revision = graph.snapshotRevision;
       const data = graph.toSnapShotData();
       const canvas = await generateThumbnailCanvas();
       const thumbnail = canvas.toDataURL('image/png');
@@ -107,7 +108,10 @@ function GraphHeader({ onBack, blocker }: { onBack?: () => void; blocker?: Explo
       } as Snapshot);
       if (res.code !== 0 || explorerStore.graphWorkspace !== graphWorkspace) return false;
 
-      graph.updateShouldBlockRouter(false);
+      if (!graph.markSnapshotSaved(revision)) {
+        message.warning(t('changedDuringSave', { ns: 'explorer' }));
+        return false;
+      }
       message.success(t('saveSuccess', { ns: 'common' }));
       return true;
     } catch {

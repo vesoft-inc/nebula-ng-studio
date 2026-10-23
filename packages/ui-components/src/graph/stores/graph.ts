@@ -9,6 +9,7 @@ import {
   toJS,
 } from 'mobx';
 import { debounce } from '@mui/material/utils';
+import isEqual from 'lodash/isEqual';
 import {
   DEFAULT_EXPLORE_RULES,
   DEFAULT_RETURN_LIMIT,
@@ -36,8 +37,7 @@ import { isEdgeNodeValue, parseEdgeValueToLinkObject, parseVertexValueToNodeObje
 import { isNullLike } from '../utils/base/dml';
 import { convertBigNumberToString, getDirection, getPathPattern, parseValueByPropertyType } from '../utils/helpers';
 import type { GraphWorkspaceStore } from './workspace';
-import VertexFiltersStore from './vertexFilter';
-import VertexFilterStore from './vertexFilter';
+import VertexFilterStore, { VertexFilterDisplay } from './vertexFilter';
 import {
   DescNodeTypeResult,
   downloadCSVFiles,
@@ -105,6 +105,7 @@ export class GraphStore {
   vertexFilterStore: VertexFilterStore;
   filterListDisposer?: IReactionDisposer;
   shouldBlockRouter = false;
+  snapshotRevision = 0;
 
   modalStore?: ModalStore;
   requestQueue: RequestQueue;
@@ -130,23 +131,30 @@ export class GraphStore {
       nowDataMap: false,
       imagesCache: false,
       actionHistoryDispose: false,
+      filterListDisposer: false,
       // actions
       setGraphContainer: action,
       resize: false,
       // computed
       nodeColorMap: computed,
     });
-    this.vertexFilterStore = new VertexFiltersStore(this);
+    this.vertexFilterStore = new VertexFilterStore(this);
     this.explorerStore = stores.explorerStore;
     this.modalStore = stores.modalStore;
     this.requestQueue = options.requestQueue;
+    this.initFilterReaction();
+  }
+
+  private initFilterReaction = () => {
+    if (this.filterListDisposer) return;
     this.filterListDisposer = reaction(
-      () => this.filterList.slice(),
+      () => ({ filters: this.filterList.slice(), filterType: this.vertexFilterStore.filterType }),
       () => {
         this.vertexFilterStore.handleGraphFilter();
-      }
+      },
+      { fireImmediately: true }
     );
-  }
+  };
 
   get isEmpty() {
     return this.nodes.size === 0 && this.links.size === 0;
@@ -242,6 +250,7 @@ export class GraphStore {
       );
     })();
 
+    data.filterType = this.vertexFilterStore.filterType;
     return data;
   };
 
@@ -272,6 +281,14 @@ export class GraphStore {
   };
 
   updateFilterList = (filterList: ConditionFilter[]) => {
+    if (
+      !isEqual(
+        this.filterList.map((filter) => filter.getValues()),
+        filterList.map((filter) => filter.getValues())
+      )
+    ) {
+      this.updateShouldBlockRouter(true);
+    }
     this.filterList.replace(filterList);
   };
 
@@ -286,6 +303,8 @@ export class GraphStore {
       store.displayedEdgePropertyItems.replace(data.displayedEdgePropertyItems);
       store.nowDataMap = data.nowDataMap;
       store.imagesCache = new Map(data.imagesCache);
+      // Restore without marking a saved snapshot as edited. Older snapshots used grayscale.
+      store.vertexFilterStore.filterType = data.filterType ?? VertexFilterDisplay.Grayscale;
       store.filterList.replace(data.filterList.map((f) => new ConditionFilter(f)));
       store.nodeColorPicker.initColorMap(
         Array.from(data.nodes).map((node) => ({
@@ -374,10 +393,12 @@ export class GraphStore {
   };
 
   updateNodeDisplayedPropertyItems = (items: DisplayedPropertyItem[]) => {
+    if (!isEqual(this.displayedNodePropertyItems.slice(), items)) this.updateShouldBlockRouter(true);
     this.displayedNodePropertyItems.replace(items);
   };
 
   updateEdgeDisplayedPropertyItems = (items: DisplayedPropertyItem[]) => {
+    if (!isEqual(this.displayedEdgePropertyItems.slice(), items)) this.updateShouldBlockRouter(true);
     this.displayedEdgePropertyItems.replace(items);
   };
 
@@ -414,7 +435,15 @@ export class GraphStore {
   };
 
   updateShouldBlockRouter = (shouldBlockRouter: boolean) => {
+    // Count edits even while already dirty, so an older save cannot clear newer changes.
+    if (shouldBlockRouter) this.snapshotRevision += 1;
     this.shouldBlockRouter = shouldBlockRouter;
+  };
+
+  markSnapshotSaved = (revision: number) => {
+    if (revision !== this.snapshotRevision) return false;
+    this.updateShouldBlockRouter(false);
+    return true;
   };
 
   dismissSelected = () => {
@@ -494,6 +523,7 @@ export class GraphStore {
     }
     const storeData = this.recorverHistoryData(nowData);
     this.unsafeAction((store) => Object.assign(store, storeData));
+    this.updateShouldBlockRouter(true);
   };
 
   redo = () => {
@@ -509,6 +539,7 @@ export class GraphStore {
     }
     const storeData = this.recorverHistoryData(nowData);
     this.unsafeAction((store) => Object.assign(store, storeData));
+    this.updateShouldBlockRouter(true);
   };
 
   pushHistory = () => {
@@ -521,8 +552,9 @@ export class GraphStore {
     };
     // SAFETY: the history entry is a detached JSON snapshot; `nodesSelected`/`linksSelected`
     // are reshaped back into observable sets when the entry is restored.
+    this.actionHistory.splice(this.historyIndex + 1);
     this.actionHistory.push(snapshot as unknown as SnapshotData);
-    this.historyIndex++;
+    this.historyIndex = this.actionHistory.length - 1;
   };
 
   deleteNodesAndEdges = ({ reverse = false }) => {
@@ -572,6 +604,8 @@ export class GraphStore {
     });
     const nextNodes = this.nodes.toJSON().filter((node) => !this.nodesSelected.has(node));
 
+    if (nextNodes.length !== this.nodes.size || nextLinks.length !== this.links.size)
+      this.updateShouldBlockRouter(true);
     this.initData({ nodes: nextNodes, links: nextLinks });
   };
 
@@ -620,6 +654,7 @@ export class GraphStore {
         ?.map((key) => properties[key])
         .join(' ');
     }
+    this.updateShouldBlockRouter(true);
     this.twoGraph?.render();
     this.explorerStore.minimap.refresh();
   };
@@ -639,6 +674,8 @@ export class GraphStore {
       return !nodeSet.has(source as NodeObject) && !nodeSet.has(target as NodeObject);
     });
 
+    if (nextNodes.length !== this.nodes.size || nextLinks.length !== this.links.size)
+      this.updateShouldBlockRouter(true);
     this.unsafeAction((store) => {
       nodeSet.forEach((node) => store.nodesSelected.delete(node));
       linkSet.forEach((link) => store.linksSelected.delete(link));
@@ -661,6 +698,7 @@ export class GraphStore {
     container: HTMLElement;
     graphSettings: Parameters<TwoGraphStore['init']>[0];
   }) => {
+    this.initFilterReaction();
     this.setGraphContainer(container as HTMLDivElement);
     this.resize();
     this.twoGraph = new TwoGraphStore(this, container, graphSettings);
@@ -672,6 +710,7 @@ export class GraphStore {
     this.setPageLoading(true);
     setTimeout(async () => {
       await layouts[layout](this);
+      this.updateShouldBlockRouter(true);
       this.twoGraph?.autoFit();
       this.explorerStore.minimap.refresh();
       this.setPageLoading(false);
@@ -702,8 +741,8 @@ export class GraphStore {
   };
 
   changeNodesSelectedIcon = ({ iconId, icon }: { iconId: string; icon: string }) => {
-    this.updateShouldBlockRouter(true);
     const modeFun = (id?: string) => {
+      this.updateShouldBlockRouter(true);
       this.nodesSelected.forEach((node) => {
         const nodeData = this.nowDataMap.get(node.id!);
         if (nodeData) {
@@ -777,6 +816,8 @@ export class GraphStore {
   };
 
   resetData = () => {
+    this.snapshotRevision += 1;
+    this.shouldBlockRouter = false;
     this.nodes.clear();
     this.links.clear();
     this.nodesSelected.clear();
@@ -912,6 +953,7 @@ export class GraphStore {
     }
     // triggered manually to update the properties of existing nodes or edges
     hasExistedData && this.twoGraph?.render();
+    if (hasExistedData || nowDataMap.size !== this.nowDataMap.size) this.updateShouldBlockRouter(true);
     // makesure there are new nodes
     if (nowDataMap.size === this.nowDataMap.size) {
       return;

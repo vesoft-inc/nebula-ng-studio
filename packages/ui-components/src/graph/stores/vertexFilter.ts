@@ -1,5 +1,5 @@
 import { makeAutoObservable, observable, ObservableSet } from 'mobx';
-import { GraphStore } from './graph';
+import type { GraphStore } from './graph';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 
 export enum VertexFilterDisplay {
@@ -71,7 +71,9 @@ class VertexFilterStore {
   }
 
   setFilterType = (type: VertexFilterDisplay) => {
+    if (type === this.filterType) return;
     this.filterType = type;
+    this.graph.updateShouldBlockRouter(true);
   };
 
   nodeTypeFilterAction = (nodeType: string, action: 'add' | 'delete') => {

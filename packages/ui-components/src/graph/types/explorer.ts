@@ -6,6 +6,7 @@ import { IDataMap, RawEntityType } from './gql';
 import { IObservableArray, ObservableSet } from 'mobx';
 import { ConditionFactories, DEFAULT_LINK_COLOR, OperatorType } from '../constants';
 import { parseValueByPropertyType } from '../utils/helpers';
+import type { VertexFilterDisplay } from '../stores/vertexFilter';
 
 export type SnapshotData = {
   nodes: NodeObject[];
@@ -15,6 +16,7 @@ export type SnapshotData = {
   displayedNodePropertyItems: IObservableArray<DisplayedPropertyItem>;
   displayedEdgePropertyItems: IObservableArray<DisplayedPropertyItem>;
   filterList: IObservableArray<ConditionFilter>;
+  filterType?: VertexFilterDisplay;
   nowDataMap: IDataMap;
   version?: string;
   imagesCache?: Map<string, string | HTMLImageElement>; // [url, image]
@@ -211,12 +213,11 @@ export class ConditionFilter {
     }
     if (!this.property_name) return false;
     if (!this.property?.data_type) return false;
+    const rawValue = item.data.value.properties[this.property_name];
+    // Missing and null properties do not satisfy comparisons (including !=).
+    if (rawValue == null) return false;
     const invokeFn = ConditionFactories.find((item) => item.operator === this.operator)!.invoke;
-    const fieldValue = parseValueByPropertyType(
-      item.data.value.properties[this.property_name] as string,
-      this.property.data_type,
-      false
-    );
+    const fieldValue = parseValueByPropertyType(String(rawValue), this.property.data_type, false);
     const value = parseValueByPropertyType(this.value, this.property.data_type, false);
     return invokeFn({
       fieldValue,

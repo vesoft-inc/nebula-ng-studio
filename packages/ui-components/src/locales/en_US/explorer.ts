@@ -148,6 +148,7 @@ const explorer = {
   confirmLeave: 'Leave',
   cancelLeave: 'Cancel',
   saveAndLeave: 'Save & Leave',
+  changedDuringSave: 'The snapshot was saved, but newer changes are still unsaved. Save again before leaving.',
   searchInCanvas: 'Search in Exploration',
   graphLayout: {
     force: 'Force',

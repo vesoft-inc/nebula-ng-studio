@@ -26,6 +26,7 @@ export function exportSnapshotTransfer(data: SnapshotData, version = '1') {
   // SAFETY: the exported object is assembled dynamically and is only consumed by `JSON.stringify`.
   const ret = {
     version,
+    filterType: data.filterType,
   } as Record<string, unknown>;
 
   // handle nowDataMap

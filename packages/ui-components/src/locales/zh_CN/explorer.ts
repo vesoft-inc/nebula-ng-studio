@@ -145,6 +145,7 @@ const explorer = {
   confirmLeave: '确认离开',
   cancelLeave: '取消',
   saveAndLeave: '保存并离开',
+  changedDuringSave: '快照已保存，但保存期间的新修改尚未保存，请再次保存后离开。',
   searchInCanvas: '在画布中搜索',
   graphLayout: {
     force: '力导向图',

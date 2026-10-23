@@ -28,11 +28,12 @@ const initialCondition = {
 export default observer(function GraphFilter() {
   const { graphWorkspace } = useExplorerStore();
   const { updateActiveSiderKey } = graphWorkspace;
+  const { vertexFilterStore } = graphWorkspace.graph;
   const { t } = useTranslation(['explorer']);
 
   const form = useForm<ConditionFilterForm>({
     defaultValues: {
-      filterType: VertexFilterDisplay.Grayscale,
+      filterType: vertexFilterStore.filterType,
       conditions: (graphWorkspace.graph.filterList.length
         ? graphWorkspace.graph.filterList
         : [new ConditionFilter(initialCondition)]
@@ -51,7 +52,6 @@ export default observer(function GraphFilter() {
 
   const handleApplyFilter = () => {
     const conditions = form.getValues('conditions');
-    const { vertexFilterStore } = graphWorkspace.graph;
     vertexFilterStore.setFilterType(form.getValues('filterType'));
     graphWorkspace.graph.updateFilterList(conditions.map((condition) => new ConditionFilter(condition)));
     vertexFilterStore.handleGraphFilter();
@@ -62,7 +62,7 @@ export default observer(function GraphFilter() {
   const filterType = form.watch('filterType');
 
   useEffect(() => {
-    handleApplyFilter();
+    if (filterType !== vertexFilterStore.filterType) handleApplyFilter();
   }, [filterType]);
 
   return (
