@@ -1,21 +1,7 @@
 import { EXPLORER_DEFAULT_SETTINGS, ExplorerSettings } from '@studio/components/Settings/constants';
 import { EXPLORER_APP_CONFIG_KEY, useRemoteSettings } from '@studio/components/Settings/hook';
-import { useModal } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
 import { useEffect } from 'react';
-import { observable, action } from 'mobx';
-
-const explorerSettingsDrawerIsOpen = observable.box(false);
-
-const toggleExplorerSettingsDrawer = action((val?: boolean) => {
-  explorerSettingsDrawerIsOpen.set(val ?? !explorerSettingsDrawerIsOpen.get());
-});
-
-export const useExplorerSettingsDrawer = () => ({
-  get isOpen() {
-    return explorerSettingsDrawerIsOpen.get();
-  },
-  toggle: toggleExplorerSettingsDrawer,
-});
 
 export const useExplorerSettings = ({
   enabled,

@@ -8,14 +8,14 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import { IGraphIndex } from '@studio/interfaces';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { schemaStore } from '@studio/stores/session';
 import CreateGraphIndexModal from '@studio/components/CreateGraphIndexModal';
 
 function GraphIndex() {
   const [indexData, setIndexData] = useState<IGraphIndex[]>([]);
   const params = useParams<{ graphName: string }>();
   const theme = useTheme();
-  const { schemaStore } = useStore();
   const { t } = useTranslation(['graph', 'common']);
   const modalStore = useModal();
   const { message } = modalStore;

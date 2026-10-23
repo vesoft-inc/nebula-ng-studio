@@ -7,7 +7,7 @@ import { type MRT_ColumnDef } from 'material-react-table';
 
 import { ActionContainer } from './styles';
 import NodeTypeConfigModal from './NodeTypeConfigModal';
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { INodeTypeItem, IProperty } from '@studio/interfaces';
 import { useCallback, useState } from 'react';
 import { getLabelColor } from '@studio/utils';
@@ -18,7 +18,7 @@ interface NodeTypeTableProps {
 
 function NodeTypeTable(props: NodeTypeTableProps) {
   const { readonly } = props;
-  const { schemaStore } = useStore().graphtypeStore;
+  const { schemaStore } = useGraphTypeStore();
   const { t } = useTranslation(['graphtype']);
   const [modalOpen, setModalOpen] = useState(false);
   const [editNodeType, setEditNodeType] = useState<INodeTypeItem | undefined>();

@@ -36,7 +36,9 @@ import { Trans, useTranslation } from 'react-i18next';
 import { brandConfig, JSONBig, formatMicroseconds, transformNebulaResult, isGuiTarget } from '@studio/utils';
 import { EmptyResultId } from '@studio/utils/constant';
 import { CircularProgress, Skeleton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
-import { useStore, useModal } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { commonStore, consoleStore, schemaStore } from '@studio/stores/session';
+import { exportSnapshotTransfer } from '@studio/stores/explorer';
 import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 import { getUsedGraphsFromData } from '@studio/utils/parseData';
 import {
@@ -111,7 +113,6 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
   const handleMenuClick = useCallback((key: string) => {
     setActiveMenu(key as OutputMenu);
   }, []);
-  const { consoleStore, schemaStore, explorerStore, commonStore } = useStore();
   const navigate = useNavigate();
   const { message } = useModal();
   const [handoffPending, setHandoffPending] = useState(false);
@@ -426,7 +427,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
         // so no `await` may happen before this call. A missing graph_type is filled in below.
         const payload = buildHandoffPayload({
           workspace,
-          explorerStore,
+          explorerStore: { exportSnapshotTransfer },
           name: buildSnapshotName(result.gql),
           graph: graphName,
           graphType: resolveGraphType() ?? '',
@@ -447,7 +448,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
         // session schema, so resolve it here rather than storing an empty `schema_path`.
         const schemaPath = await ensureSnapshotSchemaPath({
           getPath: () => schemaStore.currentSchema?.path,
-          refresh: () => explorerStore.getCurrentSchema(),
+          refresh: () => schemaStore.refreshCurrentSchema(),
           fallback: () => commonStore.userInfo?.curSchemaPath,
         });
 
@@ -469,7 +470,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
         setHandoffPending(false);
       }
     },
-    [consoleStore, explorerStore, handoffPending, message, navigate, result, schemaStore, t]
+    [consoleStore, handoffPending, message, navigate, result, schemaStore, t]
   );
 
   const exploreButton = (

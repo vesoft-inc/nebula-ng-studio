@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { VectorTriangle, Fullscreen, FullscreenExit, SettingsOutlined } from '@vesoft-inc/icons';
 
-import { useStore } from '@studio/stores';
+import { commonStore, consoleStore } from '@studio/stores/session';
 import Results from './Results';
 import GQLEditor from './GQLEditor';
 import { EditorWrapper, InputArea, StyledSider, SiderItem, ActionButtonsWrapper } from './styles';
@@ -28,7 +28,6 @@ import {
 
 function Console() {
   const theme = useTheme();
-  const { consoleStore, commonStore } = useStore();
   const { t } = useTranslation(['console']);
   const [activeMenu, setActiveMenu] = useState<string>();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);

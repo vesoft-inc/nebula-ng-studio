@@ -4,12 +4,11 @@ import { Table } from '@vesoft-inc/ui-components';
 import { ConsoleResult } from '@vesoft-inc/utils';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import { useStore } from '@studio/stores';
+import { commonStore } from '@studio/stores/session';
 import { JSONBig, transformNebulaResult } from '@studio/utils';
 
 function TableResult({ result, searchValue }: { result: ConsoleResult; searchValue?: string }) {
   const { t } = useTranslation(['graph']);
-  const { commonStore } = useStore();
   const { headers = [], tables = [] } = result.data || {};
   const columns = (headers || []).map((header) => ({
     accessorFn: (row: Record<string, string>) => row[header],

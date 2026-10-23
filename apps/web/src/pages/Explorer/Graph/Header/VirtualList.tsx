@@ -1,7 +1,7 @@
 import EntityLabelList from '@studio/components/GraphWorkbench/EntityLabelList';
 import EntityTypeLabel from '@studio/components/GraphWorkbench/EntityTypeLabel';
 import { RawEntityType } from '@studio/interfaces/explorer';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '../../context';
 import {
   autocompleteClasses,
   type AutocompleteRenderOptionState,
@@ -68,7 +68,7 @@ const OuterElementType = React.forwardRef<HTMLDivElement>((props, ref) => {
 export const ListboxComponent = observer(
   React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLElement>>(function ListboxComponent(props, ref) {
     const { children, ...other } = props;
-    const { explorerStore } = useStore();
+    const explorerStore = useExplorerStore();
     const { graphWorkspace } = explorerStore;
     const itemData: React.ReactElement[] = [];
     (children as React.ReactElement[]).forEach((item: React.ReactElement & { children?: React.ReactElement[] }) => {
@@ -179,7 +179,7 @@ export const Highlight: React.FC<HighlightProps> = ({ text, highlight }) => {
 export const OptionItem = observer((props: { item: NodeObject | LinkObject; state: AutocompleteRenderOptionState }) => {
   const { item, state } = props;
   const theme = useTheme();
-  const { explorerStore } = useStore();
+  const explorerStore = useExplorerStore();
   const { graphWorkspace } = explorerStore;
   const inputValue = state?.inputValue?.trim();
   const primaryKeys = graphWorkspace.nodeTypePrimaryKeysMap.get(item.data.value.type);

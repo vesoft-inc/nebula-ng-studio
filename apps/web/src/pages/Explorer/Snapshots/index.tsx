@@ -9,7 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 
 import SnapshotCard from '@studio/pages/Explorer/Snapshots/SnapshotCard';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { useExplorerStore } from '../context';
 import EmptySnapShotDarkSvg from '@studio/images/snapshot-empty-dark.svg?url';
 import EmptySnapShotLightSvg from '@studio/images/snapshot-empty-light.svg?url';
 import PageLoading from '@studio/components/GraphWorkbench/PageLoading';
@@ -20,12 +22,11 @@ import EmptyCardImage from '@studio/images/empty-card-content.svg?url';
 import EmptyCardDarkImage from '@studio/images/empty-card-content-dark.svg?url';
 import ExplorerSchemaSelector from '../SchemaSelector';
 import SnapshotSettingsDrawer from './Drawer';
-import { useExplorerSettingsDrawer } from './hook';
 
 const NewExplorerButton = observer(function NewExplorerButtonComp({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { explorerStore } = useStore();
+  const explorerStore = useExplorerStore();
   const { graphItems, addSnapshot } = explorerStore;
   const graphs = graphItems.slice();
   const { t } = useTranslation(['explorer', 'common']);
@@ -74,7 +75,6 @@ type SearchForm = {
 
 const NoSnapShot = observer(function NoSnapShot() {
   const { t } = useTranslation(['common']);
-  const { themeStore } = useStore();
   const isDarkMode = themeStore.mode === 'dark';
   return (
     <Box className="w-full pt-10 flex flex-col items-center">
@@ -90,9 +90,9 @@ const NoSnapShot = observer(function NoSnapShot() {
 });
 
 function Snapshots() {
-  const { explorerStore, themeStore } = useStore();
+  const explorerStore = useExplorerStore();
   const navigate = useNavigate();
-  const settingsDrawer = useExplorerSettingsDrawer();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { loading, graphItems, currentSchema } = explorerStore;
   const { snapshots, total, getSnapshots, currentPage, pageSize } = explorerStore;
   const [editSnapShot, setEditSnapShot] = useState<Snapshot | undefined>(undefined);
@@ -245,7 +245,7 @@ function Snapshots() {
             <Tooltip title={t('explorerSettings', { ns: 'explorer' })}>
               <IconButton
                 aria-label={t('explorerSettings', { ns: 'explorer' })}
-                onClick={() => settingsDrawer.toggle(true)}
+                onClick={() => setSettingsOpen(true)}
                 size="small"
                 sx={{ p: 2 }}
               >
@@ -311,7 +311,7 @@ function Snapshots() {
           </>
         )}
       </Container>
-      <SnapshotSettingsDrawer open={settingsDrawer.isOpen} onClose={() => settingsDrawer.toggle(false)} />
+      <SnapshotSettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
 }

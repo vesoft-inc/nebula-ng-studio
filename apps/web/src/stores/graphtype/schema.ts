@@ -14,7 +14,6 @@ import {
   VisualInfo,
 } from '@studio/interfaces';
 import { execGql, getSketchById, readGraphTypeLayout, resolveSchemaPath } from '@studio/services';
-import { RootStore } from '@studio/stores/index';
 import { VisualEditorType } from '@studio/utils/constant';
 import { extractEdgeByEdgeTypeName } from '@studio/utils';
 import randomColor from 'randomcolor';
@@ -24,8 +23,23 @@ export type ActiveItemInfo =
   | { type: VisualEditorType.Edge; value: IEdgeTypeItem }
   | { type: VisualEditorType.Tag; value: INodeTypeItem };
 
+type SessionRefs = {
+  commonStore: {
+    userInfo?: { curSchemaPath?: string; address?: string; username?: string };
+  };
+  schemaStore: { currentSchema: { path?: string } };
+};
+
+type CanvasSync = {
+  updateNodes: (nodeTypeList: INodeTypeItem[], savedLayout: NodeLayoutMap | null) => void;
+  updateEdges: (edgeTypeList: IEdgeTypeItem[]) => void;
+  updateNode: (nodeTypeItem: INodeTypeItem) => void;
+  updateEdge: (edgeTypeItem: IEdgeTypeItem) => void;
+};
+
 class SchemaStore {
-  rootStore?: RootStore;
+  session?: SessionRefs;
+  canvas?: CanvasSync;
   activeItem?: ActiveItemInfo;
   originalNodeTypeList: INodeTypeItem[] = [];
   originalEdgeTypeList: IEdgeTypeItem[] = [];
@@ -44,22 +58,36 @@ class SchemaStore {
 
   graphtypeName?: string;
 
-  constructor(rootStore?: RootStore) {
-    this.rootStore = rootStore;
+  constructor() {
     makeAutoObservable(this, {
       activeItem: observable.ref,
+      session: false,
+      canvas: false,
       nodeTypeLabeMap: computed,
       edgeTypeLabelMap: computed,
     });
     this.initReactions();
   }
 
+  attachSession = (session: SessionRefs) => {
+    this.session = session;
+  };
+
+  attachCanvas = (canvas: CanvasSync) => {
+    this.canvas = canvas;
+  };
+
+  private syncCanvas = () => {
+    this.canvas?.updateNodes(this.nodeTypeList.slice(), this.savedLayout);
+    this.canvas?.updateEdges(this.edgeTypeList.slice());
+  };
+
   // Transform data from DDL to editor
   transformGraphTypeToEditorFromDDL = async (graphTypeName: string) => {
     this.updateGraphTypeName(graphTypeName);
 
-    const userInfo = this.rootStore?.commonStore.userInfo;
-    const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, this.rootStore?.schemaStore.currentSchema.path);
+    const userInfo = this.session?.commonStore.userInfo;
+    const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, this.session?.schemaStore.currentSchema.path);
 
     // Load the saved layout alongside the DDL so it is already in place when
     // `updateNodeTypeList` triggers the first canvas render. A missing or
@@ -114,10 +142,12 @@ class SchemaStore {
 
   updateNodeTypeList = (nodeTypeList: INodeTypeItem[]) => {
     this.nodeTypeList.replace(nodeTypeList);
+    this.canvas?.updateNodes(this.nodeTypeList.slice(), this.savedLayout);
   };
 
   updateEdgeTypeList = (edgeTypeList: IEdgeTypeItem[]) => {
     this.edgeTypeList.replace(edgeTypeList);
+    this.canvas?.updateEdges(this.edgeTypeList.slice());
   };
 
   updateGraphTypeName = (name: string) => {
@@ -275,6 +305,7 @@ class SchemaStore {
     node.style = style;
     this.nodeTypeList.push(node);
     this.nodeTypeList.replace(this.nodeTypeList); // force update
+    this.syncCanvas();
   };
 
   initReactions = () => {
@@ -320,7 +351,9 @@ class SchemaStore {
   };
 
   updateNodeType = (id: string, node: INodeTypeItem) => {
-    this.nodeTypeList.find((node) => node.id === id)?.updateValues(node);
+    const current = this.nodeTypeList.find((item) => item.id === id);
+    current?.updateValues(node);
+    if (current) this.canvas?.updateNode(current);
   };
 
   setActiveItem = (info?: ActiveItemInfo) => {
@@ -328,12 +361,15 @@ class SchemaStore {
   };
 
   updateEdgeType = (id: string, edge: Omit<IEdgeTypeItem, 'id'>) => {
-    this.edgeTypeList.find((edge) => edge.id === id)?.updateValues(edge);
+    const current = this.edgeTypeList.find((item) => item.id === id);
+    current?.updateValues(edge);
+    if (current) this.canvas?.updateEdge(current);
   };
 
   addEdgeType = (edge: IEdgeTypeItem) => {
     this.edgeTypeList.push(edge);
     this.edgeTypeList.replace(this.edgeTypeList); // force update
+    this.syncCanvas();
   };
 
   deleteNodeType = (item: INodeTypeItem) => {
@@ -342,10 +378,12 @@ class SchemaStore {
       this.edgeTypeList.remove(edge);
     });
     this.nodeTypeList.replace(this.nodeTypeList.filter((node) => node.id !== item.id));
+    this.syncCanvas();
   };
 
   deleteEdgeType = (item: IEdgeTypeItem) => {
     this.edgeTypeList.replace(this.edgeTypeList.filter((edge) => edge.id !== item.id));
+    this.syncCanvas();
   };
 
   disposeReaction = () => {

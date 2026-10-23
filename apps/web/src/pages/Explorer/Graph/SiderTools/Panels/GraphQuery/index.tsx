@@ -6,16 +6,14 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
 import { SiderPanel } from '@studio/interfaces/explorer/explorer';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { type Theme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import { useMemo } from 'react';
 import { Box } from '@mui/material';
 
 export default observer(function GraphQuery() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { updateActiveSiderKey } = graphWorkspace;
   const color = (theme: Theme) => theme.palette.vesoft.textColor2;
   const { t } = useTranslation(['explorer']);

@@ -1,6 +1,5 @@
 import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '../utils/i18n';
-import { type RootStore } from '@studio/stores';
 import { IUserInfo } from '@studio/interfaces';
 import { LANG_KEY } from '@studio/utils/constant';
 import { LocalStorageUtil } from '@studio/utils/function';
@@ -11,7 +10,6 @@ export class CommonStore {
   dbName = brandConfig.consoleName;
   prodName = 'GUI';
   hasDarkMode = true;
-  rootStore?: RootStore;
   language = i18n.language;
 
   i18n = i18n;
@@ -19,14 +17,12 @@ export class CommonStore {
   showLoginModal = false;
   isGettingUserInfo = false;
 
-  constructor(rootStore?: RootStore) {
+  constructor() {
     makeAutoObservable(this, {
-      rootStore: observable.ref,
       userInfo: observable.ref,
       isEnLang: computed,
       isGettingUserInfo: observable,
     });
-    this.rootStore = rootStore;
     i18n.on('languageChanged', this.setLanguage);
   }
 

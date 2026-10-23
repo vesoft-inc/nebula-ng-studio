@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '../../context';
 import Tooltip from '@studio/components/GraphWorkbench/GraphTooltip';
 import Minimap, {
   MinimapActionButtonFullScreen,
@@ -17,8 +17,7 @@ import KeyboardTip from './KeyboardTip';
 import { CommonGraphContent } from '@studio/components/GraphWorkbench/Content';
 
 function GraphContent() {
-  const rootStore = useStore();
-  const { explorerStore } = rootStore;
+  const explorerStore = useExplorerStore();
   const { graphWorkspace } = explorerStore;
   const { hasEntitySelected } = graphWorkspace.graph;
   const explorerItem = graphWorkspace;

@@ -13,7 +13,8 @@ import FormSpatialIndex, { CreateGraphSpatialIndexFormValues } from './FormSpati
 import FormFulltextIndex, { CreateGraphFulltextIndexFormValues } from './FormFulltextIndex';
 import FormVertexCentricIndex, { CreateGraphVertexCentricIndexFormValues } from './FormVertexCentricIndex';
 import { execGql } from '@studio/services';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { schemaStore } from '@studio/stores/session';
 import { EdgeDirectionType, GraphEntityType, SortType } from '@vesoft-inc/utils';
 import { extractEdgeByEdgeTypeName } from '@studio/utils';
 
@@ -32,7 +33,6 @@ export const CreateGraphIndexModal = ({
   onCancel?: () => void;
 }) => {
   const theme = useTheme();
-  const { schemaStore } = useStore();
   const { t } = useTranslation(['graph', 'common']);
   const { message } = useModal();
 

@@ -1,9 +1,10 @@
 import { action, makeAutoObservable, observable } from 'mobx';
-import type { RootStore } from '..';
 import SchemaStore from './schema';
 import { execGql, getSketchList } from '@studio/services';
 import { GraphTypeBuildMode, SketchListItem } from '@studio/interfaces';
 import { GQLResult } from '@vesoft-inc/utils';
+import { commonStore, schemaStore as sessionSchemaStore } from '../session';
+import { CanvasStore } from '@studio/pages/SchemaManager/GraphTypeBuilder/VisualBuilder/store';
 
 export interface IGraphTypeItem {
   name: string;
@@ -11,25 +12,25 @@ export interface IGraphTypeItem {
 }
 
 class GraphTypeStore {
-  rootStore?: RootStore;
   loading = false;
   schemaStore?: SchemaStore;
+  canvasStore?: CanvasStore;
   graphTypeList = observable.array<IGraphTypeItem>([]);
   sketchListItem: SketchListItem;
   mode: GraphTypeBuildMode = GraphTypeBuildMode.Create;
 
-  constructor(rootStore?: RootStore) {
+  constructor() {
     this.sketchListItem = { items: [], total: 0, page: 1, pageSize: 10 };
     makeAutoObservable(this, {
-      rootStore: observable.ref,
       setLoading: action,
       schemaStore: observable.ref,
+      canvasStore: observable.ref,
     });
-    this.rootStore = rootStore;
   }
 
   updateMode = (mode: GraphTypeBuildMode) => {
     this.mode = mode;
+    this.canvasStore?.setReadonly(mode === GraphTypeBuildMode.Readonly);
   };
 
   getGraphTypeList = async () => {
@@ -50,12 +51,20 @@ class GraphTypeStore {
 
   initSchemaStore = () => {
     if (this.schemaStore) return;
-    this.schemaStore = new SchemaStore(this.rootStore);
+    const editor = new SchemaStore();
+    const canvas = new CanvasStore();
+    editor.attachSession({ commonStore, schemaStore: sessionSchemaStore });
+    editor.attachCanvas(canvas);
+    canvas.setReadonly(this.mode === GraphTypeBuildMode.Readonly);
+    this.schemaStore = editor;
+    this.canvasStore = canvas;
   };
 
   destroySchemaStore = () => {
     this.schemaStore?.disposeReaction();
+    this.canvasStore?.dispose();
     this.schemaStore = undefined;
+    this.canvasStore = undefined;
   };
 
   setLoading = (loading: boolean) => {

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { IconButton, Typography } from '@mui/material';
 import { CloseFilled } from '@vesoft-inc/icons';
 import { DescGraphTypeResult, DescNodeTypeResult } from '@vesoft-inc/utils';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { SiderPanel } from '@studio/interfaces/explorer/explorer';
 import { QueryTitle } from '../styles';
 import { FormContainer, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
@@ -18,9 +18,7 @@ type QueryNodeForm = {
 };
 
 export default observer(function PrimaryKey() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { t } = useTranslation(['explorer']);
   const [properties, setProperties] = useState<DescNodeTypeResult[]>([]);
 

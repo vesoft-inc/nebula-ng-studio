@@ -26,7 +26,9 @@ const store = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@studio/stores', () => ({ useStore: () => store }));
+vi.mock('@studio/pages/SchemaManager/context', () => ({
+  useGraphTypeStore: () => store.graphtypeStore,
+}));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {

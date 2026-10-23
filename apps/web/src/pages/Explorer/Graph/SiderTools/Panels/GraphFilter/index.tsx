@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { Box, Button, Divider, IconButton, Typography } from '@mui/material';
 import { CloseFilled } from '@vesoft-inc/icons';
 import { useTranslation } from 'react-i18next';
@@ -26,9 +26,7 @@ const initialCondition = {
 };
 
 export default observer(function GraphFilter() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { updateActiveSiderKey } = graphWorkspace;
   const { t } = useTranslation(['explorer']);
 

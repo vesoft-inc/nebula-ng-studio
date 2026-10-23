@@ -9,7 +9,8 @@ import { Web, WhiteBalanceSunny, MoonWaxingCrescent } from '@vesoft-inc/icons';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
-import { useStore } from '@studio/stores';
+import { commonStore, schemaStore } from '@studio/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { Language } from '@studio/utils/i18n';
 import {
   AbsoluteLink,
@@ -27,7 +28,6 @@ import lightLogo from '/images/studio-logo-light.svg?url';
 import { brandConfig } from '@studio/utils';
 
 export default observer(function PageHeader() {
-  const { themeStore, commonStore, schemaStore } = useStore();
   const [langAnchorEle, setLangAnchorEle] = useState<null | HTMLElement>(null);
   const [userAnchorEle, setUserAnchorEle] = useState<null | HTMLElement>(null);
   const { t } = useTranslation(['common']);

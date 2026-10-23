@@ -6,7 +6,7 @@ import { observer } from 'mobx-react-lite';
 import { FormContainer, RadioButtonGroup, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { DescEdgeTypeResult, EdgeDirectionType } from '@vesoft-inc/utils';
 
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { SiderPanel } from '@studio/interfaces/explorer';
 
 import { DirectionSelector, NodeItemBar, QueryTitle, StepType } from '../styles';
@@ -25,9 +25,7 @@ type ExploreRelationFrom = {
 };
 
 function ExploreRelation() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { nodesSelected } = graphWorkspace.graph;
   const { t } = useTranslation(['explorer']);
   const form = useForm<ExploreRelationFrom>({

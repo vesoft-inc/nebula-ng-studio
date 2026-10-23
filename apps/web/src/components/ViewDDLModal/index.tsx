@@ -4,7 +4,7 @@ import { Box, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
 import GQLEditorLite from '@studio/components/GQLEditorLite';
-import { useModal } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
 import { getVesoftBorder } from '@studio/utils';
 import copy from 'copy-to-clipboard';
 

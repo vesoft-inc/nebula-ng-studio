@@ -1,12 +1,10 @@
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { Chip, Tooltip } from '@mui/material';
 import { hexToRgba } from '@vesoft-inc/utils';
 import { observer } from 'mobx-react-lite';
 
 function EntityLabelList({ labels, mb }: { labels: string[]; mb?: number }) {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   return labels.map((label, index) => {
     const color = graphWorkspace.labelColorPicker.whichColor(label);
     return (

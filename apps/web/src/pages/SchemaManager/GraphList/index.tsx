@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Dropdown, ListCard } from '@vesoft-inc/ui-components';
 import { DeleteOutline, MoreHorizFilled, AddFilled, SpaceDashboardFilled } from '@vesoft-inc/icons';
 
-import { useStore } from '@studio/stores';
+import { schemaStore } from '@studio/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
 import CollapseItem from '@studio/components/CollapseItem';
 import { GraphItem, GraphType } from '@studio/interfaces';
 import { encodeUrl } from '@studio/utils';
@@ -20,7 +21,6 @@ import DeleteGraphModal from '@studio/components/DeleteGraphModal';
 
 function GraphList() {
   const theme = useTheme();
-  const { schemaStore, themeStore } = useStore();
   const { currentSchema } = schemaStore;
   const isDarkMode = themeStore.mode === 'dark';
   const { t } = useTranslation('common');

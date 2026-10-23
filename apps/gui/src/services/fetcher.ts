@@ -1,6 +1,7 @@
 import { FetchService, HttpResCode, type ServiceProps } from '@vesoft-inc/utils';
+import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { JSONBig } from '@studio/utils';
-import { getRootStore } from '@gui/stores';
+import { clearSessionUser } from '../stores/authBridge';
 import { getToken } from '../utils/auth';
 
 export type ConfigType = ServiceProps['config'];
@@ -62,15 +63,14 @@ export const fetcher = new FetchService({
         const isAuthError = response.status === 401;
 
         if (isAuthError) {
-          const rootStore = getRootStore();
-          rootStore?.commonStore.clearUserInfo();
+          clearSessionUser();
 
           controller.abort();
           controller = new AbortController();
         }
         if (errTip) {
           if (response.status === 500) {
-            const message = getRootStore()?.modalStore?.message;
+            const message = modalStore.message;
             const msgContent = response.data?.message || error?.message || 'internal server error';
             message ? message.error(msgContent) : console.error(msgContent);
           }

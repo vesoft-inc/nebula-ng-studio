@@ -3,7 +3,8 @@ import { Box, Divider, List, ListItemButton, Popover, Typography } from '@mui/ma
 import { NonCollapsibleHeader, SiderItemHeader } from './styles';
 import { MenuUp, MenuDown, SitemapOutline } from '@vesoft-inc/icons';
 import { observer } from 'mobx-react-lite';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { commonStore, schemaStore } from '@studio/stores/session';
 import { useTranslation } from 'react-i18next';
 import { ISchemaItem } from '@studio/interfaces';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -19,7 +20,6 @@ const popoverId = 'schema-selector';
 
 function SchemaSelector(props: IProps) {
   const { paperWidth, onSchemaChanged } = props;
-  const { schemaStore, commonStore } = useStore();
   const { userInfo } = commonStore;
   const { schemas, switchSchema } = schemaStore;
   const { t } = useTranslation(['common']);

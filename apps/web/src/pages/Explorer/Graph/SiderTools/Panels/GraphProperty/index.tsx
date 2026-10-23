@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { Box, Button, ButtonGroup, Divider, IconButton, List, Typography } from '@mui/material';
 import { CloseFilled, KeyVariant } from '@vesoft-inc/icons';
 import { useTranslation } from 'react-i18next';
@@ -15,9 +15,7 @@ type GraphPropertyForm = {
 };
 
 export default observer(function GraphProperty() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { updateActiveSiderKey, graphTypeDetails, isPropertyPrimaryKey } = graphWorkspace;
   const { t } = useTranslation(['explorer']);
   const [curTab, setCurTab] = useState<GraphEntityType>(GraphEntityType.Node);

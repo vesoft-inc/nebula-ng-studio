@@ -1,5 +1,6 @@
 import { IGraphStats } from '@studio/interfaces';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { schemaStore } from '@studio/stores/session';
 import { Box, Button } from '@mui/material';
 import { Table } from '@vesoft-inc/ui-components';
 import { observer } from 'mobx-react-lite';
@@ -10,7 +11,6 @@ import { useParams } from 'react-router-dom';
 function StatsInfo() {
   const params = useParams<{ graphName: string }>();
   const { t } = useTranslation(['graph', 'common']);
-  const { schemaStore } = useStore();
   const [statsData, setStatsData] = useState<IGraphStats[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [totalInfo, setTotalInfo] = useState<{

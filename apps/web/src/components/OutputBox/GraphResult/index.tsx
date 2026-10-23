@@ -1,5 +1,6 @@
 import { GraphDataTable } from '@studio/interfaces/console';
-import { useStore } from '@studio/stores';
+import { commonStore, consoleStore } from '@studio/stores/session';
+import { modalStore } from '@studio/stores/session';
 import { getUsedGraphsFromData } from '@studio/utils/parseData';
 import { Box } from '@mui/material';
 import { observer } from 'mobx-react-lite';
@@ -32,7 +33,6 @@ interface GraphResultProps {
 function GraphResult(props: GraphResultProps) {
   const { result, onGraphInit } = props;
 
-  const { consoleStore, commonStore } = useStore();
   const [explorerItem, setExplorerItem] = useState<GraphWorkspaceStore | null>(null);
 
   const usedGraphs = useMemo(() => {
@@ -60,7 +60,7 @@ function GraphResult(props: GraphResultProps) {
     }
     const explorerItem = new GraphWorkspaceStore({
       stores: {
-        modalStore: consoleStore?.rootStore?.modalStore,
+        modalStore,
       },
       execGql: execGql as ConstructorParameters<typeof GraphWorkspaceStore>[0]['execGql'],
       explorerId: resultId,

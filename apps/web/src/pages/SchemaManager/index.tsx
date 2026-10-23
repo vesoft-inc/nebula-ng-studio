@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { observer } from 'mobx-react-lite';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -8,15 +8,19 @@ import { TreeNode } from '@studio/components/LazyTree';
 import { SchemaItemType } from '@studio/utils/constant';
 import { ISchemaTreeRawData } from '@studio/interfaces';
 import { encodeUrl, isGuiTarget } from '@studio/utils';
-import { useStore } from '@studio/stores';
+import { commonStore, schemaStore } from '@studio/stores/session';
 import CreateGraphModal from '@studio/components/CreateGraphModal';
+import GraphTypeStore from '@studio/stores/graphtype';
+import { GraphTypeStoreProvider } from './context';
 
 function Schema() {
   const navigate = useNavigate();
   const params = useParams();
   const theme = useTheme();
   const { pathname } = useLocation();
-  const { schemaStore, commonStore } = useStore();
+  const [graphTypeStore] = useState(() => new GraphTypeStore());
+
+  useEffect(() => () => graphTypeStore.destroySchemaStore(), [graphTypeStore]);
   const { selectedKeys, schemas, updateSelectedKeys, createGraphModalInfo } = schemaStore;
 
   useEffect(() => {
@@ -84,39 +88,41 @@ function Schema() {
   }, []);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'row',
-        height: '100%',
-        background: theme.palette.vesoft.v2.bg1,
-      }}
-    >
-      <SchemaTree showDetail={false} onItemSelected={handleItemSelected} selectedKeys={selectedKeys} />
+    <GraphTypeStoreProvider value={graphTypeStore}>
       <Box
-        position="relative"
-        padding={theme.spacing(3, 0)}
-        flex={1}
         sx={{
-          overflow: 'auto',
-          background: theme.palette.vesoft.v2.bg2,
+          display: 'flex',
+          flexDirection: 'row',
+          height: '100%',
+          background: theme.palette.vesoft.v2.bg1,
         }}
       >
-        <Outlet />
+        <SchemaTree showDetail={false} onItemSelected={handleItemSelected} selectedKeys={selectedKeys} />
+        <Box
+          position="relative"
+          padding={theme.spacing(3, 0)}
+          flex={1}
+          sx={{
+            overflow: 'auto',
+            background: theme.palette.vesoft.v2.bg2,
+          }}
+        >
+          <Outlet />
+        </Box>
+        <CreateGraphModal
+          open={createGraphModalInfo.visible}
+          onCancel={() => {
+            schemaStore.updateCreateGraphModalInfo({ visible: false });
+          }}
+          onOk={() => {
+            schemaStore.updateGraphsBySchema();
+            navigate('/schema-manager/graphs');
+            schemaStore.updateCreateGraphModalInfo({ visible: false });
+          }}
+          graphTypes={schemaStore.currentSchema?.graphTypes || []}
+        />
       </Box>
-      <CreateGraphModal
-        open={createGraphModalInfo.visible}
-        onCancel={() => {
-          schemaStore.updateCreateGraphModalInfo({ visible: false });
-        }}
-        onOk={() => {
-          schemaStore.updateGraphsBySchema();
-          navigate('/schema-manager/graphs');
-          schemaStore.updateCreateGraphModalInfo({ visible: false });
-        }}
-        graphTypes={schemaStore.currentSchema?.graphTypes || []}
-      />
-    </Box>
+    </GraphTypeStoreProvider>
   );
 }
 

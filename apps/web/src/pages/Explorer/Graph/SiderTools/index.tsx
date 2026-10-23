@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Slide from '@mui/material/Slide';
 import { FilterOutline, TagMultipleOutline, TextBoxSearchOutline } from '@vesoft-inc/icons';
 import SiderMenu from '@studio/components/GraphWorkbench/SiderMenu';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '../../context';
 import { SiderPanel } from '@studio/interfaces/explorer/explorer';
 import { NoopComponent } from '@studio/utils/explorer/helper';
 import { SiderDrawer, SiderDrawerWrapper } from './styles';
@@ -28,7 +28,7 @@ const GRAPH_QUERY_KEYS = new Set([
 ]);
 
 export default observer(function GraphSiderTools() {
-  const { explorerStore } = useStore();
+  const explorerStore = useExplorerStore();
   const { graphWorkspace } = explorerStore;
   const { t } = useTranslation(['explorer']);
   const { activeSiderKey } = graphWorkspace;

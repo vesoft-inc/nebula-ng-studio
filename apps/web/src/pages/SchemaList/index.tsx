@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { commonStore, schemaStore } from '@studio/stores/session';
 import { useEffect, useState } from 'react';
 import { FolderFilled, MoreHorizFilled } from '@vesoft-inc/icons';
 import { isDefaultSchema } from '@studio/utils';
@@ -27,7 +28,6 @@ import { FormContainer, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { DEFAULT_SCHEMA_PATH } from '@studio/utils/constant';
 
 function SchemaList() {
-  const { schemaStore, commonStore } = useStore();
   const { userInfo } = commonStore;
   const { schemas, currentSchema, switchSchema } = schemaStore;
   const { t } = useTranslation(['common']);

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { runInAction } from 'mobx';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { PropertyDataType } from '@vesoft-inc/utils';
@@ -14,16 +13,23 @@ import NodeTypeConfigModal from './NodeType/NodeTypeConfigModal';
 import EdgeTypeConfigModal from './EdgeType/EdgeTypeConfigModal';
 import VisualBuilder from './VisualBuilder';
 import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from './VisualBuilder/util';
-import { activeItem, setActiveItem } from './VisualBuilder/store';
+import { CanvasStore } from './VisualBuilder/store';
 import { VisualEditorType } from '@studio/utils/constant';
 
-const mocks = vi.hoisted(() => ({ schema: undefined as unknown as SchemaStore }));
-vi.mock('@studio/stores', () => ({
-  useStore: () => ({
-    graphtypeStore: { schemaStore: mocks.schema, mode: GraphTypeBuildMode.Edit },
-    schemaStore: { currentSchema: { path: '/default_schema' } },
-    commonStore: { userInfo: {} },
+const mocks = vi.hoisted(() => ({
+  schema: undefined as unknown as SchemaStore,
+  canvas: undefined as unknown as CanvasStore,
+}));
+vi.mock('@studio/pages/SchemaManager/context', () => ({
+  useGraphTypeStore: () => ({
+    schemaStore: mocks.schema,
+    canvasStore: mocks.canvas,
+    mode: GraphTypeBuildMode.Edit,
   }),
+}));
+vi.mock('@studio/stores/session', () => ({
+  schemaStore: { currentSchema: { path: '/default_schema' } },
+  commonStore: { userInfo: {} },
 }));
 vi.mock('@studio/services', () => ({ resolveSchemaPath: () => '/default_schema' }));
 vi.mock('@vesoft-inc/icons', () => ({
@@ -57,12 +63,11 @@ vi.mock('./VisualBuilder/useForceLayout', () => ({ useForceLayout: () => ({ stop
 vi.mock('./VisualBuilder/useLayoutPersistence', () => ({ useLayoutPersistence: () => undefined }));
 vi.mock('./VisualBuilder/GraphCanvas', async () => {
   const { useEffect } = await import('react');
-  const { reactFlowInstance } = await import('./VisualBuilder/store');
   return {
     GraphCanvas: function MockCanvas({ onNodeClick }: { onNodeClick: (event: unknown, node: unknown) => void }) {
       useEffect(() => {
-        runInAction(() => reactFlowInstance.set({ fitView: vi.fn() } as never));
-        return () => runInAction(() => reactFlowInstance.set(null));
+        mocks.canvas.setInstance({ fitView: vi.fn() } as never);
+        return () => mocks.canvas.setInstance(null);
       }, []);
       return (
         <button onClick={() => onNodeClick(null, { data: { nodeTypeItem: mocks.schema.nodeTypeList[0] } })}>
@@ -89,7 +94,9 @@ function Editor({ withCanvas = false, edge = false }: { withCanvas?: boolean; ed
 }
 
 beforeEach(() => {
+  mocks.canvas = new CanvasStore();
   mocks.schema = new SchemaStore();
+  mocks.schema.attachCanvas(mocks.canvas);
   const original = new INodeTypeItem({
     name: 'Person',
     properties: [new IProperty({ name: 'id', isPrimaryKey: true })],
@@ -269,9 +276,9 @@ describe('existing edge editing', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(edge.properties[0].name).toBe('since');
     for (const name of ['notes', 'source']) {
-      act(() => setActiveItem({ type: VisualEditorType.Edge, value: edge }));
+      act(() => mocks.canvas.setActiveItem({ type: VisualEditorType.Edge, value: edge }));
       await user.click(screen.getByRole('button', { name: 'Edit node' }));
-      expect(activeItem.get()).toBeNull();
+      expect(mocks.canvas.activeItem).toBeNull();
       dialog = screen.getByRole('dialog');
       await addProperty(user, name, dialog);
       await user.click(within(dialog).getByRole('button', { name: 'Save' }));

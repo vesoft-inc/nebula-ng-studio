@@ -33,7 +33,7 @@ import { GraphTypeBuildMode, INodeTypeItem, IProperty } from '@studio/interfaces
 import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
 import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
 import { getDuplicateValues } from '@studio/utils';
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
 import { useEffect } from 'react';
@@ -65,7 +65,7 @@ function NodeTypeConfigForm(props: NodeTypeConfigFormProps) {
 
   const defaultValues = form.formState.defaultValues;
 
-  const { schemaStore, mode } = useStore().graphtypeStore;
+  const { schemaStore, mode } = useGraphTypeStore();
   const readonly = mode === GraphTypeBuildMode.Readonly;
   const { fields, remove, append } = useFieldArray({
     control: form.control,

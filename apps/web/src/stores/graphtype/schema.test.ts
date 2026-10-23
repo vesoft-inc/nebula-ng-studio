@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NodeLayoutMap } from '@studio/interfaces';
-import type { RootStore } from '@studio/stores';
 
 const globalConfig = vi.hoisted(() => ({
   fetchGlobalConfig: vi.fn(async (_key: string, _config?: unknown): Promise<unknown> => null),
@@ -35,10 +34,11 @@ describe('graph type layout restoration', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    store = new SchemaStore({
+    store = new SchemaStore();
+    store.attachSession({
       commonStore: { userInfo: { ...identity, curSchemaPath: identity.schemaPath } },
       schemaStore: { currentSchema: { path: identity.schemaPath } },
-    } as unknown as RootStore);
+    });
     store.transformGrapTypeByDDL = vi.fn(
       async (): Promise<[INodeTypeItem[], IEdgeTypeItem[]]> => [[new INodeTypeItem({ name: 'A' })], []]
     );

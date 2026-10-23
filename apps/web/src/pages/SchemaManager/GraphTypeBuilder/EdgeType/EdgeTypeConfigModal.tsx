@@ -4,11 +4,10 @@ import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/utils';
 import { Modal } from '@vesoft-inc/ui-components';
 import { useTranslation } from 'react-i18next';
 
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { IEdgeTypeItem, INodeTypeItem } from '@studio/interfaces';
 import EdgeTypeConfigForm from './EdgeTypeConfigForm';
 import { getEdgeTypeFormValues, getPropertyModel } from '../formValues';
-import { setActiveItem } from '../VisualBuilder/store';
 import { getPropertyDecimalError } from '../validation';
 
 interface EdgeTypeModalProps {
@@ -30,7 +29,7 @@ const getDefaultValues = () => ({
 function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
   const { edgeTypeItem, open, onCancel } = props;
   const { t } = useTranslation(['graphtype', 'common']);
-  const { schemaStore } = useStore().graphtypeStore;
+  const { schemaStore, canvasStore } = useGraphTypeStore();
 
   const form = useForm<IEdgeTypeItem>({
     defaultValues: getDefaultValues(),
@@ -38,7 +37,7 @@ function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
 
   useEffect(() => {
     if (open) {
-      setActiveItem(null);
+      canvasStore?.setActiveItem(null);
       if (edgeTypeItem) {
         form.reset(getEdgeTypeFormValues(edgeTypeItem));
       } else {

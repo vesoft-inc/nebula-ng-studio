@@ -1,4 +1,4 @@
-import { action, autorun, observable } from 'mobx';
+import { makeAutoObservable, observable } from 'mobx';
 import {
   Node,
   Edge,
@@ -12,12 +12,11 @@ import {
 import { IEdgeTypeItem, INodeTypeItem, NodeLayoutMap } from '@studio/interfaces';
 import { serializeNodePositions } from '@studio/services';
 import { NODE_SIZE } from './CustomNode';
-import { ActiveItemInfo } from '@studio/stores/graphtype/schema';
+import type { ActiveItemInfo } from '@studio/stores/graphtype/schema';
 import { computeForceLayout } from './forceLayout';
 import { resolveNodeLayout } from './layout';
 import { VisualEditorType } from '@studio/utils/constant';
 
-// ReactFlow data interfaces
 export interface ReactFlowNodeData extends Record<string, unknown> {
   nodeTypeItem: INodeTypeItem;
   isActive: boolean;
@@ -35,311 +34,273 @@ export interface ReactFlowEdgeData extends Record<string, unknown> {
 export type ReactFlowNode = Node<ReactFlowNodeData>;
 export type ReactFlowEdge = Edge<ReactFlowEdgeData>;
 
-export const reactFlowInstance = observable.box(null as ReactFlowInstance<ReactFlowNode, ReactFlowEdge> | null);
-export const reactFlowNodes = observable<ReactFlowNode>([], { deep: false });
-export const reactFlowEdges = observable<ReactFlowEdge>([], { deep: false });
+export class CanvasStore {
+  nodes = observable.array<ReactFlowNode>([], { deep: false });
+  edges = observable.array<ReactFlowEdge>([], { deep: false });
+  instance: ReactFlowInstance<ReactFlowNode, ReactFlowEdge> | null = null;
+  activeItem: ActiveItemInfo | null = null;
+  readonly = true;
+  fullScreen = false;
 
-export const activeItem = observable.box<ActiveItemInfo | null>(null);
-export const isReadonly = observable.box(true);
-export const isFullScreen = observable.box(false);
-
-// Transform INodeTypeItem[] to ReactFlow nodes
-export const transformToReactFlowNodes = (nodeTypeList: INodeTypeItem[]): ReactFlowNode[] => {
-  const _activeItemId = activeItem.get()?.value.id;
-  const _isReadonly = isReadonly.get();
-  return nodeTypeList.map((nodeItem) => {
-    const position = nodeItem.style?.position || { x: nodeItem.style?.x || 0, y: nodeItem.style?.y || 0 };
-    return {
-      id: nodeItem.id,
-      type: 'customNode',
-      position,
-      data: {
-        nodeTypeItem: nodeItem,
-        isActive: _activeItemId ? _activeItemId === nodeItem.id : false,
-        isReadonly: _isReadonly,
-      },
-      draggable: true,
-      selectable: true,
-    };
-  });
-};
-
-// Transform IEdgeTypeItem[] to ReactFlow edges with parallel edge calculation
-export const transformToReactFlowEdges = (edgeTypeList: IEdgeTypeItem[]): ReactFlowEdge[] => {
-  const _activeItemId = activeItem.get()?.value.id;
-  const _isReadonly = isReadonly.get();
-
-  // Group edges by directional key to handle different directions separately
-  const edgeDirectionMap = new Map<string, IEdgeTypeItem[]>();
-
-  edgeTypeList.forEach((edge) => {
-    // Use directional key: src->dst (not sorted, to distinguish A->B from B->A)
-    const directionKey = `${edge.srcNode.id}->${edge.dstNode.id}`;
-    if (!edgeDirectionMap.has(directionKey)) {
-      edgeDirectionMap.set(directionKey, []);
-    }
-    edgeDirectionMap.get(directionKey)!.push(edge);
-  });
-
-  return edgeTypeList.map((edgeItem) => {
-    const directionKey = `${edgeItem.srcNode.id}->${edgeItem.dstNode.id}`;
-    const reverseKey = `${edgeItem.dstNode.id}->${edgeItem.srcNode.id}`;
-
-    // Get edges in the same direction
-    const sameDirectionEdges = edgeDirectionMap.get(directionKey) || [];
-    // Get edges in the opposite direction
-    const oppositeDirectionEdges = edgeDirectionMap.get(reverseKey) || [];
-
-    // Calculate parallel index within same direction group
-    const parallelIndex = sameDirectionEdges.findIndex((e) => e.id === edgeItem.id);
-
-    // Calculate total parallel count for this direction
-    // If there are opposite direction edges, we offset the indices to avoid overlap
-    const totalParallelInDirection = sameDirectionEdges.length;
-    const hasOppositeEdges = oppositeDirectionEdges.length > 0;
-
-    // Adjust parallel index to avoid overlapping with opposite direction edges
-    // Positive indices for one direction, negative-like offset for the other
-    const adjustedParallelIndex = hasOppositeEdges
-      ? parallelIndex - Math.floor(totalParallelInDirection / 2)
-      : parallelIndex;
-
-    // Total parallel includes both directions for proper spacing calculation
-    const totalParallel = hasOppositeEdges
-      ? totalParallelInDirection + oppositeDirectionEdges.length
-      : totalParallelInDirection;
-
-    return {
-      id: edgeItem.id,
-      source: edgeItem.srcNode.id,
-      target: edgeItem.dstNode.id,
-      type: 'customEdge',
-      data: {
-        edgeTypeItem: edgeItem,
-        isActive: _activeItemId ? _activeItemId === edgeItem.id : false,
-        isReadonly: _isReadonly,
-        parallelIndex: adjustedParallelIndex,
-        totalParallel: totalParallel,
-      },
-    };
-  });
-};
-
-export const getPositionFromCanvas = (id: string): { x: number; y: number } | null => {
-  const instanceNodes = (reactFlowInstance.get()?.getNodes?.() as ReactFlowNode[]) || [];
-  const nodesForBounds = (instanceNodes.length ? instanceNodes : reactFlowNodes.slice()).filter(
-    (node) => node.id === id
-  );
-  if (nodesForBounds.length <= 0) {
-    return null;
+  constructor() {
+    makeAutoObservable(this, {
+      nodes: false,
+      edges: false,
+      instance: observable.ref,
+      activeItem: observable.ref,
+    });
   }
 
-  const bounds = getNodesBounds(nodesForBounds);
-  const offsetFactor = +(Math.random() * (1.05 - 1.01) + 1.01);
-  return { x: bounds.x * offsetFactor, y: bounds.y * offsetFactor };
-};
+  setInstance = (instance: ReactFlowInstance<ReactFlowNode, ReactFlowEdge> | null) => {
+    this.instance = instance;
+  };
 
-/**
- * Current arrangement of the canvas, keyed by node type name.
- *
- * Used to carry a layout over when the graph type is renamed: at that point the
- * canvas is the newest truth, fresher than whatever the debounced save has written.
- */
-export const getCanvasLayout = (): NodeLayoutMap =>
-  serializeNodePositions(
-    reactFlowNodes.map((node) => ({
-      name: node.data?.nodeTypeItem?.name,
-      x: node.position.x,
-      y: node.position.y,
-    }))
-  );
+  setReadonly = (readonly: boolean) => {
+    this.readonly = readonly;
+    this.nodes.replace(this.nodes.map((node) => ({ ...node, data: { ...node.data, isReadonly: readonly } })));
+    this.edges.replace(
+      this.edges.map((edge) => ({ ...edge, data: { ...edge.data, isReadonly: readonly } })) as ReactFlowEdge[]
+    );
+  };
 
-export const updateNodes = action((nodeTypeList: INodeTypeItem[], savedLayout: NodeLayoutMap | null = null) => {
-  const incoming = transformToReactFlowNodes(nodeTypeList);
-  const currentPositions = new Map(reactFlowNodes.map((node) => [node.id, { x: node.position.x, y: node.position.y }]));
+  toggleFullScreen = () => {
+    this.fullScreen = !this.fullScreen;
+  };
 
-  const { positions, pinned, pending } = resolveNodeLayout(
-    incoming.map((node) => ({
-      id: node.id,
-      name: node.data.nodeTypeItem.name,
-      position: { x: node.position.x, y: node.position.y },
-    })),
-    currentPositions,
-    savedLayout
-  );
+  updateNodes = (nodeTypeList: INodeTypeItem[], savedLayout: NodeLayoutMap | null = null) => {
+    const incoming = this.transformToReactFlowNodes(nodeTypeList);
+    const currentPositions = new Map(this.nodes.map((node) => [node.id, { x: node.position.x, y: node.position.y }]));
 
-  let nodes = incoming.map((node) => {
-    const position = positions.get(node.id);
-    return position ? { ...node, position } : node;
-  });
-
-  // Nothing to place: the layout is fully decided by the canvas and the saved
-  // positions, so skip the simulation entirely for an exact restore.
-  if (pending.size > 0) {
-    const edgesForLayout = reactFlowEdges.slice().map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-      totalParallel: (edge.data as { totalParallel?: number })?.totalParallel,
-    }));
-
-    const layout = computeForceLayout(
-      nodes.map((node) => ({ id: node.id, x: node.position.x, y: node.position.y })),
-      edgesForLayout,
-      { fixedIds: pinned }
+    const { positions, pinned, pending } = resolveNodeLayout(
+      incoming.map((node) => ({
+        id: node.id,
+        name: node.data.nodeTypeItem.name,
+        position: { x: node.position.x, y: node.position.y },
+      })),
+      currentPositions,
+      savedLayout
     );
 
-    if (layout.length > 0) {
-      const positionMap = new Map(layout.map((item) => [item.id, { x: item.x, y: item.y }]));
-      nodes = nodes.map((node) => {
-        if (!pending.has(node.id)) {
-          return node;
-        }
-        const position = positionMap.get(node.id);
-        return position ? { ...node, position } : node;
-      });
-    }
-  }
+    let nodes = incoming.map((node) => {
+      const position = positions.get(node.id);
+      return position ? { ...node, position } : node;
+    });
 
-  reactFlowNodes.replace(nodes);
-});
+    if (pending.size > 0) {
+      const edgesForLayout = this.edges.slice().map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        totalParallel: (edge.data as { totalParallel?: number })?.totalParallel,
+      }));
 
-export const updateEdges = action((edgeTypeList: IEdgeTypeItem[]) => {
-  const edges = transformToReactFlowEdges(edgeTypeList);
-  reactFlowEdges.replace(edges);
-});
+      const layout = computeForceLayout(
+        nodes.map((node) => ({ id: node.id, x: node.position.x, y: node.position.y })),
+        edgesForLayout,
+        { fixedIds: pinned }
+      );
 
-// Update node positions (for force layout or drag)
-export const updateNodePositions = action((positions: { id: string; x: number; y: number }[]) => {
-  if (positions.length === 0) return;
-  reactFlowNodes.replace(
-    reactFlowNodes.map((node) => {
-      const pos = positions.find((p) => p.id === node.id);
-      if (pos) {
-        return { ...node, position: { x: pos.x, y: pos.y } };
+      if (layout.length > 0) {
+        const positionMap = new Map(layout.map((item) => [item.id, { x: item.x, y: item.y }]));
+        nodes = nodes.map((node) => {
+          if (!pending.has(node.id)) {
+            return node;
+          }
+          const position = positionMap.get(node.id);
+          return position ? { ...node, position } : node;
+        });
       }
-      return node;
-    })
-  );
-});
+    }
 
-export const updateNode = action((nodeTypeItem: INodeTypeItem) => {
-  if (!nodeTypeItem) return;
-
-  const nodeItems = reactFlowNodes
-    .map((node) => node.data?.nodeTypeItem)
-    .filter((item): item is INodeTypeItem => Boolean(item));
-
-  const idx = nodeItems.findIndex((item) => item.id === nodeTypeItem.id);
-  if (idx >= 0) {
-    nodeItems[idx] = nodeTypeItem;
-  } else {
-    nodeItems.push(nodeTypeItem);
-  }
-
-  // Reuse bulk updater to keep existing positions
-  updateNodes(nodeItems);
-});
-
-export const updateEdge = action((edgeTypeItem: IEdgeTypeItem) => {
-  if (!edgeTypeItem) return;
-
-  const edgeItems = reactFlowEdges
-    .map((edge) => edge.data?.edgeTypeItem)
-    .filter((item): item is IEdgeTypeItem => Boolean(item));
-
-  const idx = edgeItems.findIndex((item) => item.id === edgeTypeItem.id);
-  if (idx >= 0) {
-    edgeItems[idx] = edgeTypeItem;
-  } else {
-    edgeItems.push(edgeTypeItem);
-  }
-
-  updateEdges(edgeItems);
-});
-
-// Calculate drop position from screen coordinates
-export const getDropPosition = action((clientX: number, clientY: number): { x: number; y: number } | null => {
-  const instance = reactFlowInstance.get();
-  const rawPosition = instance?.screenToFlowPosition?.({
-    x: clientX,
-    y: clientY,
-  });
-
-  if (!rawPosition) return null;
-
-  return {
-    x: rawPosition.x - NODE_SIZE / 2,
-    y: rawPosition.y - NODE_SIZE / 2,
+    this.nodes.replace(nodes);
   };
-});
 
-// Add a new node at specific position
-export const addNodeAtPosition = action((nodeTypeItem: INodeTypeItem, position: { x: number; y: number }) => {
-  const _isReadonly = isReadonly.get();
-  const newNode: ReactFlowNode = {
-    id: nodeTypeItem.id,
-    type: 'customNode',
-    position,
-    data: {
-      nodeTypeItem,
-      isActive: false,
-      isReadonly: _isReadonly,
-    },
-    draggable: true,
-    selectable: true,
+  updateEdges = (edgeTypeList: IEdgeTypeItem[]) => {
+    this.edges.replace(this.transformToReactFlowEdges(edgeTypeList));
   };
-  reactFlowNodes.push(newNode);
-});
 
-// Apply ReactFlow node changes
-export const applyNodeChangesToStore = action((changes: NodeChange[]) => {
-  const nodes = applyNodeChanges(changes, reactFlowNodes.slice()) as ReactFlowNode[];
-  reactFlowNodes.replace(nodes);
-});
+  updateNodePositions = (positions: { id: string; x: number; y: number }[]) => {
+    if (positions.length === 0) return;
+    this.nodes.replace(
+      this.nodes.map((node) => {
+        const pos = positions.find((p) => p.id === node.id);
+        if (pos) {
+          return { ...node, position: { x: pos.x, y: pos.y } };
+        }
+        return node;
+      })
+    );
+  };
 
-// Apply ReactFlow edge changes
-export const applyEdgeChangesToStore = action((changes: EdgeChange[]) => {
-  const edges = applyEdgeChanges(changes, reactFlowEdges.slice()) as ReactFlowEdge[];
-  reactFlowEdges.replace(edges);
-});
+  updateNode = (nodeTypeItem: INodeTypeItem) => {
+    if (!nodeTypeItem) return;
+    const nodeItems = this.nodes
+      .map((node) => node.data?.nodeTypeItem)
+      .filter((item): item is INodeTypeItem => Boolean(item));
+    const idx = nodeItems.findIndex((item) => item.id === nodeTypeItem.id);
+    if (idx >= 0) {
+      nodeItems[idx] = nodeTypeItem;
+    } else {
+      nodeItems.push(nodeTypeItem);
+    }
+    this.updateNodes(nodeItems);
+  };
 
-export const setActiveItem = action((item: ActiveItemInfo | null) => {
-  activeItem.set(item);
-});
+  updateEdge = (edgeTypeItem: IEdgeTypeItem) => {
+    if (!edgeTypeItem) return;
+    const edgeItems = this.edges
+      .map((edge) => edge.data?.edgeTypeItem)
+      .filter((item): item is IEdgeTypeItem => Boolean(item));
+    const idx = edgeItems.findIndex((item) => item.id === edgeTypeItem.id);
+    if (idx >= 0) {
+      edgeItems[idx] = edgeTypeItem;
+    } else {
+      edgeItems.push(edgeTypeItem);
+    }
+    this.updateEdges(edgeItems);
+  };
 
-// Reset store state
-export const resetStore = action(() => {
-  reactFlowNodes.replace([]);
-  reactFlowEdges.replace([]);
-  activeItem.set(null);
-  isReadonly.set(true);
-  isFullScreen.set(false);
-  // reactFlowInstance.set(null); // Sync state by GraphCanvas.tsx
-});
+  getDropPosition = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const rawPosition = this.instance?.screenToFlowPosition?.({ x: clientX, y: clientY });
+    if (!rawPosition) return null;
+    return { x: rawPosition.x - NODE_SIZE / 2, y: rawPosition.y - NODE_SIZE / 2 };
+  };
 
-const syncActiveState = action((currentActive: ActiveItemInfo | null) => {
-  const activeId = currentActive?.value.id;
-  const activeType = currentActive?.type;
+  addNodeAtPosition = (nodeTypeItem: INodeTypeItem, position: { x: number; y: number }) => {
+    this.nodes.push({
+      id: nodeTypeItem.id,
+      type: 'customNode',
+      position,
+      data: { nodeTypeItem, isActive: false, isReadonly: this.readonly },
+      draggable: true,
+      selectable: true,
+    });
+  };
 
-  const nodes = reactFlowNodes.map((node) => ({
-    ...node,
-    data: {
-      ...node.data,
-      isActive: activeType === VisualEditorType.Tag && node.data?.nodeTypeItem?.id === activeId,
-    },
-  }));
-  reactFlowNodes.replace(nodes);
+  applyNodeChanges = (changes: NodeChange[]) => {
+    this.nodes.replace(applyNodeChanges(changes, this.nodes.slice()) as ReactFlowNode[]);
+  };
 
-  const edges = reactFlowEdges.map((edge) => ({
-    ...edge,
-    data: {
-      ...edge.data,
-      isActive: activeType === VisualEditorType.Edge && edge.data?.edgeTypeItem?.id === activeId,
-    },
-  })) as ReactFlowEdge[];
-  reactFlowEdges.replace(edges);
-});
+  applyEdgeChanges = (changes: EdgeChange[]) => {
+    this.edges.replace(applyEdgeChanges(changes, this.edges.slice()) as ReactFlowEdge[]);
+  };
 
-autorun(() => {
-  syncActiveState(activeItem.get());
-});
+  setActiveItem = (item: ActiveItemInfo | null) => {
+    this.activeItem = item;
+    this.syncActiveState();
+  };
+
+  getPositionFromCanvas = (id: string): { x: number; y: number } | null => {
+    const instanceNodes = (this.instance?.getNodes?.() as ReactFlowNode[]) || [];
+    const nodesForBounds = (instanceNodes.length ? instanceNodes : this.nodes.slice()).filter((node) => node.id === id);
+    if (nodesForBounds.length <= 0) return null;
+    const bounds = getNodesBounds(nodesForBounds);
+    const offsetFactor = +(Math.random() * (1.05 - 1.01) + 1.01);
+    return { x: bounds.x * offsetFactor, y: bounds.y * offsetFactor };
+  };
+
+  getCanvasLayout = (): NodeLayoutMap =>
+    serializeNodePositions(
+      this.nodes.map((node) => ({
+        name: node.data?.nodeTypeItem?.name,
+        x: node.position.x,
+        y: node.position.y,
+      }))
+    );
+
+  reset = () => {
+    this.nodes.replace([]);
+    this.edges.replace([]);
+    this.activeItem = null;
+    this.readonly = true;
+    this.fullScreen = false;
+  };
+
+  dispose = () => {
+    this.reset();
+    this.instance = null;
+  };
+
+  private syncActiveState = () => {
+    const activeId = this.activeItem?.value.id;
+    const activeType = this.activeItem?.type;
+    this.nodes.replace(
+      this.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          isActive: activeType === VisualEditorType.Tag && node.data?.nodeTypeItem?.id === activeId,
+        },
+      }))
+    );
+    this.edges.replace(
+      this.edges.map((edge) => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          isActive: activeType === VisualEditorType.Edge && edge.data?.edgeTypeItem?.id === activeId,
+        },
+      })) as ReactFlowEdge[]
+    );
+  };
+
+  private transformToReactFlowNodes = (nodeTypeList: INodeTypeItem[]): ReactFlowNode[] => {
+    const activeId = this.activeItem?.value.id;
+    return nodeTypeList.map((nodeItem) => {
+      const position = nodeItem.style?.position || { x: nodeItem.style?.x || 0, y: nodeItem.style?.y || 0 };
+      return {
+        id: nodeItem.id,
+        type: 'customNode',
+        position,
+        data: {
+          nodeTypeItem: nodeItem,
+          isActive: activeId ? activeId === nodeItem.id : false,
+          isReadonly: this.readonly,
+        },
+        draggable: true,
+        selectable: true,
+      };
+    });
+  };
+
+  transformToReactFlowEdges = (edgeTypeList: IEdgeTypeItem[]): ReactFlowEdge[] => {
+    const activeId = this.activeItem?.value.id;
+    const edgeDirectionMap = new Map<string, IEdgeTypeItem[]>();
+    edgeTypeList.forEach((edge) => {
+      const directionKey = `${edge.srcNode.id}->${edge.dstNode.id}`;
+      if (!edgeDirectionMap.has(directionKey)) {
+        edgeDirectionMap.set(directionKey, []);
+      }
+      edgeDirectionMap.get(directionKey)!.push(edge);
+    });
+
+    return edgeTypeList.map((edgeItem) => {
+      const directionKey = `${edgeItem.srcNode.id}->${edgeItem.dstNode.id}`;
+      const reverseKey = `${edgeItem.dstNode.id}->${edgeItem.srcNode.id}`;
+      const sameDirectionEdges = edgeDirectionMap.get(directionKey) || [];
+      const oppositeDirectionEdges = edgeDirectionMap.get(reverseKey) || [];
+      const parallelIndex = sameDirectionEdges.findIndex((edge) => edge.id === edgeItem.id);
+      const totalParallelInDirection = sameDirectionEdges.length;
+      const hasOppositeEdges = oppositeDirectionEdges.length > 0;
+      const adjustedParallelIndex = hasOppositeEdges
+        ? parallelIndex - Math.floor(totalParallelInDirection / 2)
+        : parallelIndex;
+      const totalParallel = hasOppositeEdges
+        ? totalParallelInDirection + oppositeDirectionEdges.length
+        : totalParallelInDirection;
+
+      return {
+        id: edgeItem.id,
+        source: edgeItem.srcNode.id,
+        target: edgeItem.dstNode.id,
+        type: 'customEdge',
+        data: {
+          edgeTypeItem: edgeItem,
+          isActive: activeId ? activeId === edgeItem.id : false,
+          isReadonly: this.readonly,
+          parallelIndex: adjustedParallelIndex,
+          totalParallel,
+        },
+      };
+    });
+  };
+}

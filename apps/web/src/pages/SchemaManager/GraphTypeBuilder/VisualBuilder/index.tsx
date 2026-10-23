@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AddFilled } from '@vesoft-inc/icons';
 import '@xyflow/react/dist/style.css';
@@ -10,48 +10,28 @@ import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem } from '@studio/interf
 import { ToolNodeColor } from '@vesoft-inc/utils';
 import { VisualEditorType } from '@studio/utils/constant';
 import { GraphCanvas } from './GraphCanvas';
-import {
-  activeItem,
-  addNodeAtPosition,
-  getPositionFromCanvas,
-  isFullScreen,
-  isReadonly,
-  ReactFlowEdgeData,
-  reactFlowInstance,
-  ReactFlowNodeData,
-  resetStore,
-  setActiveItem,
-  updateEdge,
-  updateNode,
-  updateNodePositions,
-} from './store';
+import { ReactFlowEdgeData, ReactFlowNodeData } from './store';
 import { GraphCornerButtons } from './GraphCornerButtons';
 import { useForceLayout } from './useForceLayout';
 import { useLayoutPersistence } from './useLayoutPersistence';
 import { Drawer } from '@vesoft-inc/ui-components';
 import { ConfigForm } from './ConfigForm';
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@studio/stores';
-import { updateNodes, updateEdges } from './store';
+import { commonStore, schemaStore as rootSchemaStore } from '@studio/stores/session';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { resolveSchemaPath } from '@studio/services';
 
 function VisualBuilder() {
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
 
-  const { graphtypeStore, commonStore, schemaStore: rootSchemaStore } = useStore();
-  const { schemaStore, mode } = graphtypeStore;
+  const { schemaStore, mode, canvasStore: canvas } = useGraphTypeStore();
   const graphTypeId = schemaStore?.graphtypeName;
+  const readonly = canvas?.readonly ?? true;
 
-  const readonly = isReadonly.get();
   useEffect(() => {
-    isReadonly.set(mode === GraphTypeBuildMode.Readonly);
-  }, [mode]);
-
-  // Call fitView on route change
-  useEffect(() => {
-    reactFlowInstance.get()?.fitView();
-  }, [graphTypeId, reactFlowInstance]);
+    canvas?.instance?.fitView();
+  }, [graphTypeId, canvas, canvas?.instance]);
 
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -63,15 +43,13 @@ function VisualBuilder() {
     setContainerDimensions({ width: rect.width, height: rect.height });
   }, []);
 
-  // sync to store
-  const nodeTypeList = schemaStore?.nodeTypeList.slice();
-  const edgeTypeList = schemaStore?.edgeTypeList.slice();
   const savedLayout = schemaStore?.savedLayout ?? null;
 
-  // Remember the arrangement the user ends up with, so the next visit restores it.
   const userInfo = commonStore.userInfo;
   useLayoutPersistence({
-    enabled: (mode === GraphTypeBuildMode.Edit || mode === GraphTypeBuildMode.Readonly) && !!graphTypeId,
+    canvas,
+    enabled:
+      Boolean(canvas) && (mode === GraphTypeBuildMode.Edit || mode === GraphTypeBuildMode.Readonly) && !!graphTypeId,
     address: userInfo?.address,
     username: userInfo?.username,
     schemaPath: resolveSchemaPath(userInfo?.curSchemaPath, rootSchemaStore.currentSchema.path),
@@ -81,15 +59,6 @@ function VisualBuilder() {
       mode === GraphTypeBuildMode.Edit ? schemaStore?.originalNodeTypeList.map((node) => node.name) : undefined,
   });
 
-  // Capture committed positions before a draft update removes them from the canvas.
-  const [, startTransition] = useTransition();
-  useEffect(() => {
-    startTransition(() => {
-      updateNodes(nodeTypeList || [], savedLayout);
-      updateEdges(edgeTypeList || []);
-    });
-  }, [JSON.stringify(nodeTypeList), JSON.stringify(edgeTypeList), savedLayout]);
-
   const {
     isRunning: isForceLayoutRunning,
     toggleSimulation,
@@ -98,9 +67,10 @@ function VisualBuilder() {
     onNodeDrag,
     onNodeDragStop,
   } = useForceLayout({
+    canvas,
     containerWidth: containerDimensions.width,
     containerHeight: containerDimensions.height,
-    onUpdateNodePositions: updateNodePositions,
+    onUpdateNodePositions: (positions) => canvas?.updateNodePositions(positions),
   });
   useEffect(() => {
     return () => {
@@ -109,16 +79,17 @@ function VisualBuilder() {
   }, [mode]);
 
   useEffect(() => {
-    setActiveItem(schemaStore?.activeItem || null);
-    return () => {
-      resetStore();
-    };
-  }, [graphTypeId, mode, JSON.stringify(schemaStore?.activeItem)]);
+    canvas?.setActiveItem(schemaStore?.activeItem || null);
+  }, [canvas, schemaStore?.activeItem]);
 
-  const isActiveConfigDrawer = Boolean(activeItem.get());
+  if (!canvas) {
+    return null;
+  }
+
+  const isActiveConfigDrawer = Boolean(canvas.activeItem);
 
   return (
-    <GraphContainer ref={reactFlowWrapper} className={isFullScreen.get() ? fullScreenCls : undefined}>
+    <GraphContainer ref={reactFlowWrapper} className={canvas.fullScreen ? fullScreenCls : undefined}>
       <GraphCanvas
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
@@ -126,36 +97,36 @@ function VisualBuilder() {
         onNodeAdd={(position) => {
           const newNode = new INodeTypeItem({ style: { position } });
           schemaStore?.addNodeType(newNode);
-          addNodeAtPosition(newNode, position);
-          setActiveItem({ type: VisualEditorType.Tag, value: newNode });
+          canvas.setActiveItem({ type: VisualEditorType.Tag, value: newNode });
         }}
         onEdgeAdd={(edge) => {
-          setActiveItem({ type: VisualEditorType.Edge, value: edge });
+          canvas.setActiveItem({ type: VisualEditorType.Edge, value: edge });
         }}
         onNodeClick={(_, node: Node<ReactFlowNodeData> | Node) => {
           if (!node.data) {
             return;
           }
-          setActiveItem({ type: VisualEditorType.Tag, value: node.data?.nodeTypeItem as INodeTypeItem });
+          canvas.setActiveItem({ type: VisualEditorType.Tag, value: node.data?.nodeTypeItem as INodeTypeItem });
         }}
         onEdgeClick={(_, edge: Edge<ReactFlowEdgeData> | Edge) => {
           if (!edge.data) {
             return;
           }
-          setActiveItem({ type: VisualEditorType.Edge, value: edge.data?.edgeTypeItem as IEdgeTypeItem });
+          canvas.setActiveItem({ type: VisualEditorType.Edge, value: edge.data?.edgeTypeItem as IEdgeTypeItem });
         }}
         onPaneClick={() => {
-          setActiveItem(null);
+          canvas.setActiveItem(null);
         }}
       />
 
-      {reactFlowInstance.get() && (
+      {canvas.instance && (
         <>
           <GraphCornerButtons
+            canvas={canvas}
             isForceLayoutRunning={isForceLayoutRunning}
             toggleSimulation={toggleSimulation}
-            onZoomIn={() => reactFlowInstance.get()?.zoomIn()}
-            onZoomOut={() => reactFlowInstance.get()?.zoomOut()}
+            onZoomIn={() => canvas.instance?.zoomIn()}
+            onZoomOut={() => canvas.instance?.zoomOut()}
           />
 
           {!readonly && (
@@ -189,7 +160,7 @@ function VisualBuilder() {
             closeWidth={0}
             variant="permanent"
             open={isActiveConfigDrawer}
-            onClose={() => setActiveItem(null)}
+            onClose={() => canvas.setActiveItem(null)}
             sx={{
               mt: 0,
               height: '100%',
@@ -206,24 +177,24 @@ function VisualBuilder() {
             }}
           >
             <ConfigForm
-              activeItem={activeItem.get()}
+              activeItem={canvas.activeItem}
               mode={mode}
               onCopy={() => {
-                const targetItem = activeItem.get();
+                const targetItem = canvas.activeItem;
                 if (!targetItem) {
                   return;
                 }
 
                 const { type } = targetItem || {};
                 if (type === VisualEditorType.Tag) {
-                  const position = getPositionFromCanvas(targetItem.value.id) || undefined;
+                  const position = canvas.getPositionFromCanvas(targetItem.value.id) || undefined;
                   schemaStore?.addNodeType(targetItem.value.clone({ style: { position } }) as INodeTypeItem);
                 } else if (type === VisualEditorType.Edge) {
                   schemaStore?.addEdgeType(targetItem.value.clone() as IEdgeTypeItem);
                 }
               }}
               onDelete={() => {
-                const targetItem = activeItem.get();
+                const targetItem = canvas.activeItem;
                 if (!targetItem) {
                   return;
                 }
@@ -237,28 +208,20 @@ function VisualBuilder() {
                 } else if (type === VisualEditorType.Edge) {
                   schemaStore?.deleteEdgeType(value);
                 }
-                setActiveItem(null);
+                canvas.setActiveItem(null);
               }}
               onChange={(type, formValues) => {
-                const targetItem = activeItem.get();
+                const targetItem = canvas.activeItem;
                 if (!targetItem) {
                   return;
                 }
                 const activeItemId = targetItem.value.id;
                 if (type === VisualEditorType.Tag) {
-                  // schemaStore 数据更新
                   schemaStore?.updateNodeType(activeItemId, formValues as INodeTypeItem);
-
-                  // canvas UI 更新
                   targetItem.value.updateValues(formValues);
-                  updateNode(targetItem.value as INodeTypeItem);
                 } else if (type === VisualEditorType.Edge) {
-                  // schemaStore 数据更新
                   schemaStore?.updateEdgeType(activeItemId, formValues as IEdgeTypeItem);
-
-                  // canvas UI 更新
                   targetItem.value.updateValues(formValues);
-                  updateEdge(targetItem.value as IEdgeTypeItem);
                 }
               }}
             />

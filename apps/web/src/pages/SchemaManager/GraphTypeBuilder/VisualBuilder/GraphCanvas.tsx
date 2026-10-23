@@ -14,20 +14,9 @@ import CustomNode from './CustomNode';
 import CustomEdge from './CustomEdge';
 import { CustomConnectionLine } from './CustomConnectionLine';
 import { useTheme } from '@mui/material';
-import {
-  applyEdgeChangesToStore,
-  applyNodeChangesToStore,
-  getDropPosition,
-  isReadonly,
-  ReactFlowEdge,
-  reactFlowEdges,
-  reactFlowInstance,
-  ReactFlowNode,
-  reactFlowNodes,
-  transformToReactFlowEdges,
-} from './store';
 import { IEdgeTypeItem } from '@studio/interfaces';
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
+import { ReactFlowEdge, ReactFlowNode } from './store';
 
 interface GraphCanvasProps {
   onInit?: () => void;
@@ -52,15 +41,14 @@ const GraphCanvasComponent = ({
   onNodeAdd,
   onEdgeAdd,
 }: GraphCanvasProps) => {
-  const { graphtypeStore } = useStore();
-  const schemaStore = graphtypeStore.schemaStore;
+  const { schemaStore, canvasStore: canvas } = useGraphTypeStore();
   const theme = useTheme();
-  const readonly = isReadonly.get();
+  const readonly = canvas?.readonly ?? true;
 
   const suppressNextNodeClickRef = useRef(false);
 
-  const nodes = reactFlowNodes.slice();
-  const edges = reactFlowEdges.slice();
+  const nodes = canvas?.nodes.slice() ?? [];
+  const edges = canvas?.edges.slice() ?? [];
 
   const onDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -73,7 +61,7 @@ const GraphCanvasComponent = ({
     const type = event.dataTransfer.getData('application/reactflow');
     if (!type || type !== 'newNode') return;
 
-    const position = getDropPosition(event.clientX, event.clientY);
+    const position = canvas?.getDropPosition(event.clientX, event.clientY);
 
     if (position) {
       onNodeAdd(position);
@@ -81,11 +69,11 @@ const GraphCanvasComponent = ({
   };
 
   const onNodesChange = (changes: NodeChange[]) => {
-    applyNodeChangesToStore(changes);
+    canvas?.applyNodeChanges(changes);
   };
 
   const onEdgesChange = (changes: EdgeChange[]) => {
-    applyEdgeChangesToStore(changes);
+    canvas?.applyEdgeChanges(changes);
   };
 
   const addEdgeTypeWithTransform = (connection: Connection) => {
@@ -101,7 +89,7 @@ const GraphCanvasComponent = ({
     const updatedEdges = [...existingEdges, newEdge];
 
     // Use transformToReactFlowEdges to calculate parallel metadata then sync back to schema store
-    const transformed = transformToReactFlowEdges(updatedEdges);
+    const transformed = canvas?.transformToReactFlowEdges(updatedEdges) ?? [];
     transformed.forEach((edge, idx) => {
       const { parallelIndex, totalParallel } = (edge.data || {}) as { parallelIndex?: number; totalParallel?: number };
       const targetEdge = updatedEdges[idx] as IEdgeTypeItem & { style?: Record<string, unknown> };
@@ -140,7 +128,7 @@ const GraphCanvasComponent = ({
 
   useEffect(() => {
     return () => {
-      reactFlowInstance.set(null);
+      canvas?.setInstance(null);
     };
   }, []);
 
@@ -190,7 +178,8 @@ const GraphCanvasComponent = ({
         maxZoom={4}
         onInit={(instance) => {
           instance.zoomTo(0.1);
-          reactFlowInstance.set(instance);
+          instance.fitView();
+          canvas?.setInstance(instance);
           onInit?.();
         }}
         style={{

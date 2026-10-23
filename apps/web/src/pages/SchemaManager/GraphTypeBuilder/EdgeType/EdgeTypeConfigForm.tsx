@@ -42,7 +42,7 @@ import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
 import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
 import { getPropertyDecimalError } from '../validation';
 import { getDuplicateValues } from '@studio/utils';
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import ColorPicker from '@studio/components/ColorPicker';
 import { ColorBox } from '../VisualBuilder/styles';
 import { getPropertyFormValues, getPropertyModel } from '../formValues';
@@ -181,7 +181,7 @@ function EdgeTypeConfigForm(props: EdgeTypeConfigFormProps) {
   const { hasSrcAndDstNode, colorPicker, slotProps, onChange } = props;
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
-  const { schemaStore, mode } = useStore().graphtypeStore;
+  const { schemaStore, mode } = useGraphTypeStore();
   const nodeTypeList = schemaStore?.nodeTypeList;
   const readonly = mode === GraphTypeBuildMode.Readonly;
   const form = useFormContext<IEdgeTypeItem>();

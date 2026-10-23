@@ -36,21 +36,28 @@ vi.mock('react-router-dom', async (original) => ({
   useNavigate: () => mocks.navigate,
   useParams: () => ({ graphTypeName: 'people' }),
 }));
-vi.mock('@studio/stores', () => ({
-  useModal: () => ({ message: mocks.message }),
-  useStore: () => ({
-    graphtypeStore: {
-      schemaStore: mocks.schema,
-      updateMode: vi.fn(),
-      initSchemaStore: vi.fn(),
-      destroySchemaStore: vi.fn(),
+vi.mock('@studio/pages/SchemaManager/context', () => ({
+  useGraphTypeStore: () => ({
+    schemaStore: mocks.schema,
+    canvasStore: {
+      setActiveItem: mocks.setActiveItem,
+      getCanvasLayout: () => ({ Person: { x: 10, y: 20 } }),
+      instance: { getNodes: () => [{ id: 'n', position: { x: 10, y: 20 } }], getEdges: () => [] },
     },
-    schemaStore: {
-      updateGraphTypesBySchema: mocks.updateGraphTypesBySchema,
-      currentSchema: { path: '/default_schema' },
-    },
-    commonStore: { userInfo: { address: 'localhost:9669', username: 'tester' } },
+    updateMode: vi.fn(),
+    initSchemaStore: vi.fn(),
+    destroySchemaStore: vi.fn(),
   }),
+}));
+vi.mock('@studio/stores/useModal', () => ({
+  useModal: () => ({ message: mocks.message }),
+}));
+vi.mock('@studio/stores/session', () => ({
+  schemaStore: {
+    updateGraphTypesBySchema: mocks.updateGraphTypesBySchema,
+    currentSchema: { path: '/default_schema' },
+  },
+  commonStore: { userInfo: { address: 'localhost:9669', username: 'tester' } },
 }));
 vi.mock('@studio/services', () => ({
   execGql: mocks.execGql,
@@ -66,6 +73,7 @@ vi.mock('@studio/utils', () => ({
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@vesoft-inc/icons', () => ({ CloseFilled: () => null, EditFilled: () => null }));
+vi.mock('dom-to-image', () => ({ default: { toPng: mocks.toPng } }));
 vi.mock('@vesoft-inc/ui-components', () => ({ BreadCrumbs: () => null }));
 vi.mock('@studio/components/TitleEllipsis', () => ({ default: () => null }));
 vi.mock('@studio/components/GroupButton', () => ({
@@ -86,12 +94,6 @@ vi.mock('./VisualBuilder', async () => {
     },
   };
 });
-vi.mock('dom-to-image', () => ({ default: { toPng: mocks.toPng } }));
-vi.mock('./VisualBuilder/store', () => ({
-  setActiveItem: mocks.setActiveItem,
-  getCanvasLayout: () => ({ Person: { x: 10, y: 20 } }),
-  reactFlowInstance: { get: () => ({ getNodes: () => [{ id: 'n', position: { x: 10, y: 20 } }], getEdges: () => [] }) },
-}));
 vi.mock('./VisualBuilder/MassiveGraphConfirmMask', () => ({
   MassiveGraphConfirmMask: () => <div>Heavy graph confirmation</div>,
 }));

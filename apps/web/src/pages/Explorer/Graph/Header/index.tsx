@@ -19,7 +19,8 @@ import {
   useBlocker,
   useNavigate,
 } from 'react-router-dom';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { useExplorerStore } from '../../context';
 import { OpenableSearchInput, ToolIconButton } from './styles';
 import { useTranslation } from 'react-i18next';
 import { EdgeValue, RawEntityType, Snapshot, VertexValue } from '@studio/interfaces/explorer';
@@ -32,7 +33,7 @@ import { EditModeToggle } from '../EditToolbar';
 
 function GraphHeader() {
   const navigate = useNavigate();
-  const { explorerStore } = useStore();
+  const explorerStore = useExplorerStore();
   const { graphWorkspace, currentSchema } = explorerStore;
   const backToExplorer = useCallback(() => navigate('/explorer/snapshots'), [navigate]);
 

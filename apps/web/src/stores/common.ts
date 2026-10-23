@@ -1,7 +1,6 @@
 import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '@studio/utils/i18n';
 import { connect, disconnect, fetchUserInfo, oauth2Connect } from '@studio/services';
-import { type RootStore } from '.';
 import { IUserInfo } from '@studio/interfaces';
 import { LANG_KEY } from '@studio/utils/constant';
 import { LocalStorageUtil } from '@studio/utils/function';
@@ -13,7 +12,12 @@ export class CommonStore {
   prodName = 'Studio';
   hasDarkMode = true;
 
-  rootStore?: RootStore;
+  deps?: {
+    iconGroupStore: { clear: () => void };
+    consoleStore: { clearConsole: () => void };
+    routerStore: { replace: (to: string) => void };
+    schemaStore: { reset: () => void };
+  };
   loading = false;
   language = i18n.language;
 
@@ -21,10 +25,10 @@ export class CommonStore {
 
   userInfo?: IUserInfo;
 
-  constructor(rootStore?: RootStore) {
+  constructor() {
     makeAutoObservable(this, {
       // observables
-      rootStore: observable.ref,
+      deps: false,
       userInfo: observable.ref,
       // computed
       isEnLang: computed,
@@ -34,7 +38,6 @@ export class CommonStore {
       changeLanguage: false,
       login: false,
     });
-    this.rootStore = rootStore;
     this.authValidation();
     i18n.on('languageChanged', this.setLanguage);
   }
@@ -101,18 +104,34 @@ export class CommonStore {
     return false;
   };
 
+  attach = (deps: NonNullable<CommonStore['deps']>) => {
+    this.deps = deps;
+  };
+
+  private explorerDestroy?: () => void;
+
+  registerExplorerDestroy = (destroy: () => void) => {
+    this.explorerDestroy = destroy;
+    return () => {
+      if (this.explorerDestroy === destroy) {
+        this.explorerDestroy = undefined;
+      }
+    };
+  };
+
   logout = async () => {
     const res = await disconnect();
     if (res.code === 0) {
-      this.rootStore?.explorerStore.destroy();
-      this.rootStore?.iconGroupStore.clear();
+      this.explorerDestroy?.();
+      this.deps?.iconGroupStore.clear();
       this.setUserInfo(undefined);
-      this.rootStore?.consoleStore.clearConsole();
+      this.deps?.consoleStore.clearConsole();
+      this.deps?.schemaStore.reset();
       if (res.data?.data.redirectUrl) {
         window.location.replace(`${window.location.protocol}//${res.data?.data.redirectUrl}`);
         return;
       }
-      this.rootStore?.routerStore.replace('/login');
+      this.deps?.routerStore.replace('/login');
     }
   };
 

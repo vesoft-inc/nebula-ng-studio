@@ -21,7 +21,8 @@ import { Dropdown } from '@vesoft-inc/ui-components';
 import EmptyCardImage from '@studio/images/empty-card-content.svg?url';
 import EmptyCardDarkImage from '@studio/images/empty-card-content-dark.svg?url';
 import type { Snapshot } from '@studio/interfaces/explorer/explorer';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
 
 const GraphCard = styled(Card)`
   background-color: ${({ theme }) => theme.palette.vesoft.background.paper};
@@ -48,7 +49,6 @@ function SnapshotCard(props: IProps) {
   const { item, isDeleted, onDelete, onEdit } = props;
   const { t } = useTranslation(['explorer', 'common']);
   const modalStore = useModal();
-  const { themeStore } = useStore();
   const theme = useTheme();
   const hasPreviewInfo = item.thumbnail!;
   const isDarkMode = themeStore.mode === 'dark';

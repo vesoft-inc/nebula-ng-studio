@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import LoadingButton from '@mui/lab/LoadingButton';
 import { observer } from 'mobx-react-lite';
 import { fetchOauth2Config } from '@studio/services';
-import { useStore } from '@studio/stores';
+import { commonStore } from '@studio/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { FormContainer, PasswordElement, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { Box, Grid, CircularProgress, FormControlLabel, Switch } from '@mui/material';
 import loginBgLogo from '@studio/images/login-bg-logo.svg?url';
@@ -46,7 +47,6 @@ const defaultLoginValues = (): LoginFormData => {
 
 function Login() {
   const navigate = useNavigate();
-  const { commonStore, themeStore } = useStore();
   const [loading, setLoading] = useState(false);
   const [oauth2Enabled, setOauth2Enabled] = useState(false);
   const [isSSOMode, setIsSSOMode] = useState(false);

@@ -7,8 +7,9 @@ import { CloseFilled } from '@vesoft-inc/icons';
 import lightConnectionBoard from '/images/connect-light.svg?url';
 import darkConnectionBoard from '/images/connect-dark.svg?url';
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@gui/stores';
-import { useStore as useStudioStore } from '@studio/stores';
+import { commonStore, modalStore } from '@gui/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { consoleStore } from '@studio/stores/session';
 
 export interface UpdatePasswordForm {
   username: string;
@@ -18,8 +19,6 @@ export interface UpdatePasswordForm {
 function LoginModal() {
   const { t } = useTranslation(['gui']);
   const [loading, setLoading] = useState(false);
-  const { commonStore, modalStore, themeStore } = useStore();
-  const { consoleStore } = useStudioStore();
   const { message } = modalStore;
   const isDarkMode = themeStore.mode === 'dark';
   const theme = useTheme();

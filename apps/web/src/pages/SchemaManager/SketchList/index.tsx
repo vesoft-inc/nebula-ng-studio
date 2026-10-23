@@ -6,13 +6,14 @@ import { Dropdown } from '@vesoft-inc/ui-components';
 import { DeleteOutline, MoreHorizFilled } from '@vesoft-inc/icons';
 import { useNavigate } from 'react-router-dom';
 
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { useGraphTypeStore } from '../context';
 import Empty from '@studio/components/Empty';
 import { deleteSketch } from '@studio/services';
 import { SketchItemCard } from './styles';
 
 function SketchList() {
-  const { graphtypeStore } = useStore();
+  const graphtypeStore = useGraphTypeStore();
 
   const { sketchListItem } = graphtypeStore;
   const { t } = useTranslation(['graphtype']);

@@ -15,7 +15,7 @@ import { DescEdgeTypeResult, DescNodeTypeResult, EdgeDirectionType, GraphEntityT
 
 import { SchemaItemType } from '@studio/utils/constant';
 import { extractEdgeByEdgeTypeName, getLabelColor } from '@studio/utils';
-import { useStore } from '@studio/stores';
+import { schemaStore } from '@studio/stores/session';
 import { GraphTypeElement, NebulaSchema } from '@studio/interfaces';
 import { useTranslation } from 'react-i18next';
 
@@ -54,7 +54,6 @@ export default function useConvertSchemaToTree(schema: NebulaSchema, showDetail:
   const theme = useTheme();
   const { t } = useTranslation(['common']);
   const navigate = useNavigate();
-  const { schemaStore } = useStore();
   const handleCreateGraphType = () => () => {
     navigate('/schema-manager/graphtype/create');
   };

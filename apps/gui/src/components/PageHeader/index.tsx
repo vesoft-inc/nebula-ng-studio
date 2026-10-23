@@ -14,8 +14,9 @@ import IconButton from '@mui/material/IconButton';
 import { Web } from '@vesoft-inc/icons';
 import Menu from '@mui/material/Menu';
 import Stack from '@mui/material/Stack';
-import { useStore } from '@gui/stores';
-import { useStore as useStudioStore } from '@studio/stores';
+import { commonStore } from '@gui/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { consoleStore } from '@studio/stores/session';
 import { Language } from '@gui/utils/i18n';
 import { ActionContentContainer, AppBar, AppToolbar, UserInfoMenuItem } from './styles';
 import { Divider, MenuItem, useTheme } from '@mui/material';
@@ -26,8 +27,6 @@ import { brandConfig } from '@studio/utils';
 
 function PageHeader() {
   const theme = useTheme();
-  const { themeStore, commonStore } = useStore();
-  const { consoleStore } = useStudioStore();
   const [langAnchorEle, setLangAnchorEle] = useState<null | HTMLElement>(null);
   const [userAnchorEle, setUserAnchorEle] = useState<null | HTMLElement>(null);
   const { t } = useTranslation();

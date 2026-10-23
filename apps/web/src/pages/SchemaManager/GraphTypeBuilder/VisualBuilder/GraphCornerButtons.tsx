@@ -1,14 +1,16 @@
 import ScaleBtns from '@studio/components/ScaleBtns';
 import { ScaleBtnContainer } from './styles';
 import { useTranslation } from 'react-i18next';
-import { isFullScreen } from './store';
+import type { CanvasStore } from './store';
 
 export function GraphCornerButtons({
+  canvas,
   isForceLayoutRunning,
   toggleSimulation,
   onZoomIn,
   onZoomOut,
 }: {
+  canvas: CanvasStore;
   isForceLayoutRunning: boolean;
   toggleSimulation: () => void;
   onZoomIn: () => void;
@@ -21,8 +23,8 @@ export function GraphCornerButtons({
       <ScaleBtns
         onZoomIn={onZoomIn}
         onZoomOut={onZoomOut}
-        onToggleScreen={() => isFullScreen.set(!isFullScreen.get())}
-        isFullScreen={isFullScreen.get()}
+        onToggleScreen={() => canvas.toggleFullScreen()}
+        isFullScreen={canvas.fullScreen}
         onToggleForce={toggleSimulation}
         isForceRunning={isForceLayoutRunning}
         forceTooltip={{

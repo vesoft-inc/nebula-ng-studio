@@ -16,10 +16,6 @@ interface LabelItemProps {
 
 function LabelItem(props: LabelItemProps) {
   const { item, onClick, selected = false } = props;
-  // const { graph } = useStore().explorerStore;
-  // const {
-  //   vertexFilterStore: { nodeTypeFilterAction },
-  // } = graph;
   const [isHover, setIsHover] = useState<boolean>(false);
   const [show, setShow] = useState<boolean>(true);
 

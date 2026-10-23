@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import { observer } from 'mobx-react-lite';
 import { KeyMod, KeyCode, Range, type languages, IDisposable } from '@studio/components/MonacoEditor/monaco';
 import * as monaco from '@studio/components/MonacoEditor/monaco';
-import { useStore } from '@studio/stores';
+import { commonStore, consoleStore } from '@studio/stores/session';
 import type { MonacoEditorProps } from '@studio/components/MonacoEditor';
 import { GQL_LANG_ID as langId } from '@studio/utils/constant/editor';
 import { GQL_KEYWORDS, GQL_PROCEDURES } from '@studio/utils/constant/nebula';
@@ -34,9 +34,7 @@ function GQLEditor({
   onAfterRunGql?: () => void | Promise<void>;
 }) {
   const theme = useTheme();
-  const rootStore = useStore();
   const disposeRef = useRef<{ name: string; disposer: IDisposable }[]>([]);
-  const { consoleStore, commonStore } = rootStore;
   const { graphs, editorRowCount } = consoleStore;
   const { userInfo } = commonStore;
 
@@ -156,7 +154,7 @@ function GQLEditor({
       contextMenuGroupId: 'z_custom',
       contextMenuOrder: 1,
       run: () => {
-        rootStore?.consoleStore?.updateEditorValue();
+        consoleStore.updateEditorValue();
       },
     });
 
@@ -271,7 +269,7 @@ function GQLEditor({
       { name: 'contentDisposer', disposer: contentDisposer },
       { name: 'clearAction', disposer: clearAction! }
     );
-    rootStore?.consoleStore?.setEditorRef(editor);
+    consoleStore.setEditorRef(editor);
   };
 
   useEffect(() => {
@@ -315,7 +313,7 @@ function GQLEditor({
     () => () => {
       disposeRef.current.forEach(({ disposer }) => disposer?.dispose());
       disposeRef.current = [];
-      rootStore?.consoleStore?.setEditorRef();
+      consoleStore.setEditorRef();
     },
     []
   );

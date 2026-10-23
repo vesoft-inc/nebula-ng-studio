@@ -3,12 +3,13 @@ import { reaction } from 'mobx';
 import type { NodeLayoutMap } from '@studio/interfaces';
 import { writeGraphTypeLayout } from '@studio/services';
 import { resolveLayoutWrite, retainDraftNodePositions } from './layout';
-import { getCanvasLayout, reactFlowNodes } from './store';
+import type { CanvasStore } from './store';
 
 /** Node drags and force-layout ticks are frequent; coalesce them into one write. */
 const SAVE_DEBOUNCE_MS = 800;
 
 interface UseLayoutPersistenceOptions {
+  canvas?: CanvasStore;
   /** Only graph-type scoped modes (edit / readonly) persist a layout. */
   enabled: boolean;
   address?: string;
@@ -29,6 +30,7 @@ interface UseLayoutPersistenceOptions {
  * otherwise ignored: a missing layout must never break the canvas.
  */
 export const useLayoutPersistence = ({
+  canvas,
   enabled,
   address,
   username,
@@ -62,7 +64,7 @@ export const useLayoutPersistence = ({
   }, [state, initialLayout, preservedNamesSignature]);
 
   useEffect(() => {
-    if (!enabled || !address || !username || !graphTypeName) {
+    if (!enabled || !canvas || !address || !username || !graphTypeName) {
       return;
     }
 
@@ -95,16 +97,14 @@ export const useLayoutPersistence = ({
 
     const disposer = reaction(
       () =>
-        reactFlowNodes
-          .map((node) => `${node.data?.nodeTypeItem?.name}:${node.position.x},${node.position.y}`)
-          .join('|'),
+        canvas.nodes.map((node) => `${node.data?.nodeTypeItem?.name}:${node.position.x},${node.position.y}`).join('|'),
       () => {
-        const canvas = getCanvasLayout();
+        const layoutMap = canvas.getCanvasLayout();
         // An empty canvas means the store was just reset; never persist that.
-        if (Object.keys(canvas).length === 0) {
+        if (Object.keys(layoutMap).length === 0) {
           return;
         }
-        const layout = retainDraftNodePositions(canvas, state.rememberedLayout, state.preservedNames);
+        const layout = retainDraftNodePositions(layoutMap, state.rememberedLayout, state.preservedNames);
         state.rememberedLayout = layout;
         state.lastLayout = layout;
         if (timer) {
@@ -119,5 +119,5 @@ export const useLayoutPersistence = ({
       disposer();
       flush();
     };
-  }, [enabled, state]);
+  }, [enabled, state, canvas]);
 };

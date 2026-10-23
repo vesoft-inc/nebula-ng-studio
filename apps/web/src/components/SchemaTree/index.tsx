@@ -3,7 +3,7 @@ import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { getVesoftBorder } from '@studio/utils';
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from '@studio/stores';
+import { schemaStore } from '@studio/stores/session';
 import { SchemaItemType } from '@studio/utils/constant';
 import LazyTree, { TreeNode } from '../LazyTree';
 import useConvertSchemaToTree from './useConvertSchemaToTree';
@@ -29,7 +29,6 @@ interface ISchemaTreeProps {
 
 function SchemaTree(props: ISchemaTreeProps) {
   const { showDetail = true } = props;
-  const { schemaStore } = useStore();
   const { currentSchema } = schemaStore;
   const [curWidth, setCurWidth] = useState<number>(300);
   const siderItemRef = useRef<HTMLDivElement>(null);

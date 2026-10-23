@@ -7,7 +7,9 @@ import { FormContainer, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import domtoimage from 'dom-to-image';
 
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { commonStore, schemaStore } from '@studio/stores/session';
+import { useGraphTypeStore } from '../context';
 import {
   ActionContainer,
   ContentContainer,
@@ -31,7 +33,6 @@ import { VisualEditorType } from '@studio/utils/constant';
 import GroupButton from '@studio/components/GroupButton';
 import TitleEllipsis from '@studio/components/TitleEllipsis';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
-import { getCanvasLayout, reactFlowInstance, setActiveItem } from './VisualBuilder/store';
 import { MassiveGraphConfirmMask } from './VisualBuilder/MassiveGraphConfirmMask';
 import { validateGraphTypeDecimals, validateGraphTypePrimaryKeys } from './validation';
 import { getGraphTypeSubmissionError } from './submissionError';
@@ -66,7 +67,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   const theme = useTheme();
   const { t } = useTranslation(['graphtype']);
   const [curStep, setCurStep] = useState<CreateGraphTypeStep>(CreateGraphTypeStep.create);
-  const { graphtypeStore, schemaStore, commonStore } = useStore();
+  const graphtypeStore = useGraphTypeStore();
   const [curTab, setCurTab] = useState<CreateFunction>(CreateFunction.VisualBuilder);
   const message = useModal().message;
   const navigate = useNavigate();
@@ -301,7 +302,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     const schemaPath = resolveSchemaPath(userInfo?.curSchemaPath, schemaStore.currentSchema.path);
     const identity = { address: userInfo?.address, username: userInfo?.username, schemaPath };
     // Read the canvas before navigating: it is reset when the builder unmounts.
-    const canvasLayout = getCanvasLayout();
+    const canvasLayout = graphtypeStore.canvasStore?.getCanvasLayout() ?? {};
 
     migrateGraphTypeLayout(
       { ...identity, graphTypeName },
@@ -388,7 +389,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
   };
 
   const getReactFlowSnapshot = async () => {
-    const instance = reactFlowInstance.get();
+    const instance = graphtypeStore.canvasStore?.instance;
     const flowElement = document.querySelector('.react-flow__viewport') as HTMLElement | null;
     if (!instance || !flowElement) return null;
 
@@ -585,7 +586,7 @@ function GraphTypeBuilder(props: GraphTypeBuilderProps) {
     }
     // Builder initialization and StrictMode replay reset selection; select after both finish.
     const timeout = window.setTimeout(() => {
-      setActiveItem(pendingInvalidItem);
+      graphtypeStore.canvasStore?.setActiveItem(pendingInvalidItem);
       setPendingInvalidItem(null);
     }, 0);
     return () => window.clearTimeout(timeout);

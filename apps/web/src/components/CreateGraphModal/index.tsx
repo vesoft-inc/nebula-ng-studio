@@ -5,7 +5,8 @@ import { Box, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { FormContainer, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { useEffect } from 'react';
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { schemaStore } from '@studio/stores/session';
 import { GraphType } from '@studio/interfaces';
 
 export interface CreateGraphFormValues {
@@ -32,7 +33,6 @@ const CreateGraphModal = (props: CreateGraphModalProps) => {
     defaultValues: getDefaultValues(),
   });
 
-  const { schemaStore } = useStore();
   const { message } = useModal();
 
   const { t } = useTranslation(['graphtype', 'common']);

@@ -13,8 +13,9 @@ import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphWorkspaceStore } from '../graph/workspace';
 import type { Settings4GraphStore } from '@studio/components/Settings/constants';
 import { migrateSnapshotEdgeIds, SerializedSnapshotGraphData } from '@studio/utils/graph/base/migrateSnapshotEdgeIds';
-import type { RootStore } from '..';
 import type { ISchemaItem } from '@studio/interfaces';
+import type ConsoleStore from '../console';
+import type SchemaStore from '../schema';
 
 function createSet<T extends string>(items: T[]): Set<T> {
   return new Set(items);
@@ -22,6 +23,54 @@ function createSet<T extends string>(items: T[]): Set<T> {
 
 const AttrSet = createSet(['nodes', 'links', 'nodesSelected', 'linksSelected']);
 const AttrArray = Array.from(['displayedNodePropertyItems', 'displayedEdgePropertyItems', 'filterList']);
+
+/**
+ * Serialize snapshot data before save or download.
+ * Pure: it does not read store instance state, so Console can call it without an ExplorerStore.
+ */
+export function exportSnapshotTransfer(data: SnapshotData) {
+  // node id may be number 0, check it
+  // SAFETY: the exported object is assembled dynamically and is only consumed by `JSON.stringify`.
+  const ret = {
+    version: process.env.VERSION,
+  } as Record<string, unknown>;
+
+  // handle nowDataMap
+  const { nowDataMap } = data;
+  const dataMap = Array.from(nowDataMap.entries()).reduce(
+    (dataMap: Record<string, NodeObject | LinkObject>, item: [string, NodeObject | LinkObject]) => {
+      const [key, value] = item;
+      dataMap[key] = { ...value };
+      if (value.data.type === RawEntityType.EDGE) {
+        dataMap[key].target = (nowDataMap.get(key)?.target as NodeObject).id;
+        dataMap[key].source = (nowDataMap.get(key)?.source as NodeObject).id;
+      }
+      return dataMap;
+    },
+    {} as Record<string, NodeObject | LinkObject>
+  );
+  ret.nowDataMap = dataMap;
+
+  // handle imagesCache
+  const { imagesCache } = data;
+  if (imagesCache) {
+    ret.imagesCache = Array.from(imagesCache).map(([key, img]) => [
+      key,
+      img instanceof HTMLImageElement ? img.src : img,
+    ]);
+  }
+  // handle ObservableSet
+  Array.from(AttrSet).forEach((key) => {
+    ret[key] = Array.from(data[key] as ObservableSet).map((i) => i.id);
+  });
+
+  // handle ObservableArray
+  AttrArray.forEach((key) => {
+    ret[key] = Array.from(data[key as keyof SnapshotData] as Array<DisplayedPropertyItem>);
+  });
+
+  return ret;
+}
 
 /**
  * SnapShot Store Data Structure
@@ -32,7 +81,6 @@ const AttrArray = Array.from(['displayedNodePropertyItems', 'displayedEdgeProper
  * nowDataMap: Record<string, NodeObject | LinkObject>;
  */
 export class ExplorerStore {
-  rootStore: RootStore;
   snapshots = observable.array<Snapshot>([], { deep: false });
   currentPage = 1;
   pageSize = 9;
@@ -44,19 +92,32 @@ export class ExplorerStore {
   // Global settings
   settings: Settings4GraphStore;
 
-  constructor({ rootStore, settings }: { rootStore: RootStore; settings: Settings4GraphStore }) {
+  constructor({
+    settings,
+    schemaStore,
+    consoleStore,
+  }: {
+    settings: Settings4GraphStore;
+    schemaStore: SchemaStore;
+    consoleStore: ConsoleStore;
+  }) {
     makeAutoObservable(this, {
-      rootStore: false,
+      schemaStore: false,
+      consoleStore: false,
       snapshots: observable.shallow,
       graphWorkspace: observable.ref,
       settings: observable.shallow,
     });
-    this.rootStore = rootStore;
+    this.schemaStore = schemaStore;
+    this.consoleStore = consoleStore;
     this.settings = settings;
   }
 
+  schemaStore: SchemaStore;
+  consoleStore: ConsoleStore;
+
   get currentSchema() {
-    return this.rootStore.schemaStore.currentSchema;
+    return this.schemaStore.currentSchema;
   }
 
   updateSettings = (fn: (prev: Settings4GraphStore) => Settings4GraphStore) => {
@@ -78,18 +139,11 @@ export class ExplorerStore {
   getSchemaItems = async () => {
     const res = await execGql<{ tables: ISchemaItem[] }>('SHOW SCHEMAS');
     if (res.code === 0) {
-      this.rootStore.schemaStore.updateSchemas(res.data?.tables || []);
+      this.schemaStore.updateSchemas(res.data?.tables || []);
     }
   };
 
-  getCurrentSchema = async () => {
-    const initialSchemaPath = this.currentSchema?.path;
-    const res = await execGql<{ tables: ISchemaItem[] }>('SHOW CURRENT_SCHEMA');
-    const currentSchema = res.data?.tables?.[0];
-    if (res.code === 0 && currentSchema && this.currentSchema?.path === initialSchemaPath) {
-      this.rootStore.schemaStore.updateCurrentSchame(currentSchema);
-    }
-  };
+  getCurrentSchema = () => this.schemaStore.refreshCurrentSchema();
 
   getSnapshots = async (
     page: number,
@@ -177,7 +231,7 @@ export class ExplorerStore {
     const flag = res.code === 0;
     if (flag) {
       // Keep the Console "one snapshot per result" mapping from pointing at a deleted snapshot.
-      this.rootStore?.consoleStore?.removeResultSnapshotsBySnapshotId(id);
+      this.consoleStore.removeResultSnapshotsBySnapshotId(id);
     }
     return flag;
   };
@@ -270,52 +324,8 @@ export class ExplorerStore {
     return data;
   };
 
-  /**
-   * before save/download snapshot, make all attributes in data can be serialized
-   */
-  exportSnapshotTransfer = (data: SnapshotData) => {
-    // node id may be number 0, check it
-    // SAFETY: the exported object is assembled dynamically and is only consumed by `JSON.stringify`.
-    const ret = {
-      version: process.env.VERSION,
-    } as Record<string, unknown>;
-
-    // handle nowDataMap
-    const { nowDataMap } = data;
-    const dataMap = Array.from(nowDataMap.entries()).reduce(
-      (dataMap: Record<string, NodeObject | LinkObject>, item: [string, NodeObject | LinkObject]) => {
-        const [key, value] = item;
-        dataMap[key] = { ...value };
-        if (value.data.type === RawEntityType.EDGE) {
-          dataMap[key].target = (nowDataMap.get(key)?.target as NodeObject).id;
-          dataMap[key].source = (nowDataMap.get(key)?.source as NodeObject).id;
-        }
-        return dataMap;
-      },
-      {} as Record<string, NodeObject | LinkObject>
-    );
-    ret.nowDataMap = dataMap;
-
-    // handle imagesCache
-    const { imagesCache } = data;
-    if (imagesCache) {
-      ret.imagesCache = Array.from(imagesCache).map(([key, img]) => [
-        key,
-        img instanceof HTMLImageElement ? img.src : img,
-      ]);
-    }
-    // handle ObservableSet
-    Array.from(AttrSet).forEach((key) => {
-      ret[key] = Array.from(data[key] as ObservableSet).map((i) => i.id);
-    });
-
-    // handle ObservableArray
-    AttrArray.forEach((key) => {
-      ret[key] = Array.from(data[key as keyof SnapshotData] as Array<DisplayedPropertyItem>);
-    });
-
-    return ret;
-  };
+  /** Serialize snapshot data. Same function as the module export; kept on the instance for existing callers. */
+  exportSnapshotTransfer = exportSnapshotTransfer;
 
   destroy = () => {
     this.updateGraphWorkspace(undefined);

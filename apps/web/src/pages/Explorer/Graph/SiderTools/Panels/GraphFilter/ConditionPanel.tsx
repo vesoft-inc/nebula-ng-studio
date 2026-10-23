@@ -6,7 +6,7 @@ import CollapseItem from '@studio/components/GraphWorkbench/Collapse';
 import { ConditionFilterForm } from '.';
 import { Delete, DotsHexagon, EdgeType } from '@vesoft-inc/icons';
 import { observer } from 'mobx-react-lite';
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { DescEdgeTypeResult, DescGraphTypeResult, DescNodeTypeResult, GraphEntityType } from '@vesoft-inc/utils';
 import { useEffect, useRef, useState } from 'react';
 import { OperatorType } from '@studio/utils/explorer/constant';
@@ -37,7 +37,7 @@ function ConditionPanel(props: IConditionPanelProps) {
     curNodeTypes,
     curEdgeTypes,
     graph: { nodeColorPicker },
-  } = useStore().explorerStore.graphWorkspace;
+  } = useExplorerStore().graphWorkspace;
   const entity = form.getValues(`conditions.${index}.entity`);
   const [properties, setProperties] = useState<DescNodeTypeResult[] | DescEdgeTypeResult[]>(
     entity?.propertyInfos || []

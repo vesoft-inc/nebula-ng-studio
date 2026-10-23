@@ -2,7 +2,7 @@ import { Box, Button, Checkbox, Divider, IconButton, ListItemText, Stack, Typogr
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { SiderPanel } from '@studio/interfaces/explorer';
 import { CloseFilled } from '@vesoft-inc/icons';
 import { DirectionSelector, NodeItemBar, PathFilterTypeSelector, QueryTitle, StepType } from '../styles';
@@ -24,9 +24,7 @@ type QueryPathFrom = {
 };
 
 function QueryPath() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { nodesSelected } = graphWorkspace.graph;
   const { t } = useTranslation(['explorer']);
   const srcNode = Array.from(nodesSelected)[0];

@@ -1,4 +1,5 @@
-import { useModal, useStore } from '@studio/stores';
+import { useModal } from '@studio/stores/useModal';
+import { commonStore, iconGroupStore } from '@studio/stores/session';
 import { IconGroupType } from '@studio/utils/explorer/constant';
 import { Language } from '@studio/utils/i18n';
 import { Box, Button, IconButton, styled, Tab, Tabs, Tooltip } from '@mui/material';
@@ -72,7 +73,6 @@ interface IProps {
 
 function CategoryIconGroup(props: IProps) {
   const { onIconSelect, onImgSelect, type, allowRemoteIconManagement = false } = props;
-  const { iconGroupStore, commonStore } = useStore();
   const { initIconGroupList, addNewGroup, deleteGroup, updateGroupName, selectGroup, addIcon, deleteIcon } =
     iconGroupStore;
   const { t } = useTranslation(['explorer']);

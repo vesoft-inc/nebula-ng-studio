@@ -29,10 +29,17 @@ describe('Explorer snapshot serialization', () => {
       removeItem: vi.fn(),
     });
 
+    const schemaStore = {
+      currentSchema: { path: '/schema/demo' },
+      updateSchemas: vi.fn(),
+      updateCurrentSchame: vi.fn(),
+      refreshCurrentSchema: vi.fn(),
+    };
     const { ExplorerStore } = await import('./snapshot');
     const store = new ExplorerStore({
-      rootStore: { schemaStore: { currentSchema: { path: '/schema/demo' } } } as never,
       settings: {},
+      schemaStore: schemaStore as never,
+      consoleStore: { removeResultSnapshotsBySnapshotId: vi.fn() } as never,
     });
 
     const source = {
@@ -105,13 +112,10 @@ describe('Explorer snapshot serialization', () => {
   it('purges the Console result mapping when a snapshot is deleted', async () => {
     const { ExplorerStore } = await import('./snapshot');
     const removeResultSnapshotsBySnapshotId = vi.fn();
-
     const store = new ExplorerStore({
-      rootStore: {
-        schemaStore: { currentSchema: { path: '/schema/demo' } },
-        consoleStore: { removeResultSnapshotsBySnapshotId },
-      } as never,
       settings: {},
+      schemaStore: { currentSchema: { path: '/schema/demo' } } as never,
+      consoleStore: { removeResultSnapshotsBySnapshotId } as never,
     });
 
     vi.mocked(deleteSnapshot).mockResolvedValueOnce({ code: 0 } as never);
@@ -124,10 +128,17 @@ describe('Explorer snapshot serialization', () => {
   });
 
   it('keeps the canvas restoring until the snapshot payload is applied', async () => {
+    const schemaStore = {
+      currentSchema: { path: '/schema/demo' },
+      updateSchemas: vi.fn(),
+      updateCurrentSchame: vi.fn(),
+      refreshCurrentSchema: vi.fn(),
+    };
     const { ExplorerStore } = await import('./snapshot');
     const store = new ExplorerStore({
-      rootStore: { schemaStore: { currentSchema: { path: '/schema/demo' } } } as never,
       settings: {},
+      schemaStore: schemaStore as never,
+      consoleStore: { removeResultSnapshotsBySnapshotId: vi.fn() } as never,
     });
     const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
     const emptySnapshotData = {
@@ -154,10 +165,17 @@ describe('Explorer snapshot serialization', () => {
   });
 
   it('releases the restoring gate when the snapshot detail is missing', async () => {
+    const schemaStore = {
+      currentSchema: { path: '/schema/demo' },
+      updateSchemas: vi.fn(),
+      updateCurrentSchame: vi.fn(),
+      refreshCurrentSchema: vi.fn(),
+    };
     const { ExplorerStore } = await import('./snapshot');
     const store = new ExplorerStore({
-      rootStore: { schemaStore: { currentSchema: { path: '/schema/demo' } } } as never,
       settings: {},
+      schemaStore: schemaStore as never,
+      consoleStore: { removeResultSnapshotsBySnapshotId: vi.fn() } as never,
     });
     const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
     vi.mocked(getSnapshotDetail).mockResolvedValueOnce({ code: 1, data: undefined } as never);

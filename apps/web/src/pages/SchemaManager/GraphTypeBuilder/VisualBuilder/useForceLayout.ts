@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Simulation } from 'd3-force';
-import { reactFlowEdges, ReactFlowNode, reactFlowNodes } from './store';
+import { ReactFlowNode, type CanvasStore } from './store';
 import { createForceSimulation, SimLink, SimNode } from './forceLayout';
 
 interface LayoutNode {
@@ -10,13 +10,14 @@ interface LayoutNode {
 }
 
 interface UseForceLayoutOptions {
+  canvas?: CanvasStore;
   containerWidth?: number;
   containerHeight?: number;
   onUpdateNodePositions: (nodes: LayoutNode[]) => void;
 }
 
 export const useForceLayout = (options: UseForceLayoutOptions) => {
-  const { containerWidth = 800, containerHeight = 600, onUpdateNodePositions } = options;
+  const { canvas, containerWidth = 800, containerHeight = 600, onUpdateNodePositions } = options;
 
   const simulationRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   const nodesRef = useRef<SimNode[]>([]);
@@ -32,8 +33,8 @@ export const useForceLayout = (options: UseForceLayoutOptions) => {
       simulationRef.current = null;
     }
 
-    const rfNodes = reactFlowNodes.slice();
-    const rfEdges = reactFlowEdges.slice();
+    const rfNodes = canvas?.nodes.slice() ?? [];
+    const rfEdges = canvas?.edges.slice() ?? [];
 
     if (rfNodes.length === 0) {
       return;
@@ -94,7 +95,7 @@ export const useForceLayout = (options: UseForceLayoutOptions) => {
 
     simulationRef.current = simulation;
     setIsRunning(true);
-  }, [containerWidth, containerHeight, onUpdateNodePositions]);
+  }, [canvas, containerWidth, containerHeight, onUpdateNodePositions]);
 
   const stopSimulation = useCallback(() => {
     if (simulationRef.current) {

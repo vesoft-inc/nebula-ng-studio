@@ -1,4 +1,4 @@
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { Box, Chip, Tab, Tabs, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { Table } from '@vesoft-inc/ui-components';
@@ -20,7 +20,7 @@ type LabeTableItem = { name: string; entityNames: string[] };
 
 function LabelTable(props: LabelTableProps) {
   const { readonly } = props;
-  const { schemaStore } = useStore().graphtypeStore;
+  const { schemaStore } = useGraphTypeStore();
   const { t } = useTranslation(['graphtype']);
 
   const TabList = useMemo(

@@ -17,35 +17,74 @@ import {
   resolveSchemaPath,
   sweepStaleGraphTypeLayouts,
 } from '@studio/services';
-import { action, makeAutoObservable, observable, reaction } from 'mobx';
-import { RootStore } from '.';
+import { action, makeAutoObservable, observable, reaction, type IReactionDisposer } from 'mobx';
 
-export default class SchemaStore {
-  rootStore?: RootStore;
-  schemas = observable.array<ISchemaItem>([]);
-  selectedKeys = observable.array<string>([]);
-  createGraphModalInfo = {
-    visible: false,
+type SchemaStoreDeps = {
+  commonStore: {
+    userInfo?: {
+      curSchemaPath?: string;
+      address?: string;
+      username?: string;
+    };
   };
-  currentSchema: NebulaSchema = {
+};
+
+const emptyCurrentSchema = (): NebulaSchema =>
+  ({
     name: '',
     path: '',
     owner: '',
     graphTypes: [],
     graphs: [],
-  } as NebulaSchema;
+  }) as NebulaSchema;
+
+export default class SchemaStore {
+  deps?: SchemaStoreDeps;
+  reactionDisposer?: IReactionDisposer;
+  schemas = observable.array<ISchemaItem>([]);
+  selectedKeys = observable.array<string>([]);
+  createGraphModalInfo = {
+    visible: false,
+  };
+  currentSchema: NebulaSchema = emptyCurrentSchema();
   loading = true;
 
   get userInfo() {
-    return this.rootStore?.commonStore.userInfo;
+    return this.deps?.commonStore.userInfo;
   }
 
-  constructor(rootStore?: RootStore) {
+  constructor() {
     makeAutoObservable(this, {
       selectedKeys: observable.shallow,
+      deps: false,
+      reactionDisposer: false,
+      userInfo: false,
     });
-    this.rootStore = rootStore;
-    reaction(
+    this.bindSchemaReaction();
+  }
+
+  attach = (deps: SchemaStoreDeps) => {
+    this.deps = deps;
+    this.bindSchemaReaction();
+  };
+
+  /**
+   * Drop the current reaction, clear the catalog, then bind exactly one reaction again.
+   * Logout uses this so a second login does not stack reactions on the process-wide instance.
+   */
+  reset = () => {
+    this.reactionDisposer?.();
+    this.reactionDisposer = undefined;
+    this.schemas.clear();
+    this.selectedKeys.clear();
+    this.currentSchema = emptyCurrentSchema();
+    this.loading = true;
+    this.bindSchemaReaction();
+  };
+
+  bindSchemaReaction = () => {
+    this.reactionDisposer?.();
+    this.reactionDisposer = reaction(
       () => [this.schemas.slice(), this.userInfo],
       () => {
         if (this.schemas.length > 0) {
@@ -56,7 +95,7 @@ export default class SchemaStore {
         }
       }
     );
-  }
+  };
 
   updateCurrentSchame = (schema: Partial<NebulaSchema>) => {
     this.currentSchema = {
@@ -75,6 +114,15 @@ export default class SchemaStore {
       owner: item.owner,
     }));
     this.updateSchemas(curSchemas);
+  };
+
+  refreshCurrentSchema = async () => {
+    const initialSchemaPath = this.currentSchema?.path;
+    const res = await execGql<{ tables: ISchemaItem[] }>('SHOW CURRENT_SCHEMA');
+    const currentSchema = res.data?.tables?.[0];
+    if (res.code === 0 && currentSchema && this.currentSchema?.path === initialSchemaPath) {
+      this.updateCurrentSchame(currentSchema);
+    }
   };
 
   unsafeAction = (fn: (store: this) => void) => action('unsafeAction', () => fn(this))();

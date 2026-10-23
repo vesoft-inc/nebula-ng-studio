@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ISchemaItem } from '@studio/interfaces';
 import { changeSchema } from '@studio/services';
-import { useStore } from '@studio/stores';
+import { commonStore, schemaStore } from '@studio/stores/session';
+import { useExplorerStore } from './context';
 
 interface ExplorerSchemaSelectorProps {
   onSchemaChanged?: (schema: ISchemaItem) => void | Promise<void>;
@@ -13,7 +14,7 @@ interface ExplorerSchemaSelectorProps {
 }
 
 function ExplorerSchemaSelector({ onSchemaChanged, onSwitchingChange }: ExplorerSchemaSelectorProps) {
-  const { explorerStore, schemaStore, commonStore } = useStore();
+  const explorerStore = useExplorerStore();
   const [switching, setSwitching] = useState(false);
   const switchingRef = useRef(false);
   const [loading, setLoading] = useState(false);

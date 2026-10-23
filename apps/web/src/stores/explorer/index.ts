@@ -1,1 +1,1 @@
-export { ExplorerStore } from './snapshot';
+export { ExplorerStore, exportSnapshotTransfer } from './snapshot';

@@ -6,16 +6,14 @@ import { AutocompleteElement, FormContainer, SelectElement, useFieldArray, useFo
 import { ArrowBackFilled, CloseFilled } from '@vesoft-inc/icons';
 import { useMemo } from 'react';
 
-import { useStore } from '@studio/stores';
+import { useExplorerStore } from '@studio/pages/Explorer/context';
 import { IConditionQuery, SiderPanel } from '@studio/interfaces/explorer/explorer';
 import { QueryTitle } from '../styles';
 import ConditionPanel from './ConditionPanel';
 import { SelectProps } from '@studio/utils/graph/helpers';
 
 export default observer(function ConditionQuery() {
-  const {
-    explorerStore: { graphWorkspace },
-  } = useStore();
+  const { graphWorkspace } = useExplorerStore();
   const { t } = useTranslation(['explorer']);
   const form = useForm<IConditionQuery>({
     defaultValues: {

@@ -3,7 +3,6 @@ import { v4 as uuid } from 'uuid';
 import { ConsoleResult, GQLResult, type GQLResultSummary } from '@vesoft-inc/utils';
 import { execConsoleGql, execGql } from '@studio/services';
 import type { editor } from 'monaco-editor';
-import { type RootStore } from '.';
 import { GraphItem, GraphTypeElement } from '@studio/interfaces';
 import { processGqlStatement } from '@studio/utils/gql';
 import type { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
@@ -16,7 +15,6 @@ export interface ConsoleResultSnapshotRef {
 }
 
 export default class ConsoleStore {
-  rootStore?: RootStore;
   editorRef?: editor.IStandaloneCodeEditor = undefined;
   editorValue = '';
   editorRunning = false;
@@ -28,10 +26,9 @@ export default class ConsoleStore {
   editorRowCount = 1;
   graphTypeInfo = observable.map<string, GraphTypeElement[]>({}, { deep: false });
 
-  constructor(rootStore?: RootStore) {
+  constructor() {
     makeObservable(this, {
       // observable properties
-      rootStore: observable.ref,
       editorRef: observable.ref,
       editorValue: observable,
       editorRowCount: observable,
@@ -49,7 +46,6 @@ export default class ConsoleStore {
       setEditorRef: action,
       updateEditorRowCount: action,
     });
-    this.rootStore = rootStore;
   }
 
   updateEditorValue = (value = '') => (this.editorValue = value);

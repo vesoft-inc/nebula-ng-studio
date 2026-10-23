@@ -7,7 +7,7 @@ import { type MRT_ColumnDef } from 'material-react-table';
 import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/utils';
 
 import { ActionContainer } from './styles';
-import { useStore } from '@studio/stores';
+import { useGraphTypeStore } from '@studio/pages/SchemaManager/context';
 import { IEdgeTypeItem, IProperty } from '@studio/interfaces';
 import { useCallback, useMemo, useState } from 'react';
 import { getLabelColor } from '@studio/utils';
@@ -19,7 +19,7 @@ interface EdgeTypeTableProps {
 
 function EdgeTypeTable(props: EdgeTypeTableProps) {
   const { readonly } = props;
-  const { schemaStore } = useStore().graphtypeStore;
+  const { schemaStore } = useGraphTypeStore();
   const { t } = useTranslation(['graphtype']);
   const [modalOpen, setModalOpen] = useState(false);
   const [editEdgeType, setEditEdgeType] = useState<IEdgeTypeItem | undefined>();

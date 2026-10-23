@@ -13,7 +13,8 @@ import {
 } from '@vesoft-inc/icons';
 import { Dropdown, ListCard } from '@vesoft-inc/ui-components';
 
-import { useStore } from '@studio/stores';
+import { schemaStore } from '@studio/stores/session';
+import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { getSketchListTotal } from '@studio/services';
 import { GraphType } from '@studio/interfaces';
 import { generateTreeNodeKey } from '@studio/components/SchemaTree';
@@ -29,7 +30,6 @@ import PageLoading from '@studio/components/PageLoading';
 
 function GraphTypeList() {
   const theme = useTheme();
-  const { schemaStore, themeStore } = useStore();
   const { currentSchema, importDemoDataset } = schemaStore;
   const navigate = useNavigate();
   const isDarkMode = themeStore.mode === 'dark';

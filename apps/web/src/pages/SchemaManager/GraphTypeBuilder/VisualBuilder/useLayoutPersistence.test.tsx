@@ -10,21 +10,18 @@ import type { SchemaLayoutIdentity } from '@studio/services/schemaLayout';
 const writer = vi.hoisted(() => ({
   writeGraphTypeLayout: vi.fn(async (_identity: SchemaLayoutIdentity, _layout: NodeLayoutMap) => true),
 }));
-vi.mock('@studio/services', () => writer);
-vi.mock('./store', async () => {
-  const { observable } = await import('mobx');
-  const nodes = observable.array<{
-    id: string;
-    position: { x: number; y: number };
-    data: { nodeTypeItem: { name: string } };
-  }>([], { deep: false });
-  return {
-    reactFlowNodes: nodes,
-    getCanvasLayout: () => Object.fromEntries(nodes.map((node) => [node.data.nodeTypeItem.name, node.position])),
-  };
-});
+vi.mock('@vesoft-inc/icons', () => new Proxy({}, { get: () => () => null }));
+vi.mock('@studio/services', () => ({
+  writeGraphTypeLayout: writer.writeGraphTypeLayout,
+  serializeNodePositions: (entries: { name?: string; x: number; y: number }[]) =>
+    Object.fromEntries(
+      entries
+        .filter((entry) => entry.name && Number.isFinite(entry.x) && Number.isFinite(entry.y))
+        .map((entry) => [entry.name, { x: entry.x, y: entry.y }])
+    ),
+}));
 
-import { reactFlowNodes, type ReactFlowNode } from './store';
+import { CanvasStore, type ReactFlowNode } from './store';
 import { useLayoutPersistence } from './useLayoutPersistence';
 
 const identity = {
@@ -40,24 +37,34 @@ const node = (name: string, x: number, y: number): ReactFlowNode => ({
 });
 
 function Harness({
+  canvas,
   initialLayout,
   graphTypeName = identity.graphTypeName,
 }: {
+  canvas: CanvasStore;
   initialLayout: NodeLayoutMap;
   graphTypeName?: string;
 }) {
-  useLayoutPersistence({ enabled: true, ...identity, graphTypeName, initialLayout, preserveNodeNames: ['A', 'B'] });
+  useLayoutPersistence({
+    canvas,
+    enabled: true,
+    ...identity,
+    graphTypeName,
+    initialLayout,
+    preserveNodeNames: ['A', 'B'],
+  });
   return null;
 }
 
 describe('useLayoutPersistence', () => {
   let root: Root;
+  let canvas: CanvasStore;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     writer.writeGraphTypeLayout.mockReset().mockResolvedValue(true);
-    runInAction(() => reactFlowNodes.clear());
+    canvas = new CanvasStore();
     root = createRoot(document.createElement('div'));
   });
 
@@ -68,13 +75,13 @@ describe('useLayoutPersistence', () => {
   });
 
   const mount = async (layout: NodeLayoutMap) => {
-    runInAction(() => reactFlowNodes.replace(Object.entries(layout).map(([name, { x, y }]) => node(name, x, y))));
-    await act(async () => root.render(<Harness initialLayout={layout} />));
+    runInAction(() => canvas.nodes.replace(Object.entries(layout).map(([name, { x, y }]) => node(name, x, y))));
+    await act(async () => root.render(<Harness canvas={canvas} initialLayout={layout} />));
   };
 
   const change = async (nodes: ReactFlowNode[], debounce = true) => {
     await act(async () => {
-      runInAction(() => reactFlowNodes.replace(nodes));
+      runInAction(() => canvas.nodes.replace(nodes));
       if (debounce) await vi.advanceTimersByTimeAsync(800);
     });
   };
@@ -116,8 +123,8 @@ describe('useLayoutPersistence', () => {
   });
 
   it('captures and persists an initial automatic layout without needing a drag', async () => {
-    runInAction(() => reactFlowNodes.replace([node('A', 100, 200)]));
-    await act(async () => root.render(<Harness initialLayout={{}} />));
+    runInAction(() => canvas.nodes.replace([node('A', 100, 200)]));
+    await act(async () => root.render(<Harness canvas={canvas} initialLayout={{}} />));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });
@@ -126,11 +133,11 @@ describe('useLayoutPersistence', () => {
   });
 
   it('does not duplicate a save when StrictMode replays effect setup and cleanup', async () => {
-    runInAction(() => reactFlowNodes.replace([node('A', 100, 200)]));
+    runInAction(() => canvas.nodes.replace([node('A', 100, 200)]));
     await act(async () =>
       root.render(
         <StrictMode>
-          <Harness initialLayout={{}} />
+          <Harness canvas={canvas} initialLayout={{}} />
         </StrictMode>
       )
     );
@@ -177,7 +184,7 @@ describe('useLayoutPersistence', () => {
   it('does not deduplicate a new graph type against a previous graph type', async () => {
     await mount({ A: { x: 0, y: 0 } });
     await change([node('A', 100, 200)]);
-    await act(async () => root.render(<Harness initialLayout={{}} graphTypeName="other_type" />));
+    await act(async () => root.render(<Harness canvas={canvas} initialLayout={{}} graphTypeName="other_type" />));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800);
     });

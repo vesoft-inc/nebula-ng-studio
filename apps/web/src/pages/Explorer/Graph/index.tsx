@@ -5,7 +5,9 @@ import { useParams } from 'react-router-dom';
 import { Drawer } from '@vesoft-inc/ui-components';
 import { IconButton, type Theme } from '@mui/material';
 import { FormatIndentDecrease, FormatIndentIncrease } from '@vesoft-inc/icons';
-import { useStore } from '@studio/stores';
+import { commonStore } from '@studio/stores/session';
+import { modalStore } from '@studio/stores/session';
+import { useExplorerStore } from '../context';
 import PageLoading from '@studio/components/GraphWorkbench/PageLoading';
 import GraphHeader from './Header';
 import GraphSiderTools from './SiderTools';
@@ -21,7 +23,7 @@ const RIGHT_SIDE_DRAWER_COLLAPSED_WIDTH = 28;
 
 function withExplorerSettings<T>(WrappedComponent: FC<T>) {
   return observer((props: NonNullable<T>) => {
-    const { explorerStore, commonStore } = useStore();
+    const explorerStore = useExplorerStore();
 
     const username = commonStore.userInfo?.username;
 
@@ -57,8 +59,7 @@ function withExplorerSettings<T>(WrappedComponent: FC<T>) {
 
 function ExplorerGraph() {
   const { snapshotId } = useParams();
-  const rootStore = useStore();
-  const { explorerStore } = rootStore;
+  const explorerStore = useExplorerStore();
   const { loading } = explorerStore;
   const [graphWorkspace, setGraphWorkspace] = useState<GraphWorkspaceStore>();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
@@ -66,7 +67,7 @@ function ExplorerGraph() {
   useEffect(() => {
     if (!snapshotId) return;
     const workspace = new GraphWorkspaceStore({
-      stores: rootStore,
+      stores: { modalStore },
       execGql,
       explorerId: snapshotId,
       settings: explorerStore.settings,
@@ -78,7 +79,7 @@ function ExplorerGraph() {
       explorerStore.updateGraphWorkspace(undefined);
       workspace.destroy();
     };
-  }, [explorerStore, rootStore, snapshotId]);
+  }, [explorerStore, snapshotId]);
 
   if (!graphWorkspace || explorerStore.graphWorkspace !== graphWorkspace) {
     return (

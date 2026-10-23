@@ -1,6 +1,6 @@
-import { FetchService, HttpResCode, type ServiceProps } from '@vesoft-inc/utils';
+import { FetchService, HttpResCode, routerStore, type ServiceProps } from '@vesoft-inc/utils';
+import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { JSONBig } from '@studio/utils';
-import { getRootStore } from '@studio/stores/_ref';
 
 export type ConfigType = ServiceProps['config'];
 
@@ -53,7 +53,6 @@ export const fetcher = new FetchService({
           controller.abort();
           controller = new AbortController();
           const redirect = `${location.pathname}${location.search}`;
-          const routerStore = getRootStore()?.routerStore;
           let loginUrl;
           loginUrl = '/login';
           if (location.pathname !== '/login') {
@@ -65,7 +64,7 @@ export const fetcher = new FetchService({
           errTip = false;
         }
         if (errTip) {
-          const message = getRootStore()?.modalStore?.message;
+          const message = modalStore.message;
           const respMsg = response.data?.message?.replace(/^\w+::/, '');
           const msgContent = respMsg || error?.message || 'Unknown error';
 
