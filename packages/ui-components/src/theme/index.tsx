@@ -230,9 +230,6 @@ export const themeStore = new ThemeStore();
  *
  * import { themeStore } from '@vesoft-inc/ui-components/theme';
  *
- * // Keep `themeStore` in rootStore, and use it in any component
- * // Toggle theme mode
- * const { themeStore } = useStore();
  * themeStore.toggleMode('dark' | 'light');
  * ```
  */

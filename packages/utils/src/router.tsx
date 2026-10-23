@@ -55,3 +55,5 @@ export class RouterStore {
   back = () => this.router?.navigate(-1);
   forward = () => this.router?.navigate(1);
 }
+
+export const routerStore = new RouterStore();
