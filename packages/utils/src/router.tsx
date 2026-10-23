@@ -37,11 +37,11 @@ export class RouterStore {
     });
   }
 
-  updateRouter = (router: Router) => {
+  updateRouter = (router: Router | undefined) => {
     this.router = router;
   };
 
-  updateState = (state: RouterState) => {
+  updateState = (state: RouterState | undefined) => {
     this.state = state;
   };
 

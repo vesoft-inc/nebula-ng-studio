@@ -9,6 +9,8 @@ import iconCategory from './assets/icon-category.json';
 const OfficialPrefix = 'official';
 
 export class IconCatalog {
+  private generation = 0;
+
   svgGroup = {
     officalGroupList: observable.array<IconGroup>([]),
     serverGroupList: observable.array<IconGroup>([]),
@@ -69,6 +71,7 @@ export class IconCatalog {
   };
 
   initIconGroupList = async (type: IconGroupType) => {
+    const generation = this.generation;
     const typeGroup = this[`${type}Group`];
     if (typeGroup.initailized) {
       return;
@@ -78,6 +81,7 @@ export class IconCatalog {
       this.fetchOfficialIconGroupList(type),
       this.fetchIconGroupList(type),
     ]);
+    if (generation !== this.generation) return;
     runInAction(() => {
       typeGroup.officalGroupList.replace(officalGroupList);
       typeGroup.serverGroupList.replace(serverGroupList);
@@ -94,8 +98,10 @@ export class IconCatalog {
   };
 
   addNewGroup = async (type: IconGroupType) => {
+    const generation = this.generation;
     const groupName = 'new_group';
     const res = await this.service?.addIconGroup({ name: groupName, type });
+    if (generation !== this.generation) return;
     const groupId = res?.data?.id;
     groupId &&
       runInAction(() => {
@@ -112,7 +118,9 @@ export class IconCatalog {
   };
 
   deleteGroup = async ({ type, group }: { type: IconGroupType; group: IconGroup }) => {
+    const generation = this.generation;
     const res = await this.service?.deleteIconGroup(group.id);
+    if (generation !== this.generation) return;
     const groupId = res?.data?.id;
 
     if (!groupId) {
@@ -130,7 +138,9 @@ export class IconCatalog {
   };
 
   updateGroupName = async ({ group, name }: { group: IconGroup; name: string }) => {
+    const generation = this.generation;
     const res = await this.service?.updateIconGroup({ id: group.id, name });
+    if (generation !== this.generation) return;
     const groupId = res?.data?.id;
     groupId &&
       runInAction(() => {
@@ -139,6 +149,7 @@ export class IconCatalog {
   };
 
   selectGroup = async ({ type, groupId }: { type: IconGroupType; groupId?: string }) => {
+    const generation = this.generation;
     if (!groupId || groupId.startsWith(OfficialPrefix)) {
       runInAction(() => {
         this[`${type}Group`].currentGroupId = groupId;
@@ -147,6 +158,7 @@ export class IconCatalog {
     }
 
     const res = await this.service?.getIconGroupItemList(groupId);
+    if (generation !== this.generation) return;
     Array.isArray(res?.data?.items) &&
       runInAction(() => {
         const typeGroup = this[`${type}Group`];
@@ -159,7 +171,9 @@ export class IconCatalog {
   };
 
   addIcon = async ({ group, name, icon }: { group: IconGroup; name: string; icon: string }) => {
+    const generation = this.generation;
     const res = await this.service?.addIconGroupItem({ groupId: group.id, name, icon });
+    if (generation !== this.generation) return;
     const iconId = res?.data?.id;
     iconId &&
       runInAction(() => {
@@ -173,10 +187,12 @@ export class IconCatalog {
   };
 
   deleteIcon = async ({ group, icon }: { group: IconGroup; icon: IconItem }) => {
+    const generation = this.generation;
     const res = await this.service?.deleteIconGroupItem({
       groupId: group.id,
       iconId: icon.id,
     });
+    if (generation !== this.generation) return;
     const iconId = res?.data?.id;
     iconId &&
       runInAction(() => {
@@ -185,6 +201,7 @@ export class IconCatalog {
   };
 
   clear = () => {
+    this.generation += 1;
     (['svg', 'img'] as const).forEach((type) => {
       const group = this[`${type}Group`];
       group.officalGroupList.clear();

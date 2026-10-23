@@ -7,6 +7,7 @@ import { themeStore } from '@vesoft-inc/ui-components/theme';
 import { commonStore } from '@studio/stores/session';
 import { fetchOauth2Config } from '@studio/services';
 import { brandConfig } from '@studio/utils';
+import { loginReturnPath } from '@studio/app/paths';
 import loginBgLogo from '@studio/images/login-bg-logo.svg?url';
 import loginBgLogoDark from '@studio/images/login-bg-logo-dark.svg?url';
 import logo from '/images/login-logo-light.svg?url';
@@ -45,7 +46,7 @@ export default observer(function Login() {
           return;
         }
         const success = await commonStore.login(data);
-        if (success) navigate(new URLSearchParams(search).get('redirect') || '/');
+        if (success) navigate(loginReturnPath(search, window.APP_CONFIG?.basePath), { replace: true });
       }}
     />
   );

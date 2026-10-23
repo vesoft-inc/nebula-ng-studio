@@ -1,31 +1,28 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useModal } from '@studio/stores/useModal';
 import { commonStore, schemaStore } from '@studio/stores/session';
-import { PATH_SPLITTER } from '@studio/components/SchemaTree/useConvertSchemaToTree';
 import type { TreeNode } from '@studio/components/LazyTree';
 import type { ISchemaItem, ISchemaTreeRawData } from '@studio/interfaces';
 import { SchemaItemType } from '@studio/utils/constant';
 import { isGuiTarget } from '@studio/utils';
 
 export async function loadSchemaTreeNode(node: TreeNode<ISchemaTreeRawData>, showDetail: boolean) {
-  const { key, rawData } = node;
+  const { rawData } = node;
   const { type } = rawData as { type: SchemaItemType };
   switch (type) {
     case SchemaItemType.GraphType:
       await schemaStore.updateGraphTypesBySchema();
       break;
     case SchemaItemType.GraphTypeDescItem: {
-      if (showDetail) {
-        const [, graphTypeName] = key.split(PATH_SPLITTER);
-        await schemaStore.updateGraphTypeDetailBySchema(graphTypeName);
+      if (showDetail && rawData?.graphType) {
+        await schemaStore.updateGraphTypeDetailBySchema(rawData.graphType.graph_type);
       }
       break;
     }
     case SchemaItemType.EntityTypeDescItem: {
-      if (showDetail) {
-        const [, graphTypeName, entityTypeName] = key.split(PATH_SPLITTER);
-        await schemaStore.updateEntityTypeDescsBySchema(graphTypeName, entityTypeName);
+      if (showDetail && rawData?.entity) {
+        await schemaStore.updateEntityTypeDescsBySchema(rawData.entity.graph_type_name, rawData.entity.type_name);
       }
       break;
     }
@@ -39,7 +36,6 @@ export async function loadSchemaTreeNode(node: TreeNode<ISchemaTreeRawData>, sho
 
 export function useSchemaTreeBindings(showDetail: boolean) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const { message } = useModal();
   const { t } = useTranslation(['common']);
   const { currentSchema, schemas } = schemaStore;
@@ -56,17 +52,12 @@ export function useSchemaTreeBindings(showDetail: boolean) {
       schemaLabel: commonStore.userInfo?.curSchemaPath.split('/').pop(),
       schemas,
       collapsed: isGuiTarget,
+      switching: schemaStore.switchingSchema,
       onSwitchSchema: async (schema: ISchemaItem) => {
         const res = await schemaStore.switchSchema(schema.path);
         if (res.code !== 0) return false;
-        schemaStore.updateCurrentSchame(schema);
+        commonStore.setSchemaPath(schema.path);
         message.success(t('switchSchemaSuccess', { ns: 'common' }));
-        if (pathname.includes('console')) {
-          navigate('/console', { replace: true });
-        } else {
-          navigate('/schema-manager/graphtype', { replace: true });
-        }
-        navigate(0);
         return true;
       },
       onCreateSchema: async (path: string) => {

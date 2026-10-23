@@ -1,11 +1,12 @@
-import { FetchService, HttpResCode, mergeAbortSignals, routerStore, type ServiceProps } from '@vesoft-inc/utils';
+import { FetchService, HttpResCode, mergeAbortSignals, type ServiceProps } from '@vesoft-inc/utils';
 import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { JSONBig } from '@studio/utils';
+import { sessionRequests } from './sessionRequests';
 
 export type ConfigType = ServiceProps['config'];
 
-let controller = new AbortController();
 const signalDisposers = new WeakMap<object, () => void>();
+const requestSessions = new WeakMap<object, AbortSignal>();
 
 export const HTTP_CANCEL_CODE = 499;
 
@@ -39,9 +40,11 @@ export const fetcher = new FetchService({
   interceptorsEjectors(ins) {
     ins.interceptors.request.use((config) => {
       config.headers['Content-Type'] = 'application/json';
-      const request = mergeAbortSignals(config.signal, controller.signal);
+      const session = sessionRequests.signal;
+      const request = mergeAbortSignals(config.signal, session);
       config.signal = request.signal;
       signalDisposers.set(config, request.dispose);
+      requestSessions.set(config, session);
       return config;
     });
     ins.interceptors.response.use(
@@ -55,17 +58,13 @@ export const fetcher = new FetchService({
         const response = error?.response || {
           data: { code: isCancelError ? HTTP_CANCEL_CODE : HttpResCode.ErrUnknown },
         };
+        const session = error.config && requestSessions.get(error.config);
+        if (session && session !== sessionRequests.signal) {
+          return { ...response, data: { code: HTTP_CANCEL_CODE } };
+        }
         let errTip = response.config?.errTip;
         if (response.data?.code === HttpResCode.ErrSession || response.data?.code === HttpResCode.ErrNoClient) {
-          controller.abort();
-          controller = new AbortController();
-          const redirect = `${location.pathname}${location.search}`;
-          let loginUrl;
-          loginUrl = '/login';
-          if (location.pathname !== '/login') {
-            loginUrl = `/login?redirect=${encodeURIComponent(redirect)}`;
-          }
-          routerStore ? routerStore.replace(loginUrl) : window.location.replace(loginUrl);
+          if (session) sessionRequests.expire(session);
         }
         if (response.data?.code === HttpResCode.ErrSession) {
           errTip = false;

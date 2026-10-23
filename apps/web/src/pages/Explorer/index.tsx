@@ -13,9 +13,7 @@ export default observer(function Explorer() {
     () => ({
       ...createExplorerServices(username),
       onSnapshotDeleted: consoleStore.removeResultSnapshotsBySnapshotId,
-      onSchemaChanged: (path: string) => {
-        if (commonStore.userInfo) commonStore.setUserInfo({ ...commonStore.userInfo, curSchemaPath: path });
-      },
+      onSchemaChanged: commonStore.setSchemaPath,
     }),
     [username, address]
   );

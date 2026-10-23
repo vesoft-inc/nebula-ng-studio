@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { matchRoutes } from 'react-router-dom';
 
 vi.mock('@studio/pages/Login', () => ({ default: () => null }));
 vi.mock('@studio/components/PageLayout', () => ({ default: () => null }));
+vi.mock('@studio/components/PageLoading', () => ({ default: () => null }));
+vi.mock('@studio/app/SessionGate', () => ({ SessionGate: () => null }));
+vi.mock('@studio/app/PageError', () => ({ PageError: () => null }));
 vi.mock('@vesoft-inc/icons', () => ({}));
 vi.mock('./interfaces', () => ({
   GraphTypeBuildMode: { Readonly: 'Readonly', Edit: 'Edit', Create: 'Create', Sketch: 'Sketch' },
@@ -17,17 +21,28 @@ describe('Explorer browser route contract', () => {
       removeItem: vi.fn(),
     });
     const { routes } = await import('./routes');
-    const pageLayout = routes.find((route) => route.key === 'page-layout');
-    const explorer = pageLayout?.subRoutes?.find((route) => route.key === 'explorer');
+    const pageLayout = routes.find((route) => route.id === 'page-layout');
+    const pages = pageLayout?.children?.find((route) => route.id === 'pages');
+    const explorer = pages?.children?.find((route) => route.id === 'explorer');
 
     expect(explorer?.path).toBe('explorer/snapshots');
-    expect(explorer?.subRoutes?.map((route) => route.path ?? '[index]')).toEqual(['[index]', ':snapshotId']);
+    expect(explorer?.children?.map((route) => route.path ?? '[index]')).toEqual(['[index]', ':snapshotId']);
 
-    const registeredPaths = pageLayout?.subRoutes?.flatMap((route) => [
+    const registeredPaths = pages?.children?.flatMap((route) => [
       route.path,
-      ...(route.subRoutes ?? []).map((child) => child.path),
+      ...(route.children ?? []).map((child) => child.path),
     ]);
     expect(registeredPaths).not.toContain('explorer');
     expect(registeredPaths).not.toContain('explorer/:snapshotId');
+    expect(matchRoutes(routes, '/explorer/snapshots')?.at(-1)?.route.id).toBe('explorer-snapshots');
+    expect(matchRoutes(routes, '/explorer/snapshots/example')?.at(-1)?.route.id).toBe('explorer-snapshot');
+  });
+
+  it('only accepts the explicit Schema routes and gives unknown sections a fallback', async () => {
+    const { routes } = await import('./routes');
+    expect(matchRoutes(routes, '/schema-manager/graphtype/edit/books')?.at(-1)?.route.id).toBe('schema-edit');
+    expect(matchRoutes(routes, '/schema-list')?.at(-1)?.route.id).toBe('schema-schemas');
+    expect(matchRoutes(routes, '/schema-manager/unknown/edit/books')?.at(-1)?.route.path).toBe('schema-manager/*');
+    expect(matchRoutes(routes, '/schema-manager/graphtype/create/extra')?.at(-1)?.route.path).toBe('schema-manager/*');
   });
 });

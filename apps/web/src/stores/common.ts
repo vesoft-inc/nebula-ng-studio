@@ -4,8 +4,9 @@ import { connect, disconnect, fetchUserInfo, oauth2Connect } from '@studio/servi
 import { IUserInfo } from '@studio/interfaces';
 import { LANG_KEY } from '@studio/utils/constant';
 import { LocalStorageUtil } from '@studio/utils/function';
-import { brandConfig, isGuiTarget } from '@studio/utils';
+import { brandConfig } from '@studio/utils';
 import { encrypt } from '@vesoft-inc/utils';
+import { sessionRequests } from '@studio/services/sessionRequests';
 
 export class CommonStore {
   dbName = brandConfig.consoleName;
@@ -15,10 +16,13 @@ export class CommonStore {
   deps?: {
     iconGroupStore: { clear: () => void };
     consoleStore: { clearConsole: () => void };
-    routerStore: { replace: (to: string) => void };
     schemaStore: { reset: () => void };
+    clearOverlays?: () => void;
+    onLogout: (redirectUrl?: string) => void;
   };
-  loading = false;
+  sessionStatus: 'idle' | 'checking' | 'authenticated' | 'anonymous' = 'idle';
+  sessionRevision = 0;
+  private initialization?: Promise<boolean>;
   language = i18n.language;
 
   i18n = i18n;
@@ -26,9 +30,10 @@ export class CommonStore {
   userInfo?: IUserInfo;
 
   constructor() {
-    makeAutoObservable(this, {
+    makeAutoObservable<this, 'initialization'>(this, {
       // observables
       deps: false,
+      initialization: false,
       userInfo: observable.ref,
       // computed
       isEnLang: computed,
@@ -38,7 +43,6 @@ export class CommonStore {
       changeLanguage: false,
       login: false,
     });
-    this.authValidation();
     i18n.on('languageChanged', this.setLanguage);
   }
 
@@ -50,16 +54,16 @@ export class CommonStore {
     return !!this.userInfo;
   }
 
-  authValidation = async () => {
-    if (isGuiTarget) return;
-    const { pathname } = window.location;
-    if (!pathname.includes('/login')) {
-      this.getUserInfo();
-    }
-  };
-
-  setLoading = (loading: boolean) => {
-    this.loading = loading;
+  initializeSession = (): Promise<boolean> => {
+    if (this.isLogin) return Promise.resolve(true);
+    if (this.initialization) return this.initialization;
+    if (this.sessionStatus === 'anonymous') return Promise.resolve(false);
+    this.sessionStatus = 'checking';
+    const pending = this.getUserInfo().finally(() => {
+      if (this.initialization === pending) this.initialization = undefined;
+    });
+    this.initialization = pending;
+    return pending;
   };
 
   setLanguage = (lng: string) => {
@@ -71,33 +75,29 @@ export class CommonStore {
     i18n.changeLanguage(lng);
   };
 
-  // setLoginInfo = (host: string, username: string) => {
-  //   this.host = host;
-  //   this.username = username;
-  // };
-
   login = async (payload: { address: string; port: string; username: string; password: string }) => {
+    this.invalidateSession();
+    const revision = this.sessionRevision;
     const { port, username, password } = payload;
     const address = payload.address.trim().replace(/^https?:\/\//, '');
 
     const authorization = await encrypt(JSON.stringify([username, password]));
+    if (revision !== this.sessionRevision) return false;
 
     const { code } = await connect(
       { address: `${address}:${+port}` },
       { headers: { Authorization: `Bearer ${authorization}` } }
     );
-    const success = code === 0;
-    if (success) {
-      await this.getUserInfo();
-    }
-
-    return success;
+    if (revision !== this.sessionRevision || code !== 0) return false;
+    return this.getUserInfo();
   };
 
   oauth2Login = async (payload: { address: string; port: string }) => {
+    this.invalidateSession();
+    const revision = this.sessionRevision;
     const address = payload.address.trim().replace(/^https?:\/\//, '');
     const { code, data } = await oauth2Connect({ address: `${address}:${+payload.port}` });
-    if (code === 0 && data?.redirect) {
+    if (revision === this.sessionRevision && code === 0 && data?.redirect) {
       window.location.href = data.redirect;
       return true;
     }
@@ -120,31 +120,59 @@ export class CommonStore {
   };
 
   logout = async () => {
+    const revision = this.sessionRevision;
     const res = await disconnect();
-    if (res.code === 0) {
-      this.explorerDestroy?.();
-      this.deps?.iconGroupStore.clear();
-      this.setUserInfo(undefined);
-      this.deps?.consoleStore.clearConsole();
-      this.deps?.schemaStore.reset();
-      if (res.data?.data.redirectUrl) {
-        window.location.replace(`${window.location.protocol}//${res.data?.data.redirectUrl}`);
-        return;
-      }
-      this.deps?.routerStore.replace('/login');
+    if (revision === this.sessionRevision && res.code === 0) {
+      this.invalidateSession();
+      this.deps?.onLogout(res.data?.data.redirectUrl);
     }
+  };
+
+  invalidateSession = () => {
+    this.sessionRevision += 1;
+    this.initialization = undefined;
+    sessionRequests.reset();
+    this.userInfo = undefined;
+    this.sessionStatus = 'anonymous';
+    this.explorerDestroy?.();
+    this.explorerDestroy = undefined;
+    this.deps?.iconGroupStore.clear();
+    this.deps?.consoleStore.clearConsole();
+    this.deps?.schemaStore.reset();
+    this.deps?.clearOverlays?.();
   };
 
   setUserInfo = (userInfo?: IUserInfo) => {
+    if (!userInfo) {
+      this.invalidateSession();
+      return;
+    }
+    if (this.userInfo && (this.userInfo.address !== userInfo.address || this.userInfo.username !== userInfo.username)) {
+      this.invalidateSession();
+    } else if (this.userInfo && this.userInfo.curSchemaPath !== userInfo.curSchemaPath) {
+      this.deps?.consoleStore.clearConsole();
+    }
     this.userInfo = userInfo;
+    this.sessionStatus = 'authenticated';
+  };
+
+  setSchemaPath = (path: string) => {
+    if (this.userInfo) this.setUserInfo({ ...this.userInfo, curSchemaPath: path });
   };
 
   getUserInfo = async () => {
-    const res = await fetchUserInfo();
-    const success = res.code === 0;
-    if (success) {
-      this.setUserInfo(res.data);
+    const revision = this.sessionRevision;
+    try {
+      const res = await fetchUserInfo();
+      if (revision !== this.sessionRevision) return false;
+      if (res.code === 0 && res.data) {
+        this.setUserInfo(res.data);
+        return true;
+      }
+    } catch {
+      // Transport errors are reported by the request layer; protected pages stay unmounted.
     }
-    return success;
+    if (revision === this.sessionRevision) this.invalidateSession();
+    return false;
   };
 }

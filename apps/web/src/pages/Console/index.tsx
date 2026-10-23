@@ -26,6 +26,7 @@ export default observer(function ConsolePage() {
   });
   return (
     <ConsoleWorkbench
+      key={commonStore.userInfo?.curSchemaPath}
       services={studioConsoleServices}
       controller={consoleStore}
       appearance={{ prompt: brandConfig.consolePrompt, showPrompt: !!commonStore.userInfo }}
