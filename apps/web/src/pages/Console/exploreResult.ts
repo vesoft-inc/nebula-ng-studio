@@ -65,7 +65,7 @@ export async function exploreConsoleResult({
 
     const payload = buildHandoffPayload({
       workspace,
-      explorerStore: { exportSnapshotTransfer },
+      explorerStore: { exportSnapshotTransfer: (data) => exportSnapshotTransfer(data, process.env.VERSION) },
       name: buildSnapshotName(result.gql),
       graph: graphName,
       graphType: resolveGraphType() ?? '',

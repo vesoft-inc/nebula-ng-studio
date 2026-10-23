@@ -2,13 +2,14 @@ import { fetcher, type ConfigType } from './fetcher';
 import type { IconGroup, IconItem, Snapshot } from '@studio/interfaces/explorer/explorer';
 import { IconGroupType } from '@studio/utils/explorer/constant';
 
-export const fetchSnapshots = async (payload: { page: number; pageSize: number; filter?: string }) => {
-  const res = await fetcher.get<{
-    total: number;
-    page: number;
-    pageSize: number;
-    items: Snapshot[];
-  }>('/explorer/snapshots', payload);
+type SnapshotPage = { total: number; page: number; pageSize: number; items: Snapshot[] };
+export const fetchSnapshots = async (
+  payload: { page: number; pageSize: number; filter?: string },
+  config?: ConfigType
+) => {
+  const res = config
+    ? await fetcher.get<SnapshotPage>('/explorer/snapshots', payload, config)
+    : await fetcher.get<SnapshotPage>('/explorer/snapshots', payload);
   return res.data;
 };
 

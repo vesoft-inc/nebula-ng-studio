@@ -1,2 +1,29 @@
-export * from './gql';
-export * from './explorer';
+// Compatibility facade; implementation lives in ui-components.
+export {
+  type GraphElement,
+  type IGraph,
+  RawEntityType,
+  type GraphNodeValue,
+  type GraphEdgeValue,
+  type VertexValue,
+  type EdgeValue,
+  type PathValue,
+  type GraphDataTableValueType,
+  type GraphDataTable,
+  type IDataMap,
+  type SnapshotData,
+  type Snapshot,
+  type Pointer,
+  type ITransform,
+  SiderPanel,
+  type IRules,
+  ColorPicker,
+  type ICondtionItem,
+  type IConditionQuery,
+  type IconItem,
+  type IconGroup,
+  type DisplayedPropertyItem,
+  ConditionFilter,
+  type IContextMenuItem,
+  type StyleSetPopoverConfig,
+} from '@vesoft-inc/ui-components/graph/data';

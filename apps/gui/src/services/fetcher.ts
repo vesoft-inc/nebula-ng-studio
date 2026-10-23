@@ -1,12 +1,13 @@
-import { FetchService, HttpResCode, type ServiceProps } from '@vesoft-inc/utils';
+import { FetchService, HttpResCode, mergeAbortSignals, type ServiceProps } from '@vesoft-inc/utils';
 import { modalStore } from '@vesoft-inc/ui-components/modal';
-import { JSONBig } from '@studio/utils';
+import { JSONBig } from '@vesoft-inc/ui-components/utilities';
 import { clearSessionUser } from '../stores/authBridge';
 import { getToken } from '../utils/auth';
 
 export type ConfigType = ServiceProps['config'];
 
 let controller = new AbortController();
+const signalDisposers = new WeakMap<object, () => void>();
 
 export const HTTP_CANCEL_CODE = 499;
 
@@ -36,7 +37,9 @@ export const fetcher = new FetchService({
   interceptorsEjectors(ins) {
     ins.interceptors.request.use((config) => {
       config.headers['Content-Type'] = 'application/json';
-      config.signal = controller.signal;
+      const request = mergeAbortSignals(config.signal, controller.signal);
+      config.signal = request.signal;
+      signalDisposers.set(config, request.dispose);
 
       const token = getToken();
 
@@ -48,12 +51,14 @@ export const fetcher = new FetchService({
     });
     ins.interceptors.response.use(
       (response) => {
+        signalDisposers.get(response.config)?.();
         if (response.data.code !== undefined && typeof response.data.data === 'string') {
           return JSON.parse(response.data.data);
         }
         return response.data;
       },
       (error) => {
+        if (error.config) signalDisposers.get(error.config)?.();
         const isCancelError = error?.code === 'ERR_CANCELED';
         const response = error?.response || {
           data: { code: isCancelError ? HTTP_CANCEL_CODE : HttpResCode.ErrUnknown },

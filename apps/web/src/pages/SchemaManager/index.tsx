@@ -1,142 +1,63 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Box, useTheme } from '@mui/material';
+import { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-
-import SchemaTree, { generateTreeNodeKey } from '@studio/components/SchemaTree';
-import { TreeNode } from '@studio/components/LazyTree';
-import { SchemaItemType } from '@studio/utils/constant';
-import { ISchemaTreeRawData } from '@studio/interfaces';
-import { encodeUrl, isGuiTarget } from '@studio/utils';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { SchemaWorkbench, type SchemaView } from '@vesoft-inc/ui-components/schema';
 import { commonStore, schemaStore } from '@studio/stores/session';
-import CreateGraphModal from '@studio/components/CreateGraphModal';
-import { useSchemaTreeBindings } from '@studio/pages/schemaTreeBindings';
-import GraphTypeStore from '@studio/stores/graphtype';
-import { GraphTypeStoreProvider } from './context';
+import { createSchemaEditorServices } from '@studio/services/schemaEditor';
+import { resolveSchemaPath } from '@studio/services/schemaLayout';
+import { encodeUrl } from '@studio/utils';
 
-function Schema() {
-  const navigate = useNavigate();
-  const params = useParams();
-  const theme = useTheme();
-  const { pathname } = useLocation();
-  const [graphTypeStore] = useState(() => new GraphTypeStore());
-
-  useEffect(() => () => graphTypeStore.destroySchemaStore(), [graphTypeStore]);
-  const { selectedKeys, schemas, updateSelectedKeys, createGraphModalInfo } = schemaStore;
-  const schemaTree = useSchemaTreeBindings(false);
-
-  useEffect(() => {
-    if (isGuiTarget) {
-      commonStore.getUserInfo();
-    }
-  }, []);
-
-  const getInitSelectedKeys = useCallback(() => {
-    const paths = pathname.split('/');
-    let key: string = SchemaItemType.GraphType;
-    if (paths[1] === 'schema-manager') {
-      const subItemType = paths[2];
-      if (subItemType === 'graphtype') {
-        const { graphTypeName } = params;
-        key = graphTypeName
-          ? generateTreeNodeKey(SchemaItemType.GraphTypeDescItem, { graphTypeName })
-          : generateTreeNodeKey(SchemaItemType.GraphType, {});
-      } else if (subItemType === 'graphs') {
-        const { graphName } = params;
-        key = graphName
-          ? generateTreeNodeKey(SchemaItemType.GraphDescItem, { graphName })
-          : generateTreeNodeKey(SchemaItemType.Graph, {});
-      }
-    }
-    return [key];
-  }, [pathname]);
-
-  useEffect(() => {
-    updateSelectedKeys(getInitSelectedKeys());
-  }, [pathname]);
-
-  useEffect(() => {
-    initSchemaTreeData();
-  }, [schemas.length]);
-
-  const initSchemaTreeData = async () => {
-    if (!schemas.length) {
-      await schemaStore.getSchemas();
-    }
-    await Promise.all([schemaStore.updateGraphTypesBySchema(), schemaStore.updateGraphsBySchema()]);
-  };
-
-  const handleItemSelected = useCallback((node: TreeNode<ISchemaTreeRawData>) => {
-    const { rawData, key } = node;
-    const { type } = rawData!;
-    updateSelectedKeys([key]);
-    switch (type) {
-      case SchemaItemType.GraphType:
-        navigate('/schema-manager/graphtype');
-
-        break;
-      case SchemaItemType.GraphTypeDescItem:
-        navigate(`/schema-manager/graphtype/view/${encodeUrl(rawData!.graphType!.graph_type)}`);
-        break;
-      case SchemaItemType.Graph:
-        navigate('/schema-manager/graphs');
-        break;
-      case SchemaItemType.GraphDescItem:
-        navigate(`/schema-manager/graphs/${encodeUrl(rawData!.graph!.graph)}`);
-        break;
-      default:
-        break;
-    }
-  }, []);
-
-  return (
-    <GraphTypeStoreProvider value={graphTypeStore}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'row',
-          height: '100%',
-          background: theme.palette.vesoft.v2.bg1,
-        }}
-      >
-        <SchemaTree
-          showDetail={false}
-          schema={schemaTree.schema}
-          onReady={schemaTree.onReady}
-          onLoadNode={schemaTree.onLoadNode}
-          onCreateGraphType={schemaTree.onCreateGraphType}
-          onCreateGraph={schemaTree.onCreateGraph}
-          selector={schemaTree.selector}
-          onItemSelected={handleItemSelected}
-          selectedKeys={selectedKeys}
-        />
-        <Box
-          position="relative"
-          padding={theme.spacing(3, 0)}
-          flex={1}
-          sx={{
-            overflow: 'auto',
-            background: theme.palette.vesoft.v2.bg2,
-          }}
-        >
-          <Outlet />
-        </Box>
-        <CreateGraphModal
-          open={createGraphModalInfo.visible}
-          onCancel={() => {
-            schemaStore.updateCreateGraphModalInfo({ visible: false });
-          }}
-          onCreate={(values) => schemaStore.createGraph(values.graphName, values.graphType)}
-          onOk={() => {
-            schemaStore.updateGraphsBySchema();
-            navigate('/schema-manager/graphs');
-            schemaStore.updateCreateGraphModalInfo({ visible: false });
-          }}
-          graphTypes={schemaStore.currentSchema?.graphTypes || []}
-        />
-      </Box>
-    </GraphTypeStoreProvider>
-  );
+function pathToView(pathname: string): SchemaView {
+  const [, page, section, action, name] = pathname.split('/').map(decodeURIComponent);
+  if (page === 'schema-list') return { type: 'schemas' };
+  if (section === 'graphs') return action ? { type: 'graph', name: action } : { type: 'graphs' };
+  if (action === 'sketch')
+    return name ? { type: 'editor', mode: 'sketch', sketchId: Number(name) } : { type: 'sketches' };
+  if (action === 'create') return { type: 'editor', mode: 'create' };
+  if ((action === 'edit' || action === 'view') && name)
+    return { type: 'editor', mode: action === 'view' ? 'readonly' : 'edit', graphTypeName: name };
+  return { type: 'graph-types' };
+}
+function viewToPath(view: SchemaView): string {
+  switch (view.type) {
+    case 'schemas':
+      return '/schema-list';
+    case 'graphs':
+      return '/schema-manager/graphs';
+    case 'graph':
+      return `/schema-manager/graphs/${encodeUrl(view.name)}`;
+    case 'sketches':
+      return '/schema-manager/graphtype/sketch';
+    case 'editor':
+      return view.mode === 'create'
+        ? '/schema-manager/graphtype/create'
+        : view.mode === 'sketch'
+          ? `/schema-manager/graphtype/sketch/${view.sketchId}`
+          : `/schema-manager/graphtype/${view.mode === 'readonly' ? 'view' : 'edit'}/${encodeUrl(view.graphTypeName ?? '')}`;
+    default:
+      return '/schema-manager/graphtype';
+  }
 }
 
-export default observer(Schema);
+export default observer(function SchemaManager() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { address, username, curSchemaPath } = commonStore.userInfo ?? {};
+  const schemaPath = resolveSchemaPath(curSchemaPath, schemaStore.currentSchema.path);
+  const editorServices = useMemo(
+    () => createSchemaEditorServices({ address, username, schemaPath }),
+    [address, username, schemaPath]
+  );
+  return (
+    <SchemaWorkbench
+      controller={schemaStore}
+      services={schemaStore.services}
+      editorServices={editorServices}
+      view={pathToView(pathname)}
+      onViewChange={(view) => navigate(viewToPath(view))}
+      onSchemaChange={(path) => {
+        if (commonStore.userInfo) commonStore.setUserInfo({ ...commonStore.userInfo, curSchemaPath: path });
+      }}
+    />
+  );
+});

@@ -24,7 +24,8 @@
     "sourceMap": true,
     "strict": true,
     "target": "ESNext",
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "customConditions": ["source"]
   },
   "files": [],
   "exclude": ["node_modules", "dist"]

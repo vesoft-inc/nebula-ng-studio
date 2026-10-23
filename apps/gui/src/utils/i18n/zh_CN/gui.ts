@@ -1,4 +1,4 @@
-import { brandConfig } from '@studio/utils';
+import { brandConfig } from '@gui/utils/brand';
 
 export default {
   loginModal: {

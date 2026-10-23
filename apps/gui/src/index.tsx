@@ -1,4 +1,5 @@
-import './registerStudioTransport';
+import '@vesoft-inc/ui-components/styles.css';
+import { UiProvider } from '@vesoft-inc/ui-components/provider';
 import { StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -9,8 +10,8 @@ import { useBrowserRouter } from '@vesoft-inc/utils';
 import { autorun } from 'mobx';
 import { modalStore, routerStore } from './stores/session';
 import i18n from '@gui/utils/i18n';
-import { injectCssVariable } from '@studio/utils';
-import PageLoading from '@studio/components/PageLoading';
+import { injectCssVariable } from '@vesoft-inc/ui-components/utilities';
+import { PageLoading } from '@vesoft-inc/ui-components';
 import routes from '@gui/routes';
 
 const PageRoot = () => {
@@ -31,10 +32,12 @@ const PageRoot = () => {
     <StrictMode>
       <I18nextProvider i18n={i18n}>
         <ThemeWrapper>
-          <Suspense fallback={<PageLoading />}>
-            <RouterProvider router={router} />
-            <GlobalModal store={modalStore} />
-          </Suspense>
+          <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
+            <Suspense fallback={<PageLoading />}>
+              <RouterProvider router={router} />
+              <GlobalModal store={modalStore} />
+            </Suspense>
+          </UiProvider>
         </ThemeWrapper>
       </I18nextProvider>
     </StrictMode>

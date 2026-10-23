@@ -5,8 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@studio/*": ["src/*"],
-      "@gui/*": ["../gui/src/*"],
       "@public/*": ["public/*"]
-    }
+    },
+    "customConditions": ["source"]
   }
 }

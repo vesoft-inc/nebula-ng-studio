@@ -8,15 +8,15 @@ declare module '@mui/material/styles' {
   }
 }
 
-/*
 declare global {
   interface Window {
     APP_CONFIG?: {
       basePath: string;
+      defaultHost: string;
+      defaultPort: string;
     };
   }
 }
-*/
 
 declare module '*.svg?url' {
   const content: string;

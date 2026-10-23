@@ -3,7 +3,7 @@ import { lazy } from 'react';
 
 import PageLayout from '@gui/components/PageLayout';
 
-const Console = lazy(() => import('@studio/pages/Console'));
+const Console = lazy(() => import('@gui/pages/Console'));
 
 export type IRouteItem = RouteProps & {
   key: string;

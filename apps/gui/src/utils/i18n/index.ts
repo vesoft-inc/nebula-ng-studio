@@ -1,10 +1,10 @@
 import i18next from 'i18next';
 import en_US from './en_US';
 import zh_CN from './zh_CN';
-import { LocalStorageUtil } from '@studio/utils/function';
-import { LANG_KEY } from '@studio/utils/constant';
-import { Language } from '@studio/utils/i18n';
-import { brandConfig } from '@studio/utils';
+import { LocalStorageUtil } from '@vesoft-inc/utils';
+import { LANG_KEY } from '@gui/utils/preferences';
+import { Language } from '@vesoft-inc/ui-components/locales';
+import { brandConfig } from '@gui/utils/brand';
 
 export const defaultNS = 'common';
 

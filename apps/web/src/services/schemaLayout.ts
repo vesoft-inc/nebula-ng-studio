@@ -145,18 +145,7 @@ export const sanitizeNodeLayoutMap = (input: unknown): NodeLayoutMap => {
   return layout;
 };
 
-export const serializeNodePositions = (entries: { name?: string; x: number; y: number }[]): NodeLayoutMap => {
-  const layout: NodeLayoutMap = {};
-  let count = 0;
-  entries.forEach(({ name, x, y }) => {
-    if (!name || !Number.isFinite(x) || !Number.isFinite(y) || count >= MAX_LAYOUT_ENTRIES) {
-      return;
-    }
-    layout[name] = { x, y };
-    count += 1;
-  });
-  return layout;
-};
+export { serializeNodePositions } from '@vesoft-inc/ui-components/schema-editor/model';
 
 const normalizeIdentity = (identity: SchemaLayoutIdentity): NormalizedIdentity | null => {
   const { address, username, graphTypeName } = identity;

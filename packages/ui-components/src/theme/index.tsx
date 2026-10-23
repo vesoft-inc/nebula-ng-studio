@@ -31,9 +31,12 @@ export interface VesoftPalette extends Palette {
   vesoft: VesoftColorItem;
 }
 
-declare module '@mui/material' {
-  interface Theme {
-    palette: VesoftPalette;
+declare module '@mui/material/styles' {
+  interface Palette {
+    vesoft: VesoftColorItem;
+  }
+  interface PaletteOptions {
+    vesoft?: VesoftColorItem;
   }
 }
 
@@ -228,7 +231,7 @@ export const themeStore = new ThemeStore();
  *   <App />
  * </ThemeWrapper>
  *
- * import { themeStore } from '@vesoft-inc/ui-components/theme';
+ * import { themeStore } from './index';
  *
  * themeStore.toggleMode('dark' | 'light');
  * ```
@@ -270,7 +273,7 @@ export const ThemeWrapper = observer(function ThemeWrapper({
  * ```tsx
  * import { styled } from '@mui/material/styles';
  * import Box from '@mui/material/Box';
- * import { getVesoftPaletteColor } from '@vesoft-inc/ui-components/theme';
+ * import { getVesoftPaletteColor } from './index';
  *
  * const StyledBox = styled(Box)`
  *   color: ${getVesoftPaletteColor('textColor3')};
@@ -288,7 +291,7 @@ export const getVesoftPaletteColor =
  * ```tsx
  * import { styled } from '@mui/material/styles';
  * import Box from '@mui/material/Box';
- * import { getVesoftBorder } from '@vesoft-inc/ui-components/theme';
+ * import { getVesoftBorder } from './index';
  *
  * const StyledBox = styled(Box)`
  *  border: ${getVesoftBorder};

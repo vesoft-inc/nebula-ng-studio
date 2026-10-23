@@ -52,9 +52,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     resolve: {
+      conditions: process.env.UI_COMPONENTS_DIST ? [] : ['source'],
       alias: {
         '@gui': path.join(__dirname, './src'),
-        '@studio': path.join(__dirname, '../web/src'),
         '@public': path.join(__dirname, './public/'),
       },
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],

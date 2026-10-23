@@ -1,8 +1,8 @@
 import type { Components } from '@mui/material';
-import { themeStore, type VesoftColorPalette } from '..';
+import type { VesoftColorPalette } from '..';
 
 const getDisableBackground = (palette: VesoftColorPalette) => {
-  return themeStore.mode === 'dark' ? palette.vesoft.v2.bg7 : palette.vesoft.v2.bg6;
+  return palette.mode === 'dark' ? palette.vesoft.v2.bg7 : palette.vesoft.v2.bg6;
 };
 
 const customizeMuiOutlinedInput = ({

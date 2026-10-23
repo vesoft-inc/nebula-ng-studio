@@ -1,4 +1,4 @@
-import { IUserInfo } from '@studio/interfaces';
+import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import { ConfigType, fetcher } from './fetcher';
 import { parseGqlResult, RestGqlResultParams } from '../utils/gql';
 

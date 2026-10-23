@@ -16,7 +16,7 @@ vi.mock('@studio/services', async () => ({
 vi.mock('@studio/utils', () => ({ extractEdgeByEdgeTypeName: vi.fn() }));
 
 import { INodeTypeItem, IEdgeTypeItem } from '@studio/interfaces';
-import { execGql } from '@studio/services';
+import { execGql, readGraphTypeLayout } from '@studio/services';
 import { SCHEMA_LAYOUT_READ_TIMEOUT_MS } from '@studio/services/schemaLayout';
 import SchemaStore from './schema';
 
@@ -34,10 +34,9 @@ describe('graph type layout restoration', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    store = new SchemaStore();
-    store.attachSession({
-      commonStore: { userInfo: { ...identity, curSchemaPath: identity.schemaPath } },
-      schemaStore: { currentSchema: { path: identity.schemaPath } },
+    store = new SchemaStore({
+      execute: execGql,
+      layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
     });
     store.transformGrapTypeByDDL = vi.fn(
       async (): Promise<[INodeTypeItem[], IEdgeTypeItem[]]> => [[new INodeTypeItem({ name: 'A' })], []]
@@ -80,7 +79,10 @@ describe('DECIMAL describe metadata', () => {
   it.each(['DECIMAL', 'DECIMAL(12)', 'DECIMAL(256,128)'])(
     'preserves node and edge parameters loaded from %s',
     async (data_type) => {
-      const store = new SchemaStore();
+      const store = new SchemaStore({
+        execute: execGql,
+        layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
+      });
       store.updateGraphTypeName('payments');
       const node = new INodeTypeItem({ name: 'Payment' });
       const edge = new IEdgeTypeItem({ name: 'Pays', srcNode: node, dstNode: node });

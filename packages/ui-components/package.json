@@ -2,29 +2,183 @@
   "name": "@vesoft-inc/ui-components",
   "version": "0.0.12",
   "private": true,
-  "main": "src/components/index.ts",
-  "types": "src/components/index.ts",
+  "main": "./dist/shared/index.js",
+  "types": "./dist/shared/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/components/index.ts",
-      "import": "./src/components/index.ts",
-      "default": "./src/components/index.ts"
+      "source": "./src/shared/index.ts",
+      "types": "./dist/shared/index.d.ts",
+      "import": "./dist/shared/index.js",
+      "default": "./dist/shared/index.js"
     },
     "./modal": {
-      "types": "./src/components/Modal/index.tsx",
-      "import": "./src/components/Modal/index.tsx",
-      "default": "./src/components/Modal/index.tsx"
+      "source": "./src/shared/Modal/index.tsx",
+      "types": "./dist/shared/Modal/index.d.ts",
+      "import": "./dist/shared/Modal/index.js",
+      "default": "./dist/shared/Modal/index.js"
     },
     "./theme": {
-      "types": "./src/theme/index.tsx",
-      "import": "./src/theme/index.tsx",
-      "default": "./src/theme/index.tsx"
+      "source": "./src/theme/index.tsx",
+      "types": "./dist/theme/index.d.ts",
+      "import": "./dist/theme/index.js",
+      "default": "./dist/theme/index.js"
+    },
+    "./provider": {
+      "source": "./src/provider.tsx",
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js",
+      "default": "./dist/provider.js"
+    },
+    "./locales": {
+      "source": "./src/locales/index.ts",
+      "types": "./dist/locales/index.d.ts",
+      "import": "./dist/locales/index.js",
+      "default": "./dist/locales/index.js"
+    },
+    "./schema": {
+      "source": "./src/entries/schema.ts",
+      "types": "./dist/entries/schema.d.ts",
+      "import": "./dist/entries/schema.js",
+      "default": "./dist/entries/schema.js"
+    },
+    "./console/model": {
+      "source": "./src/entries/console-model.ts",
+      "types": "./dist/entries/console-model.d.ts",
+      "import": "./dist/entries/console-model.js",
+      "default": "./dist/entries/console-model.js"
+    },
+    "./graph/model": {
+      "source": "./src/entries/graph-model.ts",
+      "types": "./dist/entries/graph-model.d.ts",
+      "import": "./dist/entries/graph-model.js",
+      "default": "./dist/entries/graph-model.js"
+    },
+    "./utilities": {
+      "source": "./src/entries/utilities.ts",
+      "types": "./dist/entries/utilities.d.ts",
+      "import": "./dist/entries/utilities.js",
+      "default": "./dist/entries/utilities.js"
+    },
+    "./editor": {
+      "source": "./src/entries/editor.ts",
+      "types": "./dist/entries/editor.d.ts",
+      "import": "./dist/entries/editor.js",
+      "default": "./dist/entries/editor.js"
+    },
+    "./graph/utils": {
+      "source": "./src/entries/graph-utils.ts",
+      "types": "./dist/entries/graph-utils.d.ts",
+      "import": "./dist/entries/graph-utils.js",
+      "default": "./dist/entries/graph-utils.js"
+    },
+    "./locales/zh_CN": {
+      "source": "./src/entries/locales-zh_CN.ts",
+      "types": "./dist/entries/locales-zh_CN.d.ts",
+      "import": "./dist/entries/locales-zh_CN.js",
+      "default": "./dist/entries/locales-zh_CN.js"
+    },
+    "./settings": {
+      "source": "./src/entries/settings.ts",
+      "types": "./dist/entries/settings.d.ts",
+      "import": "./dist/entries/settings.js",
+      "default": "./dist/entries/settings.js"
+    },
+    "./graph/data": {
+      "source": "./src/entries/graph-data.ts",
+      "types": "./dist/entries/graph-data.d.ts",
+      "import": "./dist/entries/graph-data.js",
+      "default": "./dist/entries/graph-data.js"
+    },
+    "./schema/types": {
+      "source": "./src/entries/schema-types.ts",
+      "types": "./dist/entries/schema-types.d.ts",
+      "import": "./dist/entries/schema-types.js",
+      "default": "./dist/entries/schema-types.js"
+    },
+    "./graph": {
+      "source": "./src/entries/graph.ts",
+      "types": "./dist/entries/graph.d.ts",
+      "import": "./dist/entries/graph.js",
+      "default": "./dist/entries/graph.js"
+    },
+    "./editor/monaco-component": {
+      "source": "./src/entries/editor-monaco-component.ts",
+      "types": "./dist/entries/editor-monaco-component.d.ts",
+      "import": "./dist/entries/editor-monaco-component.js",
+      "default": "./dist/entries/editor-monaco-component.js"
+    },
+    "./console": {
+      "source": "./src/entries/console.ts",
+      "types": "./dist/entries/console.d.ts",
+      "import": "./dist/entries/console.js",
+      "default": "./dist/entries/console.js"
+    },
+    "./locales/en_US": {
+      "source": "./src/entries/locales-en_US.ts",
+      "types": "./dist/entries/locales-en_US.d.ts",
+      "import": "./dist/entries/locales-en_US.js",
+      "default": "./dist/entries/locales-en_US.js"
+    },
+    "./editor/monaco": {
+      "source": "./src/editor/MonacoEditor/monaco.ts",
+      "types": "./dist/editor/MonacoEditor/monaco.d.ts",
+      "import": "./dist/editor/MonacoEditor/monaco.js",
+      "default": "./dist/editor/MonacoEditor/monaco.js"
+    },
+    "./styles.css": {
+      "source": "./src/styles.css",
+      "import": "./dist/style.css",
+      "default": "./dist/style.css"
+    },
+    "./graph/resources": {
+      "source": "./src/entries/graph-resources.ts",
+      "types": "./dist/entries/graph-resources.d.ts",
+      "import": "./dist/entries/graph-resources.js",
+      "default": "./dist/entries/graph-resources.js"
+    },
+    "./schema-editor": {
+      "source": "./src/entries/schema-editor.ts",
+      "types": "./dist/entries/schema-editor.d.ts",
+      "import": "./dist/entries/schema-editor.js",
+      "default": "./dist/entries/schema-editor.js"
+    },
+    "./schema-editor/model": {
+      "source": "./src/entries/schema-editor-model.ts",
+      "types": "./dist/entries/schema-editor-model.d.ts",
+      "import": "./dist/entries/schema-editor-model.js",
+      "default": "./dist/entries/schema-editor-model.js"
+    },
+    "./schema/model": {
+      "source": "./src/entries/schema-model.ts",
+      "types": "./dist/entries/schema-model.d.ts",
+      "import": "./dist/entries/schema-model.js",
+      "default": "./dist/entries/schema-model.js"
+    },
+    "./explorer": {
+      "source": "./src/entries/explorer.ts",
+      "types": "./dist/entries/explorer.d.ts",
+      "import": "./dist/entries/explorer.js",
+      "default": "./dist/entries/explorer.js"
+    },
+    "./explorer/model": {
+      "source": "./src/entries/explorer-model.ts",
+      "types": "./dist/entries/explorer-model.d.ts",
+      "import": "./dist/entries/explorer-model.js",
+      "default": "./dist/entries/explorer-model.js"
+    },
+    "./shell": {
+      "source": "./src/entries/shell.ts",
+      "types": "./dist/entries/shell.d.ts",
+      "import": "./dist/entries/shell.js",
+      "default": "./dist/entries/shell.js"
     }
   },
   "scripts": {
-    "build": "pnpm lint:types",
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/copy-declarations.mjs",
     "lint": "eslint src",
-    "lint:types": "tsc --noEmit"
+    "lint:types": "tsc --noEmit",
+    "test": "vitest run",
+    "check:boundaries": "node scripts/check-boundaries.mjs"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",
@@ -47,7 +201,36 @@
     "mobx": "^6.12.0",
     "mobx-react-lite": "^4.0.5",
     "react-transition-group": "^4.4.5",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "@antv/graphlib": "^2.0.3",
+    "@antv/layout": "1.2.14-beta.8",
+    "@antv/layout-gpu": "^1.1.7",
+    "@emotion/css": "^11.13.4",
+    "@monaco-editor/react": "^4.7.0",
+    "@mui/lab": "7.0.0-beta.13",
+    "@vesoft-inc/force-graph": "workspace:*",
+    "@xyflow/react": "^12.6.4",
+    "bezier-js": "^6.1.4",
+    "bignumber.js": "^9.1.2",
+    "d3-force-3d": "^3.0.5",
+    "dagre": "^0.8.5",
+    "dayjs": "^1.11.10",
+    "i18next": "^23.7.19",
+    "json-bigint": "^1.0.0",
+    "lodash": "^4.17.21",
+    "monaco-editor": "^0.52.2",
+    "react-color": "^2.19.3",
+    "react-hook-form-mui": "^7.6.1",
+    "react-i18next": "^14.0.5",
+    "react-syntax-highlighter": "^15.6.1",
+    "react-hook-form": "7.55.0",
+    "d3-force": "^3.0.0",
+    "dom-to-image": "^2.6.0",
+    "randomcolor": "^0.6.2",
+    "@hookform/resolvers": "^5.2.1",
+    "zod": "^4.0.14",
+    "copy-to-clipboard": "^3.3.3",
+    "react-window": "^1.8.10"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -62,9 +245,38 @@
     "@types/uuid": "^8.3.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "6.28.1"
+    "react-router-dom": "6.28.1",
+    "vitest": "^2.1.9",
+    "vite": "^5.2.6",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "@types/node": "^22",
+    "@types/lodash": "^4.17.10",
+    "@types/json-bigint": "^1.0.4",
+    "@types/randomcolor": "^0.5.9",
+    "@types/react-color": "^3.0.12",
+    "@types/bezier-js": "^4.1.3",
+    "@types/dagre": "^0.7.52",
+    "@types/dom-to-image": "^2.6.7",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/dom": "^10.4.0",
+    "jsdom": "^25.0.1",
+    "@types/d3-force": "^3.0.10",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react-window": "^1.8.8"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.*"
+  ],
+  "sideEffects": [
+    "**/*.css",
+    "./dist/editor/MonacoEditor/monaco.js",
+    "./src/editor/MonacoEditor/monaco.ts"
+  ]
 }

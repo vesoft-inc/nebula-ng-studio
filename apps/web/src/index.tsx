@@ -1,3 +1,6 @@
+import '@vesoft-inc/ui-components/styles.css';
+import { GraphResourcesProvider } from '@vesoft-inc/ui-components/graph/resources';
+import { UiProvider } from '@vesoft-inc/ui-components/provider';
 import { StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -6,8 +9,7 @@ import { GlobalModal } from '@vesoft-inc/ui-components/modal';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/ui-components/theme';
 import { useBrowserRouter } from '@vesoft-inc/utils';
 import { autorun } from 'mobx';
-import '@gui/stores';
-import { modalStore, routerStore } from '@studio/stores/session';
+import { modalStore, routerStore, iconGroupStore } from '@studio/stores/session';
 import i18n from '@studio/utils/i18n';
 import PageLoading from '@studio/components/PageLoading';
 import { injectCssVariable } from './utils';
@@ -32,10 +34,14 @@ const PageRoot = () => {
     <StrictMode>
       <I18nextProvider i18n={i18n}>
         <ThemeWrapper>
-          <Suspense fallback={<PageLoading />}>
-            <RouterProvider router={router} />
-            <GlobalModal store={modalStore} />
-          </Suspense>
+          <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
+            <GraphResourcesProvider value={iconGroupStore}>
+              <Suspense fallback={<PageLoading />}>
+                <RouterProvider router={router} />
+                <GlobalModal store={modalStore} />
+              </Suspense>
+            </GraphResourcesProvider>
+          </UiProvider>
         </ThemeWrapper>
       </I18nextProvider>
     </StrictMode>

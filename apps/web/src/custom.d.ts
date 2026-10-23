@@ -8,31 +8,6 @@ declare module '@mui/material/styles' {
   }
 }
 
-declare module '@vesoft-inc/force-graph' {
-  export interface LinkObject {
-    id: string;
-    [s: string]: unknown;
-    source?: string;
-    target?: string;
-    graphIndex?: number;
-    data: EdgeValue;
-  }
-
-  export interface NodeObject {
-    data: VertexValue;
-    id: string;
-    x?: number;
-    y?: number;
-    degree?: number;
-    z?: number;
-    vx?: number;
-    vy?: number;
-    vz?: number;
-    fx?: number;
-    fy?: number;
-  }
-}
-
 declare global {
   interface Window {
     APP_CONFIG?: {

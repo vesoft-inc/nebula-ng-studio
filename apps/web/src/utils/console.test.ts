@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { RawEntityType } from '@vesoft-inc/ui-components/graph/data';
 import type { NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphItem, GraphTypeElement } from '@studio/interfaces';
 import type { SnapshotData } from '@studio/interfaces/explorer/explorer';
@@ -15,7 +16,11 @@ const node = (graph: string, id: string = graph, nodeStyle: { color?: string; ty
   ({
     id,
     color: nodeStyle.color,
-    data: { value: { graph, type: nodeStyle.type } },
+    data: {
+      raw: '',
+      type: RawEntityType.NODE,
+      value: { graph, type: nodeStyle.type ?? '', id: 1, labels: [], properties: {} },
+    },
   }) as NodeObject;
 
 const graphItem = (graph: string, graphType: string) => ({ graph, graph_type: graphType }) as GraphItem;
@@ -51,7 +56,7 @@ describe('rankGraphCandidates', () => {
 
   it('ignores nodes from other graphs and malformed node data', () => {
     const stray = node('other_graph', 'other_graph', { color: '#8ACCFF', type: 'player' });
-    const malformed = { id: 'malformed', data: { value: {} } } as NodeObject;
+    const malformed = { id: 'malformed', data: { value: {} } } as unknown as NodeObject;
     expect(
       rankGraphCandidates(['graph_a'], [node('graph_a', 'a-1', { color: '#F8CE60', type: 'team' }), stray, malformed])
     ).toEqual([{ graph: 'graph_a', nodeCount: 1, colors: [{ color: '#F8CE60', types: ['team'] }] }]);

@@ -1,0 +1,15 @@
+export type { ConsoleResultSnapshotRef } from '../console/ConsoleController';
+export { default as ConsoleController } from '../console/ConsoleController';
+export type { GraphColorUsage } from '../console/handoff';
+export type { GraphCandidate } from '../console/handoff';
+export type { ConsoleHandoffPayload } from '../console/handoff';
+export { CONSOLE_SNAPSHOT_NAME_PREFIX } from '../console/handoff';
+export { CONSOLE_SNAPSHOT_NAME_MAX_LENGTH } from '../console/handoff';
+export { CONSOLE_SNAPSHOT_GQL_MAX_LENGTH } from '../console/handoff';
+export { rankGraphCandidates } from '../console/handoff';
+export { pickGraphType } from '../console/handoff';
+export { buildSnapshotName } from '../console/handoff';
+export { ensureSnapshotSchemaPath } from '../console/handoff';
+export { buildHandoffPayload } from '../console/handoff';
+export type { ConsoleServices, QueryOptions, QueryExecutor } from '../shared/query';
+export { processGqlStatement } from '../console/gql';

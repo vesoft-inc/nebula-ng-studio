@@ -1,10 +1,11 @@
-import { FetchService, HttpResCode, routerStore, type ServiceProps } from '@vesoft-inc/utils';
+import { FetchService, HttpResCode, mergeAbortSignals, routerStore, type ServiceProps } from '@vesoft-inc/utils';
 import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { JSONBig } from '@studio/utils';
 
 export type ConfigType = ServiceProps['config'];
 
 let controller = new AbortController();
+const signalDisposers = new WeakMap<object, () => void>();
 
 export const HTTP_CANCEL_CODE = 499;
 
@@ -38,12 +39,18 @@ export const fetcher = new FetchService({
   interceptorsEjectors(ins) {
     ins.interceptors.request.use((config) => {
       config.headers['Content-Type'] = 'application/json';
-      config.signal = controller.signal;
+      const request = mergeAbortSignals(config.signal, controller.signal);
+      config.signal = request.signal;
+      signalDisposers.set(config, request.dispose);
       return config;
     });
     ins.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        signalDisposers.get(response.config)?.();
+        return response;
+      },
       (error) => {
+        if (error.config) signalDisposers.get(error.config)?.();
         const isCancelError = error?.code === 'ERR_CANCELED';
         const response = error?.response || {
           data: { code: isCancelError ? HTTP_CANCEL_CODE : HttpResCode.ErrUnknown },

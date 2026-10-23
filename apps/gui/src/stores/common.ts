@@ -1,11 +1,12 @@
+import { consoleStore } from './console';
 import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '../utils/i18n';
-import { IUserInfo } from '@studio/interfaces';
-import { LANG_KEY } from '@studio/utils/constant';
-import { LocalStorageUtil } from '@studio/utils/function';
+import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import { LANG_KEY } from '@gui/utils/preferences';
+import { LocalStorageUtil } from '@vesoft-inc/utils';
 import { clearToken, setToken } from '../utils/auth';
 import { connect, disconnect, fetchUserInfo } from '../services';
-import { brandConfig } from '@studio/utils';
+import { brandConfig } from '@gui/utils/brand';
 export class CommonStore {
   dbName = brandConfig.consoleName;
   prodName = 'GUI';
@@ -59,6 +60,7 @@ export class CommonStore {
   };
 
   clearUserInfo = () => {
+    consoleStore.clearConsole();
     clearToken();
     this.setUserInfo(undefined);
     this.toggleLoginModal(true);

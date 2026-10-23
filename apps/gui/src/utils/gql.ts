@@ -1,4 +1,4 @@
-import { GraphDataTableValueType } from '@studio/interfaces/console';
+import { GraphDataTableValueType } from '@vesoft-inc/ui-components/graph/data';
 import { GQLResult, GQLResultPlanInfo } from '@vesoft-inc/utils';
 
 interface GraphNodeRestGQLResult {
