@@ -2,7 +2,6 @@ import { GraphEntityType } from '@vesoft-inc/utils';
 import { observer } from 'mobx-react-lite';
 
 import { List } from '@mui/material';
-import { useMemo } from 'react';
 import LabelItem, { LabelTypeItem } from './LabelItem';
 import type { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
 
@@ -44,7 +43,7 @@ function LabelMode({
     return labelCountMap;
   };
 
-  const labelInfo = useMemo(() => countByLabel(), [entityType, graph.nodes.size, graph.links.size]);
+  const labelInfo = countByLabel();
 
   const handleItemClick = (item: LabelTypeItem) => () => {
     console.log(item);

@@ -410,10 +410,20 @@ export class GraphStore {
     if (this.pointer.showContextMenu && pointer.showContextMenu === undefined) {
       return;
     }
-    this.pointer = {
+    const next: Pointer = {
       ...this.pointer,
       ...pointer,
     };
+    if (
+      next.top === this.pointer.top &&
+      next.left === this.pointer.left &&
+      next.showContextMenu === this.pointer.showContextMenu &&
+      next.event === this.pointer.event &&
+      next.source === this.pointer.source
+    ) {
+      return;
+    }
+    this.pointer = next;
   };
 
   closeContextMenu = () => {
@@ -422,6 +432,22 @@ export class GraphStore {
 
   updateShouldBlockRouter = (shouldBlockRouter: boolean) => {
     this.shouldBlockRouter = shouldBlockRouter;
+  };
+
+  dismissSelected = () => {
+    const ids = [...this.selectedNodeIds, ...this.selectedLinkIds];
+    ids.forEach((id) => this.vertexFilterStore.entityIdsGreyScaledSet.add(id));
+    this.nodesSelected.clear();
+    this.linksSelected.clear();
+    this.closeContextMenu();
+  };
+
+  restoreSelected = () => {
+    const ids = [...this.selectedNodeIds, ...this.selectedLinkIds];
+    ids.forEach((id) => this.vertexFilterStore.entityIdsGreyScaledSet.delete(id));
+    this.nodesSelected.clear();
+    this.linksSelected.clear();
+    this.closeContextMenu();
   };
 
   unselectNodes = (nodes?: NodeObject[]) => {
@@ -650,7 +676,7 @@ export class GraphStore {
     graphSettings,
   }: {
     container: HTMLElement;
-    graphSettings: Parameters<typeof TwoGraphStore.prototype.init>[0];
+    graphSettings: Parameters<TwoGraphStore['init']>[0];
   }) => {
     this.setGraphContainer(container as HTMLDivElement);
     this.resize();

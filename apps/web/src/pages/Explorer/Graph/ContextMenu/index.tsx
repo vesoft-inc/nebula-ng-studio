@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import NodeStylesSetBtn from '@studio/components/GraphWorkbench/NodeStylesSetBtn';
 import { TooltipContainer } from '@studio/components/GraphWorkbench/GraphTooltip/styles';
 import { EdgeDirectionType } from '@vesoft-inc/utils';
-import { useMemo } from 'react';
 import EdgeStyleSetBtn from '@studio/components/GraphWorkbench/EdgeStyleSetBtn';
 import { ALL_EDGE_TYPE_KEY } from '@studio/utils/explorer/constant';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
@@ -115,12 +114,7 @@ function Menu({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
         key: 'cancelDismiss',
         icon: <EyeOff />,
         onClick: () => {
-          selectedIds.forEach((id) => {
-            graph.vertexFilterStore.entityIdsGreyScaledSet.delete(id);
-          });
-          graph.nodesSelected.clear();
-          graph.linksSelected.clear();
-          closeContextMenu();
+          graph.restoreSelected();
         },
       });
     } else {
@@ -129,12 +123,7 @@ function Menu({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
         key: 'dismiss',
         icon: <EyeOff />,
         onClick: () => {
-          selectedIds.forEach((id) => {
-            graph.vertexFilterStore.entityIdsGreyScaledSet.add(id);
-          });
-          graph.nodesSelected.clear();
-          graph.linksSelected.clear();
-          closeContextMenu();
+          graph.dismissSelected();
         },
       });
     }
@@ -168,7 +157,7 @@ function Menu({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
     return menuItems;
   };
 
-  const menuItems = useMemo(() => getMenuItems(), [showContextMenu]);
+  const menuItems = getMenuItems();
   const containerWidth = 236;
   const containerHeight = menuItems.length * 32; // size is fixed in css
   const style = { left: 0, top: 0, display: 'block' };
