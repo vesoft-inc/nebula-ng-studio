@@ -1,7 +1,6 @@
-import { DescEdgeTypeResult, DescNodeTypeResult } from '../types';
-import { useEffect, useRef, useState } from 'react';
-import { GraphTypeElementOption } from './FormNormalIndex';
-import { GQLResult } from '@vesoft-inc/utils';
+import type { DescEdgeTypeResult, DescNodeTypeResult } from '../types';
+import { useEffect, useState } from 'react';
+import { GraphEntityType, type GQLResult } from '@vesoft-inc/utils';
 import { useIndexQuery, type RunGql } from './queryContext';
 
 const getTypesForNodesAndEdges = async (graphTypeName: string, runGql: RunGql) => {
@@ -21,8 +20,13 @@ const getTypesForNodesAndEdges = async (graphTypeName: string, runGql: RunGql) =
   ];
   const items = (
     await Promise.all(
-      gqls.map((gql) =>
-        runGql<GQLResult<DescNodeTypeResult | DescEdgeTypeResult>>(gql).then((r) => r.data?.tables || [])
+      gqls.map((gql, index) =>
+        runGql<GQLResult<DescNodeTypeResult | DescEdgeTypeResult>>(gql).then((r) =>
+          (r.data?.tables || []).map((item) => ({
+            ...item,
+            type: index === 0 ? GraphEntityType.Node : GraphEntityType.Edge,
+          }))
+        )
       )
     )
   ).flat();
@@ -31,44 +35,41 @@ const getTypesForNodesAndEdges = async (graphTypeName: string, runGql: RunGql) =
 
 export const useTypesForNodesAndEdges = ({
   graphTypeName,
-  entities,
+  typeName,
+  entityType,
   enabled = true,
 }: {
   graphTypeName?: string;
-  entities: GraphTypeElementOption[];
+  typeName?: string;
+  entityType?: GraphEntityType;
   enabled?: boolean;
 }) => {
   const runGql = useIndexQuery();
-  const [items, setItems] = useState<(DescNodeTypeResult | DescEdgeTypeResult)[]>([]);
-
-  // Cache for vector property options
-  const propertyCacheRef = useRef<Map<string, typeof items>>(new Map());
+  const [result, setResult] = useState<{
+    graphTypeName: string;
+    items: (DescNodeTypeResult | DescEdgeTypeResult)[];
+  }>();
 
   useEffect(() => {
-    const fetchVectorProperties = async () => {
-      if (!graphTypeName) {
-        setItems([]);
-        return;
-      }
-
-      // Check cache first - include graph_type_name in cache key
-      const cacheKey = entities.map((e) => `${e.entity_type}:${e.graph_type_name}`).join(',');
-      if (propertyCacheRef.current.has(cacheKey)) {
-        setItems(propertyCacheRef.current.get(cacheKey) || []);
-        return;
-      }
-
-      const nextItems = await getTypesForNodesAndEdges(graphTypeName, runGql);
-      setItems(nextItems);
-    };
-
-    if (entities.length > 0 && enabled) {
-      fetchVectorProperties();
+    let active = true;
+    setResult(undefined);
+    if (graphTypeName && enabled) {
+      void getTypesForNodesAndEdges(graphTypeName, runGql)
+        .then((items) => {
+          if (active) setResult({ graphTypeName, items });
+        })
+        .catch(() => {});
     }
-  }, [graphTypeName, entities, enabled]);
+
+    return () => {
+      active = false;
+    };
+  }, [graphTypeName, enabled, runGql]);
 
   return {
-    items,
-    setItems,
+    items:
+      enabled && result?.graphTypeName === graphTypeName
+        ? result?.items.filter((item) => item.type_name === typeName && item.type === entityType) || []
+        : [],
   };
 };

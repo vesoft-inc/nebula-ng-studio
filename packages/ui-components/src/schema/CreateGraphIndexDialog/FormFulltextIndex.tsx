@@ -54,18 +54,14 @@ const FormForFulltextIndex = (props: FormForFulltextIndexProps) => {
   });
   useEffect(() => {
     form.setValue('on.propName', '');
-  }, [fieldOn?.type_name]);
+  }, [fieldOn?.graph_type_name, fieldOn?.entity_type, fieldOn?.type_name, form]);
 
-  const { items: commonPropertyItems, setItems: setCommonPropertyItems } = useTypesForNodesAndEdges({
+  const { items: commonPropertyItems } = useTypesForNodesAndEdges({
     graphTypeName: fieldOn?.graph_type_name,
-    entities,
+    typeName: fieldOn?.type_name,
+    entityType: fieldOn?.entity_type,
   });
   const fulltextPropertyItems = commonPropertyItems.filter((item) => item.data_type === PropertyDataType.STRING);
-  useEffect(() => {
-    if (propertyOptions.length <= 0) {
-      setCommonPropertyItems([]);
-    }
-  }, [propertyOptions.length]);
 
   return (
     <FormContainer formContext={form}>
@@ -101,8 +97,8 @@ const FormForFulltextIndex = (props: FormForFulltextIndexProps) => {
                   borderRadius: 2,
                 },
               },
-              renderOption: (props, option: GraphTypeElementOption) => (
-                <Box component="li" {...props}>
+              renderOption: ({ key, ...props }, option: GraphTypeElementOption) => (
+                <Box component="li" key={key} {...props}>
                   {option.entity_type === GraphEntityType.Edge ? (
                     <EdgeType fontSize="medium" />
                   ) : (
@@ -115,11 +111,19 @@ const FormForFulltextIndex = (props: FormForFulltextIndexProps) => {
                   </Tooltip>
                 </Box>
               ),
+              getOptionKey: (option) =>
+                typeof option === 'string'
+                  ? option
+                  : `${option.graph_type_name}:${option.entity_type}:${option.type_name}`,
               isOptionEqualToValue: (option: GraphTypeElementOption, value: GraphTypeElementOption | string | null) => {
                 if (!option || !value || typeof value === 'string') {
                   return false;
                 }
-                return option.type_name === value.type_name;
+                return (
+                  option.type_name === value.type_name &&
+                  option.entity_type === value.entity_type &&
+                  option.graph_type_name === value.graph_type_name
+                );
               },
               getOptionLabel: (option) => {
                 if (typeof option === 'string') {

@@ -113,9 +113,10 @@ const CreateGraphIndexModal = (props: CreateGraphIndexModalProps) => {
     name: 'on',
   });
 
-  const { items: commonPropertyItems, setItems: setCommonPropertyItems } = useTypesForNodesAndEdges({
+  const { items: commonPropertyItems } = useTypesForNodesAndEdges({
     graphTypeName: fieldOn?.graph_type_name,
-    entities,
+    typeName: fieldOn?.type_name,
+    entityType: fieldOn?.entity_type,
   });
   const normalPropertyItems = commonPropertyItems.filter(
     (item) =>
@@ -127,11 +128,6 @@ const CreateGraphIndexModal = (props: CreateGraphIndexModalProps) => {
         MapTypePattern.exec(item.data_type)
       )
   );
-  useEffect(() => {
-    if (propertyOptions?.length <= 0) {
-      setCommonPropertyItems([]);
-    }
-  }, [propertyOptions]);
 
   return (
     <FormContainer formContext={form}>
@@ -157,8 +153,8 @@ const CreateGraphIndexModal = (props: CreateGraphIndexModalProps) => {
                   borderRadius: 2,
                 },
               },
-              renderOption: (props, option: GraphTypeElementOption) => (
-                <MenuItem {...props}>
+              renderOption: ({ key, ...props }, option: GraphTypeElementOption) => (
+                <MenuItem key={key} {...props}>
                   {option.entity_type === GraphEntityType.Edge ? (
                     <EdgeType fontSize="medium" />
                   ) : (
@@ -171,8 +167,15 @@ const CreateGraphIndexModal = (props: CreateGraphIndexModalProps) => {
                   </Tooltip>
                 </MenuItem>
               ),
+              getOptionKey: (option) =>
+                typeof option === 'string'
+                  ? option
+                  : `${option.graph_type_name}:${option.entity_type}:${option.type_name}`,
               isOptionEqualToValue: (option: GraphTypeElementOption, value: GraphTypeElementOption) =>
-                value && option.type_name === value?.type_name,
+                value &&
+                option.type_name === value.type_name &&
+                option.entity_type === value.entity_type &&
+                option.graph_type_name === value.graph_type_name,
               getOptionLabel: (option) => {
                 if (typeof option === 'string') {
                   return option;

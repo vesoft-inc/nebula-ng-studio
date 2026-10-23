@@ -22,7 +22,7 @@ export interface CreateGraphVectorIndexFormValues {
   on: GraphTypeElement & {
     propName: string;
     metrics: {
-      DIM: number;
+      DIM: number | undefined;
       METRIC: string;
       TYPE: string;
       NLIST: number | undefined;
@@ -69,7 +69,7 @@ const FormForVectorIndex = (props: FormForVectorIndexProps) => {
   });
   useEffect(() => {
     form.setValue('on.propName', '');
-  }, [fieldOn?.type_name]);
+  }, [fieldOn?.graph_type_name, fieldOn?.entity_type, fieldOn?.type_name, form]);
 
   const fieldType = useWatch({
     control: form.control,
@@ -88,33 +88,24 @@ const FormForVectorIndex = (props: FormForVectorIndexProps) => {
     }
   }, [fieldType, form]);
 
-  const { items: commonPropertyItems, setItems: setCommonPropertyItems } = useTypesForNodesAndEdges({
+  const { items: commonPropertyItems } = useTypesForNodesAndEdges({
     graphTypeName: fieldOn?.graph_type_name,
-    entities,
+    typeName: fieldOn?.type_name,
+    entityType: fieldOn?.entity_type,
   });
   const vectorPropertyItems = commonPropertyItems.filter((item) => VectorTypePattern.exec(item.data_type));
-  useEffect(() => {
-    if (propertyOptions.length <= 0) {
-      setCommonPropertyItems([]);
-    }
-  }, [propertyOptions.length]);
 
   const fieldPropName = useWatch({
     control: form.control,
     name: 'on.propName',
   });
+  const selectedProperty = vectorPropertyItems.find((item) => item.property_name === fieldPropName);
+  const dimension = selectedProperty ? Number(VectorTypePattern.exec(selectedProperty.data_type)?.[1]) : undefined;
   useEffect(() => {
-    if (fieldPropName) {
-      const item = vectorPropertyItems.find((item) => item.property_name === fieldPropName);
-      if (item) {
-        const [, dim] = VectorTypePattern.exec(item.data_type) || [];
-        const dimValue = Number(dim);
-        if (!Number.isNaN(dimValue)) {
-          form.setValue('on.metrics.DIM', dimValue);
-        }
-      }
+    if (form.getValues('on.metrics.DIM') !== dimension) {
+      form.setValue('on.metrics.DIM', dimension);
     }
-  }, [fieldPropName, vectorPropertyItems, form]);
+  }, [dimension, form]);
 
   return (
     <FormContainer formContext={form}>
@@ -150,8 +141,8 @@ const FormForVectorIndex = (props: FormForVectorIndexProps) => {
                   borderRadius: 2,
                 },
               },
-              renderOption: (props, option: GraphTypeElementOption) => (
-                <Box component="li" {...props}>
+              renderOption: ({ key, ...props }, option: GraphTypeElementOption) => (
+                <Box component="li" key={key} {...props}>
                   {option.entity_type === GraphEntityType.Edge ? (
                     <EdgeType fontSize="medium" />
                   ) : (
@@ -164,11 +155,19 @@ const FormForVectorIndex = (props: FormForVectorIndexProps) => {
                   </Tooltip>
                 </Box>
               ),
+              getOptionKey: (option) =>
+                typeof option === 'string'
+                  ? option
+                  : `${option.graph_type_name}:${option.entity_type}:${option.type_name}`,
               isOptionEqualToValue: (option: GraphTypeElementOption, value: GraphTypeElementOption | string | null) => {
                 if (!option || !value || typeof value === 'string') {
                   return false;
                 }
-                return option.type_name === value.type_name;
+                return (
+                  option.type_name === value.type_name &&
+                  option.entity_type === value.entity_type &&
+                  option.graph_type_name === value.graph_type_name
+                );
               },
               getOptionLabel: (option) => {
                 if (typeof option === 'string') {

@@ -168,11 +168,12 @@ const FormVertexCentricIndex = ({ form, entities }: FormVertexCentricIndexProps)
   useEffect(() => {
     form.setValue('on.anchor', '_src');
     form.setValue('on.indexProperties', []);
-  }, [fieldOn?.type_name, form]);
+  }, [fieldOn?.graph_type_name, fieldOn?.entity_type, fieldOn?.type_name, form]);
 
-  const { items: commonPropertyItems, setItems: setCommonPropertyItems } = useTypesForNodesAndEdges({
+  const { items: commonPropertyItems } = useTypesForNodesAndEdges({
     graphTypeName: fieldOn?.graph_type_name,
-    entities,
+    typeName: fieldOn?.type_name,
+    entityType: fieldOn?.entity_type,
   });
 
   const normalPropertyItems = commonPropertyItems.filter(
@@ -183,12 +184,6 @@ const FormVertexCentricIndex = ({ form, entities }: FormVertexCentricIndexProps)
         ListTypePattern.exec(item.data_type)
       )
   );
-
-  useEffect(() => {
-    if (propertyOptions.length <= 0) {
-      setCommonPropertyItems([]);
-    }
-  }, [propertyOptions.length, setCommonPropertyItems]);
 
   const selectedEdgeSupport = getEdgeSupportInfo(fieldOn);
   const isAnchorSelectable = Boolean(fieldOn?.type_name && selectedEdgeSupport.supported);
@@ -258,7 +253,7 @@ const FormVertexCentricIndex = ({ form, entities }: FormVertexCentricIndexProps)
                 },
               },
               getOptionDisabled: (option: GraphTypeElementOption) => !getEdgeSupportInfo(option).supported,
-              renderOption: (props, option: GraphTypeElementOption) => {
+              renderOption: ({ key, ...props }, option: GraphTypeElementOption) => {
                 const supportInfo = getEdgeSupportInfo(option);
                 const helperText = !supportInfo.supported
                   ? supportInfo.reason === 'undirected'
@@ -266,7 +261,7 @@ const FormVertexCentricIndex = ({ form, entities }: FormVertexCentricIndexProps)
                     : t('vertexCentricIndex.directionParseNotSupported', { ns: 'graph' })
                   : null;
                 return (
-                  <MenuItem {...props} disabled={!supportInfo.supported}>
+                  <MenuItem key={key} {...props} disabled={!supportInfo.supported}>
                     <EdgeType fontSize="medium" />
                     <Box ml={2} minWidth={0}>
                       <Tooltip title={option.type_name} placement="top">
@@ -281,11 +276,19 @@ const FormVertexCentricIndex = ({ form, entities }: FormVertexCentricIndexProps)
                   </MenuItem>
                 );
               },
+              getOptionKey: (option) =>
+                typeof option === 'string'
+                  ? option
+                  : `${option.graph_type_name}:${option.entity_type}:${option.type_name}`,
               isOptionEqualToValue: (option: GraphTypeElementOption, value: GraphTypeElementOption | string | null) => {
                 if (!option || !value || typeof value === 'string') {
                   return false;
                 }
-                return option.type_name === value.type_name;
+                return (
+                  option.type_name === value.type_name &&
+                  option.entity_type === value.entity_type &&
+                  option.graph_type_name === value.graph_type_name
+                );
               },
               getOptionLabel: (option) => {
                 if (typeof option === 'string') {
