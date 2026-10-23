@@ -17,7 +17,7 @@ import {
 } from '@vesoft-inc/icons';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
-import { ConsoleResult, HttpResCode } from '@vesoft-inc/utils';
+import { ConsoleResult } from '@vesoft-inc/utils';
 import { Dropdown } from '@vesoft-inc/ui-components';
 import { observer } from 'mobx-react-lite';
 import {
@@ -33,23 +33,13 @@ import {
 } from './styles';
 import { GraphDataTable } from '@studio/interfaces/console';
 import { Trans, useTranslation } from 'react-i18next';
-import { brandConfig, JSONBig, formatMicroseconds, transformNebulaResult, isGuiTarget } from '@studio/utils';
+import { brandConfig, JSONBig, formatMicroseconds, transformNebulaResult } from '@studio/utils';
 import { EmptyResultId } from '@studio/utils/constant';
 import { CircularProgress, Skeleton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
-import { useModal } from '@studio/stores/useModal';
-import { commonStore, consoleStore, schemaStore } from '@studio/stores/session';
-import { exportSnapshotTransfer } from '@studio/stores/explorer';
-import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 import { getUsedGraphsFromData } from '@studio/utils/parseData';
-import {
-  buildHandoffPayload,
-  buildSnapshotName,
-  ensureSnapshotSchemaPath,
-  pickGraphType,
-  rankGraphCandidates,
-} from '@studio/utils/console';
-import { useNavigate } from 'react-router-dom';
+import { rankGraphCandidates } from '@studio/utils/console';
 import { hasExplainInfo, isGraphResult } from '@studio/utils/explorer';
+import { useConsoleResultHost } from './resultHost';
 import { HorizonTabs, type HorizonTabItem } from '../HorizonTabs';
 import { generateFullGraphCanvas } from '@studio/utils/graph/base/screenshot';
 import IconButton from '@mui/material/IconButton';
@@ -113,8 +103,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
   const handleMenuClick = useCallback((key: string) => {
     setActiveMenu(key as OutputMenu);
   }, []);
-  const navigate = useNavigate();
-  const { message } = useModal();
+  const host = useConsoleResultHost();
   const [handoffPending, setHandoffPending] = useState(false);
   const [exploreTipOpen, setExploreTipOpen] = useState(false);
   const [graphPickerOpen, setGraphPickerOpen] = useState(false);
@@ -316,8 +305,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
   };
 
   const handleExportPngFullCanvas = () => {
-    const { graphWorkspaces } = consoleStore;
-    const explorerItem = graphWorkspaces.get(result.id);
+    const explorerItem = host.getWorkspace(result.id);
     const graph = explorerItem?.graph;
     if (!graph) return;
     graph.setPageLoading(true);
@@ -354,8 +342,8 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
     }
   };
 
-  const existingSnapshot = consoleStore.getResultSnapshot(result.id);
-  const graphWorkspace = consoleStore.graphWorkspaces.get(result.id);
+  const existingSnapshot = host.getResultSnapshot(result.id);
+  const graphWorkspace = host.getWorkspace(result.id);
   const handoffCandidates = useMemo(
     () =>
       graphWorkspace
@@ -383,94 +371,21 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
 
   const handleExplore = useCallback(
     async (graph?: string) => {
-      if (handoffPending) return;
-      const existing = consoleStore.getResultSnapshot(result.id);
+      if (handoffPending || !host.onExplore) return;
+      const existing = host.getResultSnapshot(result.id);
       if (!existing) {
-        const workspace = consoleStore.graphWorkspaces.get(result.id);
+        const workspace = host.getWorkspace(result.id);
         if (!graph || !workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
       }
 
       setHandoffPending(true);
       try {
-        let targetGraph = graph;
-
-        if (existing) {
-          // Reuse the snapshot already created for this result; self-heal when it was deleted elsewhere.
-          const detail = await getSnapshotDetail(existing.snapshotId, { errTip: false });
-          if (detail?.code === 0 && detail.data) {
-            navigate(`/explorer/snapshots/${existing.snapshotId}`);
-            return;
-          }
-          if (detail?.code !== HttpResCode.ErrNotFound) {
-            message.error(detail?.message?.replace(/^\w+::/, '') || t('exploreFailed', { ns: 'console' }));
-            return;
-          }
-          // Snapshot is gone: drop the mapping and recreate it with the graph locked at first click.
-          consoleStore.removeResultSnapshot(result.id);
-          targetGraph = existing.graph;
-        }
-
-        if (!targetGraph) return;
-        const graphName = targetGraph;
-        const workspace = consoleStore.graphWorkspaces.get(result.id);
-        if (!workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
-
-        const resolveGraphType = () =>
-          pickGraphType({
-            graph: graphName,
-            consoleGraphs: consoleStore.graphs,
-            graphTypeInfo: consoleStore.graphTypeInfo,
-            schemaGraphs: schemaStore.currentSchema?.graphs ?? [],
-          });
-
-        // Capture the live canvas state synchronously: navigating away destroys this workspace,
-        // so no `await` may happen before this call. A missing graph_type is filled in below.
-        const payload = buildHandoffPayload({
-          workspace,
-          explorerStore: { exportSnapshotTransfer },
-          name: buildSnapshotName(result.gql),
-          graph: graphName,
-          graphType: resolveGraphType() ?? '',
-          schemaPath: schemaStore.currentSchema?.path ?? '',
-        });
-
-        let graphType = payload.graph_type;
-        if (!graphType) {
-          await consoleStore.updateGraphTypeMap([graphName]);
-          graphType = resolveGraphType() ?? '';
-        }
-        if (!graphType) {
-          message.error(t('exploreFailed', { ns: 'console' }));
-          return;
-        }
-
-        // Console can run before the schema list is loaded; the Explorer list filters by the
-        // session schema, so resolve it here rather than storing an empty `schema_path`.
-        const schemaPath = await ensureSnapshotSchemaPath({
-          getPath: () => schemaStore.currentSchema?.path,
-          refresh: () => schemaStore.refreshCurrentSchema(),
-          fallback: () => commonStore.userInfo?.curSchemaPath,
-        });
-
-        // `errTip: false` keeps the single error toast in this handler.
-        const res = await addSnapshot(
-          { ...payload, graph_type: graphType, schema_path: schemaPath },
-          { errTip: false }
-        );
-        if (res?.code !== 0 || !res.data?.id) {
-          message.error(res?.message?.replace(/^\w+::/, '') || t('exploreFailed', { ns: 'console' }));
-          return;
-        }
-        // One snapshot per result: later clicks open it instead of creating a duplicate.
-        consoleStore.setResultSnapshot(result.id, { snapshotId: res.data.id, graph: graphName });
-        navigate(`/explorer/snapshots/${res.data.id}`);
-      } catch (error) {
-        message.error(error instanceof Error && error.message ? error.message : t('exploreFailed', { ns: 'console' }));
+        await host.onExplore(result, graph);
       } finally {
         setHandoffPending(false);
       }
     },
-    [consoleStore, handoffPending, message, navigate, result, schemaStore, t]
+    [handoffPending, host, result]
   );
 
   const exploreButton = (
@@ -511,7 +426,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
             component="span"
             overflow="hidden"
             onClick={() => {
-              consoleStore.updateEditorValue(result.gql);
+              host.onReuseGql(result.gql);
             }}
             sx={{
               WebkitBoxOrient: 'vertical',
@@ -671,7 +586,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
                     )}
 
                     {/* Explore current graph result in Explorer */}
-                    {activeMenu === OutputMenu.ExplorerData && !isGuiTarget && (
+                    {activeMenu === OutputMenu.ExplorerData && host.onExplore && (
                       <Tooltip
                         title={handoffTip}
                         // The graph picker opens right below the trigger, so drop the hint while it is

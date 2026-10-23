@@ -3,12 +3,10 @@ import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { getVesoftBorder } from '@studio/utils';
 import { useEffect, useRef, useState } from 'react';
-import { schemaStore } from '@studio/stores/session';
-import { SchemaItemType } from '@studio/utils/constant';
 import LazyTree, { TreeNode } from '../LazyTree';
 import useConvertSchemaToTree from './useConvertSchemaToTree';
-import SchemaSelector from './SchemaSelector';
-import { ISchemaTreeRawData } from '@studio/interfaces';
+import SchemaSelector, { type SchemaSelectorProps } from './SchemaSelector';
+import { ISchemaTreeRawData, NebulaSchema } from '@studio/interfaces';
 
 const SiderItem = styled(Box)`
   display: flex;
@@ -22,56 +20,35 @@ export const PATH_SPLITTER = '-';
 export { generateTreeNodeKey } from './useConvertSchemaToTree';
 
 interface ISchemaTreeProps {
+  schema: NebulaSchema;
   onItemSelected?: (node: TreeNode<ISchemaTreeRawData>) => void;
   selectedKeys?: string[];
   showDetail?: boolean; // if show detail, will show entity and property in graphtype
+  onReady?: () => void;
+  onLoadNode: (node: TreeNode<ISchemaTreeRawData>) => Promise<void>;
+  onCreateGraphType?: () => void;
+  onCreateGraph?: () => void;
+  selector: Omit<SchemaSelectorProps, 'paperWidth'>;
 }
 
 function SchemaTree(props: ISchemaTreeProps) {
-  const { showDetail = true } = props;
-  const { currentSchema } = schemaStore;
+  const { schema, showDetail = true, onReady, onLoadNode, onCreateGraphType, onCreateGraph, selector } = props;
   const [curWidth, setCurWidth] = useState<number>(300);
   const siderItemRef = useRef<HTMLDivElement>(null);
   const position: React.MutableRefObject<Record<string, number>> = useRef({});
 
   useEffect(() => {
-    schemaStore.getSchemas();
+    onReady?.();
     return () => {
       document.removeEventListener('mousemove', onDrag);
       document.removeEventListener('mouseup', onDragEnd);
     };
   }, []);
 
-  const handleAsnycLoadData = async (node: TreeNode<ISchemaTreeRawData>) => {
-    const { key, rawData } = node;
-    const { type } = rawData as { type: SchemaItemType };
-    switch (type) {
-      case SchemaItemType.GraphType: {
-        await schemaStore.updateGraphTypesBySchema();
-        break;
-      }
-      case SchemaItemType.GraphTypeDescItem: {
-        if (showDetail) {
-          const [, graph_type_name] = key.split(PATH_SPLITTER);
-          await schemaStore.updateGraphTypeDetailBySchema(graph_type_name);
-        }
-        break;
-      }
-      case SchemaItemType.EntityTypeDescItem: {
-        if (showDetail) {
-          const [, graph_type_name, entity_type_name] = key.split(PATH_SPLITTER);
-          await schemaStore.updateEntityTypeDescsBySchema(graph_type_name, entity_type_name);
-        }
-        break;
-      }
-      case SchemaItemType.Graph: {
-        await schemaStore.updateGraphsBySchema();
-        break;
-      }
-    }
-  };
-
-  const convertSchemaToTree = useConvertSchemaToTree(currentSchema, showDetail);
+  const convertSchemaToTree = useConvertSchemaToTree(schema, showDetail, {
+    onCreateGraphType,
+    onCreateGraph,
+  });
 
   const onDrag = (e: MouseEvent) => {
     e.preventDefault();
@@ -87,12 +64,12 @@ function SchemaTree(props: ISchemaTreeProps) {
 
   return (
     <SiderItem sx={{ width: curWidth, position: 'relative' }} ref={siderItemRef}>
-      <SchemaSelector paperWidth={curWidth} />
+      <SchemaSelector paperWidth={curWidth} {...selector} />
       <LazyTree<ISchemaTreeRawData>
-        treeData={convertSchemaToTree(currentSchema)}
+        treeData={convertSchemaToTree(schema)}
         onItemSelect={props.onItemSelected}
         selectedKeys={props.selectedKeys}
-        asynLoadData={handleAsnycLoadData}
+        asynLoadData={onLoadNode}
       />
     </SiderItem>
   );

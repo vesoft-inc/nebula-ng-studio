@@ -5,19 +5,24 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import { VectorTriangle, Fullscreen, FullscreenExit, SettingsOutlined } from '@vesoft-inc/icons';
 
-import { commonStore, consoleStore } from '@studio/stores/session';
+import { commonStore, consoleStore, modalStore, schemaStore } from '@studio/stores/session';
 import Results from './Results';
 import GQLEditor from './GQLEditor';
+import { exploreConsoleResult } from './exploreResult';
 import { EditorWrapper, InputArea, StyledSider, SiderItem, ActionButtonsWrapper } from './styles';
 import SiderMenu from '@studio/components/SiderMenu';
 import SchemaTree from '@studio/components/SchemaTree';
+import { useSchemaTreeBindings } from '@studio/pages/schemaTreeBindings';
 import { isGuiTarget } from '@studio/utils';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleResult } from '@vesoft-inc/utils';
+import { GQLResult, type ConsoleResult } from '@vesoft-inc/utils';
 import type { GraphDataTable } from '@studio/interfaces/explorer';
+import { useNavigate } from 'react-router-dom';
+import { useModal } from '@studio/stores/useModal';
+import { execConsoleGql, execGql, killQueriesBySessionId, readGuiToken } from '@studio/services';
+import { ConsoleResultHostProvider, type ConsoleResultHost } from '@studio/components/OutputBox/resultHost';
 import { Drawer } from '@vesoft-inc/ui-components';
 import { SettingsContent, SettingsDrawer } from '@studio/components/Settings';
-import { getToken } from '@gui/utils/auth';
 import { useStorageSettings } from '@studio/components/Settings/hook';
 import {
   CONSOLE_DEFAULT_LOCAL_SETTINGS,
@@ -28,7 +33,10 @@ import {
 
 function Console() {
   const theme = useTheme();
+  const navigate = useNavigate();
+  const { message } = useModal();
   const { t } = useTranslation(['console']);
+  const schemaTree = useSchemaTreeBindings(true);
   const [activeMenu, setActiveMenu] = useState<string>();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [scrollDistance, setScrollDistance] = useState<number>(0);
@@ -39,6 +47,37 @@ function Console() {
   const settingId = isGuiTarget
     ? `${GuiSettingIdPrefix}`
     : `${StudioSettingIdPrefix}${commonStore.userInfo?.username ?? ''}`;
+  const resultHost: ConsoleResultHost = {
+    graphSettingsId: settingId,
+    modalStore,
+    execGql,
+    onReuseGql: (gql) => consoleStore.updateEditorValue(gql),
+    getWorkspace: (id) => consoleStore.graphWorkspaces.get(id),
+    saveWorkspace: (id, workspace) => {
+      consoleStore.graphWorkspaces.set(id, workspace);
+    },
+    deleteWorkspace: (id) => {
+      consoleStore.graphWorkspaces.delete(id);
+    },
+    prepareGraphTypes: (graphNames) => consoleStore.updateGraphTypeMap(graphNames),
+    graphTypesFor: (graphNames) =>
+      consoleStore.graphs.filter((item) => graphNames.includes(item.graph)).map((item) => item.graph_type),
+    getResultSnapshot: (id) => consoleStore.getResultSnapshot(id),
+    onExplore: isGuiTarget
+      ? undefined
+      : (result, graph) =>
+          exploreConsoleResult({
+            result,
+            graph,
+            consoleStore,
+            schemaStore,
+            schemaPathFallback: commonStore.userInfo?.curSchemaPath,
+            navigate,
+            notifyError: (text) => message.error(text),
+            exploreFailedMessage: t('exploreFailed', { ns: 'console' }),
+          }),
+  };
+
   const { settings, upsertSettings, isPending } = useStorageSettings<ConsoleSettingsForm>({
     settingId,
     defaultSettings: CONSOLE_DEFAULT_LOCAL_SETTINGS,
@@ -152,7 +191,17 @@ function Console() {
               },
             }}
           >
-            {activeMenu === 'Schema' && <SchemaTree />}
+            {activeMenu === 'Schema' && (
+              <SchemaTree
+                showDetail
+                schema={schemaTree.schema}
+                onReady={schemaTree.onReady}
+                onLoadNode={schemaTree.onLoadNode}
+                onCreateGraphType={schemaTree.onCreateGraphType}
+                onCreateGraph={schemaTree.onCreateGraph}
+                selector={schemaTree.selector}
+              />
+            )}
           </Drawer>
         </StyledSider>
       )}
@@ -204,6 +253,13 @@ function Console() {
               maxHeight={editorMaxHeight}
               onRunGql={() => setIsFullscreen(false)}
               onAfterRunGql={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+              onExecute={(gql, config) => consoleStore.runGql(gql, config)}
+              onLookupSession={async () => {
+                const session = await execConsoleGql<GQLResult<{ id: string }>>('SHOW CURRENT_SESSION');
+                return session?.data?.tables?.[0]?.id?.toString();
+              }}
+              onStopQuery={(sessionId) => killQueriesBySessionId(sessionId)}
+              onQueryIdle={() => consoleStore.unsafeAction(() => (consoleStore.editorRunning = false))}
             />
           </EditorWrapper>
           <ActionButtonsWrapper>
@@ -212,7 +268,7 @@ function Console() {
               onClick={() => {
                 if (isGuiTarget) {
                   // Must be authed on open settings
-                  const token = getToken();
+                  const token = readGuiToken();
                   if (token) {
                     setIsSettingsDrawerOpen(true);
                   }
@@ -250,7 +306,9 @@ function Console() {
           </ActionButtonsWrapper>
         </InputArea>
 
-        <Results results={consoleStore.results as ConsoleResult<GraphDataTable>[]} />
+        <ConsoleResultHostProvider value={resultHost}>
+          <Results results={consoleStore.results as ConsoleResult<GraphDataTable>[]} />
+        </ConsoleResultHostProvider>
       </Box>
 
       <SettingsDrawer open={isSettingsDrawerOpen} onClose={() => setIsSettingsDrawerOpen(false)} loading={isPending}>

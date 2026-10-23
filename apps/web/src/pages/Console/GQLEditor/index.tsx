@@ -14,11 +14,9 @@ import { brandConfig, isGuiTarget } from '@studio/utils';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { Play, Stop } from '@vesoft-inc/icons';
 import { GQL_HIGHLIGHT_CONFIG } from './highlight';
-import { GQLResult, RequestQueue } from '@vesoft-inc/utils';
-import { execConsoleGql } from '@studio/services';
-import { killQueriesBySessionId as killQueriesBySessionId4Gui } from '@gui/services';
-import { killQueriesBySessionId as killQueriesBySessionId4Studio } from '@studio/services';
+import { RequestQueue } from '@vesoft-inc/utils';
 import { ConsoleSettingsForm } from '@studio/components/Settings/constants';
+import type { execConsoleGql } from '@studio/services';
 
 const commandEvent4RunGql = new Event('_custom_monaco_command_event');
 
@@ -27,11 +25,19 @@ function GQLEditor({
   maxHeight = '400px',
   onRunGql,
   onAfterRunGql,
+  onExecute,
+  onLookupSession,
+  onStopQuery,
+  onQueryIdle,
 }: {
   settings?: ConsoleSettingsForm;
   maxHeight?: string;
   onRunGql?: () => void | Promise<void>;
   onAfterRunGql?: () => void | Promise<void>;
+  onExecute: (gql: string, config?: Parameters<typeof execConsoleGql>[1]) => Promise<unknown>;
+  onLookupSession: () => Promise<string | undefined>;
+  onStopQuery: (sessionId: string) => Promise<void>;
+  onQueryIdle: () => void;
 }) {
   const theme = useTheme();
   const disposeRef = useRef<{ name: string; disposer: IDisposable }[]>([]);
@@ -65,13 +71,10 @@ function GQLEditor({
       const gql = consoleStore.editorValue;
 
       if (!currentSessionId) {
-        const { promise } = requestQueue.add(() => execConsoleGql<GQLResult<{ id: string }>>(`SHOW CURRENT_SESSION`));
-        const session = await promise;
-        if (session) {
-          const sessionId = session.data?.tables[0]?.id?.toString();
-          if (sessionId) {
-            setCurrentSessionId(sessionId);
-          }
+        const { promise } = requestQueue.add(() => onLookupSession());
+        const sessionId = await promise;
+        if (sessionId) {
+          setCurrentSessionId(sessionId);
         }
       }
 
@@ -87,7 +90,7 @@ function GQLEditor({
 
       // 直接传递原始 GQL 语句，处理逻辑已移到 runGql 内部
       const { id, promise } = requestQueue.add((signal) =>
-        consoleStore.runGql(gql, {
+        onExecute(gql, {
           queryTimeout: (settings?.queryTimeout ?? 0) * 1000,
           signal,
           headers: {
@@ -103,7 +106,17 @@ function GQLEditor({
       setIsRunning(false);
       onAfterRunGql?.();
     }
-  }, [consoleStore, isRunning, requestQueue, settings, currentSessionId]);
+  }, [
+    consoleStore,
+    isRunning,
+    onExecute,
+    onLookupSession,
+    onRunGql,
+    onAfterRunGql,
+    requestQueue,
+    settings,
+    currentSessionId,
+  ]);
 
   const handleStopGql = useCallback(async () => {
     if (!currentSessionId) {
@@ -120,19 +133,15 @@ function GQLEditor({
     }
 
     try {
-      if (isGuiTarget) {
-        await killQueriesBySessionId4Gui(currentSessionId);
-      } else {
-        await killQueriesBySessionId4Studio(currentSessionId);
-      }
+      await onStopQuery(currentSessionId);
     } catch (err) {
       console.error('Failed to stop gql:', err);
     }
 
     setIsStopping(false);
     setIsRunning(false);
-    consoleStore.unsafeAction(() => (consoleStore.editorRunning = false));
-  }, [consoleStore, currentSessionId, requestQueue]);
+    onQueryIdle();
+  }, [currentSessionId, onQueryIdle, onStopQuery, requestQueue]);
 
   // Fix monaco editor command not respect props change
   useEffect(() => {

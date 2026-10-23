@@ -4,11 +4,11 @@ import { Table } from '@vesoft-inc/ui-components';
 import { ConsoleResult } from '@vesoft-inc/utils';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
-import { commonStore } from '@studio/stores/session';
 import { JSONBig, transformNebulaResult } from '@studio/utils';
+import { Language } from '@studio/utils/i18n';
 
 function TableResult({ result, searchValue }: { result: ConsoleResult; searchValue?: string }) {
-  const { t } = useTranslation(['graph']);
+  const { t, i18n } = useTranslation(['graph']);
   const { headers = [], tables = [] } = result.data || {};
   const columns = (headers || []).map((header) => ({
     accessorFn: (row: Record<string, string>) => row[header],
@@ -32,7 +32,7 @@ function TableResult({ result, searchValue }: { result: ConsoleResult; searchVal
       )
     : allData;
 
-  const localization = commonStore.isEnLang ? undefined : MRT_Localization_ZH_HANS;
+  const localization = i18n.language === Language.EN_US ? undefined : MRT_Localization_ZH_HANS;
 
   return (
     <Box m={0} p={0} height="100%" overflow="hidden">

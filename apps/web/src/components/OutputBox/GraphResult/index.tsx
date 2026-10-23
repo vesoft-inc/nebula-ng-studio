@@ -1,13 +1,11 @@
 import { GraphDataTable } from '@studio/interfaces/console';
-import { commonStore, consoleStore } from '@studio/stores/session';
-import { modalStore } from '@studio/stores/session';
 import { getUsedGraphsFromData } from '@studio/utils/parseData';
 import { Box } from '@mui/material';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useState } from 'react';
 import { ConsoleResult } from '@vesoft-inc/utils';
-import { execGql } from '@studio/services';
 import { CommonGraphContent } from '@studio/components/GraphWorkbench/Content';
+import { useConsoleResultHost } from '../resultHost';
 import { GraphWorkspaceStore } from '@studio/stores/graph/workspace';
 import Minimap, {
   MinimapActionButtonGraphLayout,
@@ -18,12 +16,8 @@ import JsonPreview from './JsonPreview';
 import PageLoading from '@studio/components/GraphWorkbench/PageLoading';
 import { RightSideToolDrawer } from '@studio/components/GraphWorkbench/RightSideTool';
 import { readStorageSettings } from '@studio/components/Settings/hook';
-import {
-  CONSOLE_DEFAULT_LOCAL_SETTINGS,
-  GuiSettingIdPrefix,
-  StudioSettingIdPrefix,
-} from '@studio/components/Settings/constants';
-import { isGuiTarget, JSONBig, transformNebulaResult } from '@studio/utils';
+import { CONSOLE_DEFAULT_LOCAL_SETTINGS } from '@studio/components/Settings/constants';
+import { JSONBig, transformNebulaResult } from '@studio/utils';
 
 interface GraphResultProps {
   result: ConsoleResult<GraphDataTable>;
@@ -32,6 +26,7 @@ interface GraphResultProps {
 
 function GraphResult(props: GraphResultProps) {
   const { result, onGraphInit } = props;
+  const host = useConsoleResultHost();
 
   const [explorerItem, setExplorerItem] = useState<GraphWorkspaceStore | null>(null);
 
@@ -39,9 +34,7 @@ function GraphResult(props: GraphResultProps) {
     return getUsedGraphsFromData(result.data?.tables || []);
   }, [result]);
 
-  const settingId = isGuiTarget
-    ? `${GuiSettingIdPrefix}`
-    : `${StudioSettingIdPrefix}${commonStore.userInfo?.username ?? ''}`;
+  const settingId = host.graphSettingsId;
   const latestLocalSettings = useMemo(() => {
     return {
       ...CONSOLE_DEFAULT_LOCAL_SETTINGS,
@@ -50,30 +43,27 @@ function GraphResult(props: GraphResultProps) {
   }, [settingId]);
 
   const createExplorerItem = async () => {
-    await consoleStore.updateGraphTypeMap(usedGraphs);
+    await host.prepareGraphTypes(usedGraphs);
 
     const resultId = result.id;
-    if (consoleStore.graphWorkspaces.has(resultId)) {
-      const item = consoleStore.graphWorkspaces.get(resultId)!;
-      setExplorerItem(item);
-      return item;
+    const existing = host.getWorkspace(resultId);
+    if (existing) {
+      setExplorerItem(existing);
+      return existing;
     }
     const explorerItem = new GraphWorkspaceStore({
       stores: {
-        modalStore,
+        modalStore: host.modalStore,
       },
-      execGql: execGql as ConstructorParameters<typeof GraphWorkspaceStore>[0]['execGql'],
+      execGql: host.execGql,
       explorerId: resultId,
     });
-    consoleStore.graphWorkspaces.set(resultId, explorerItem);
+    host.saveWorkspace(resultId, explorerItem);
     setExplorerItem(explorerItem);
 
     onGraphInit?.(resultId);
 
-    const graphTypes = consoleStore.graphs
-      .filter((item) => usedGraphs.includes(item.graph))
-      .map((item) => item.graph_type);
-    for (const item of [...new Set(graphTypes)]) {
+    for (const item of [...new Set(host.graphTypesFor(usedGraphs))]) {
       explorerItem.initGraphTypeDetails(item);
     }
 
@@ -87,7 +77,7 @@ function GraphResult(props: GraphResultProps) {
         explorerItem.graph.destroyGraph();
         explorerItem.destroy();
         if (explorerItem.explorerId) {
-          consoleStore.graphWorkspaces.delete(explorerItem.explorerId);
+          host.deleteWorkspace(explorerItem.explorerId);
         }
       };
     });

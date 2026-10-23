@@ -3,67 +3,45 @@ import { Box, Divider, List, ListItemButton, Popover, Typography } from '@mui/ma
 import { NonCollapsibleHeader, SiderItemHeader } from './styles';
 import { MenuUp, MenuDown, SitemapOutline } from '@vesoft-inc/icons';
 import { observer } from 'mobx-react-lite';
-import { useModal } from '@studio/stores/useModal';
-import { commonStore, schemaStore } from '@studio/stores/session';
 import { useTranslation } from 'react-i18next';
 import { ISchemaItem } from '@studio/interfaces';
-import { useLocation, useNavigate } from 'react-router-dom';
 import CreateSchemaModal from '@studio/components/CreateSchemaModal';
-import { isGuiTarget } from '@studio/utils';
 
-interface IProps {
+export interface SchemaSelectorProps {
   paperWidth: number;
-  onSchemaChanged?: (schema: ISchemaItem) => void | Promise<void>;
+  schemaLabel?: string;
+  schemas: ISchemaItem[];
+  collapsed: boolean;
+  onSwitchSchema: (schema: ISchemaItem) => Promise<boolean>;
+  onCreateSchema: (path: string) => Promise<boolean>;
+  onViewAllSchemas: () => void;
 }
 
 const popoverId = 'schema-selector';
 
-function SchemaSelector(props: IProps) {
-  const { paperWidth, onSchemaChanged } = props;
-  const { userInfo } = commonStore;
-  const { schemas, switchSchema } = schemaStore;
+function SchemaSelector(props: SchemaSelectorProps) {
+  const { paperWidth, schemaLabel, schemas, collapsed, onSwitchSchema, onCreateSchema, onViewAllSchemas } = props;
   const { t } = useTranslation(['common']);
-  const { pathname } = useLocation();
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const open = Boolean(anchorEl);
-  const message = useModal().message;
-  const navigate = useNavigate();
   const handleClose = () => {
     setAnchorEl(null);
   };
 
   const handleChangeSchema = (schema: ISchemaItem) => async () => {
-    const res = await switchSchema(schema.path);
-    if (res.code === 0) {
-      schemaStore.updateCurrentSchame(schema);
-      message.success(t('switchSchemaSuccess', { ns: 'common' }));
-      if (onSchemaChanged) {
-        handleClose();
-        await onSchemaChanged(schema);
-        return;
-      }
-      if (pathname.includes('console')) {
-        navigate('/console', { replace: true });
-      } else {
-        navigate('/schema-manager/graphtype', { replace: true });
-      }
-      navigate(0);
-    }
+    const switched = await onSwitchSchema(schema);
+    if (switched) handleClose();
   };
 
   const handleCreateSchema = async (path: string) => {
-    const res = await schemaStore.createSchema(path);
-    if (res.code === 0) {
-      setCreateModalOpen(false);
-      schemaStore.getSchemas();
-      navigate('/schema-list');
-    }
+    const created = await onCreateSchema(path);
+    if (created) setCreateModalOpen(false);
   };
 
   return (
     <>
-      {!isGuiTarget ? (
+      {!collapsed ? (
         <SiderItemHeader
           variant="text"
           sx={{
@@ -86,7 +64,7 @@ function SchemaSelector(props: IProps) {
           >
             <Box display="flex" alignItems="center">
               <SitemapOutline sx={{ mr: 1 }} />
-              {userInfo?.curSchemaPath.split('/').pop()}
+              {schemaLabel}
             </Box>
             {<>{open ? <MenuUp fontSize="medium" /> : <MenuDown fontSize="medium" />}</>}
           </Box>
@@ -139,9 +117,7 @@ function SchemaSelector(props: IProps) {
                 fontWeight: 'bold',
                 color: (theme) => theme.palette.vesoft.v2.primary3,
               }}
-              onClick={() => {
-                navigate('/schema-list');
-              }}
+              onClick={onViewAllSchemas}
             >
               {t('viewAllSchemas', { ns: 'common' })}
             </ListItemButton>

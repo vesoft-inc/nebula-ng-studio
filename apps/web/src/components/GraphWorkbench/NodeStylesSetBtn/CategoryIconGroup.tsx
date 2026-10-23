@@ -1,5 +1,5 @@
 import { useModal } from '@studio/stores/useModal';
-import { commonStore, iconGroupStore } from '@studio/stores/session';
+import { iconGroupStore } from '@studio/stores/session';
 import { IconGroupType } from '@studio/utils/explorer/constant';
 import { Language } from '@studio/utils/i18n';
 import { Box, Button, IconButton, styled, Tab, Tabs, Tooltip } from '@mui/material';
@@ -75,7 +75,7 @@ function CategoryIconGroup(props: IProps) {
   const { onIconSelect, onImgSelect, type, allowRemoteIconManagement = false } = props;
   const { initIconGroupList, addNewGroup, deleteGroup, updateGroupName, selectGroup, addIcon, deleteIcon } =
     iconGroupStore;
-  const { t } = useTranslation(['explorer']);
+  const { t, i18n } = useTranslation(['explorer']);
   const typeGroupKey = `${type}Group` as const;
   const { message } = useModal();
   // const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,7 +237,7 @@ function CategoryIconGroup(props: IProps) {
             value={group.id}
             label={
               <EditableText
-                text={commonStore.language === Language.EN_US ? group.name : group.nameCN || group.name}
+                text={i18n.language === Language.EN_US ? group.name : group.nameCN || group.name}
                 editable={group.editable}
                 onComplete={async (name) => {
                   await updateGroupName({ group, name });

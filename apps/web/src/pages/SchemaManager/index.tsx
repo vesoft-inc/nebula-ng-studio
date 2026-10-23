@@ -10,6 +10,7 @@ import { ISchemaTreeRawData } from '@studio/interfaces';
 import { encodeUrl, isGuiTarget } from '@studio/utils';
 import { commonStore, schemaStore } from '@studio/stores/session';
 import CreateGraphModal from '@studio/components/CreateGraphModal';
+import { useSchemaTreeBindings } from '@studio/pages/schemaTreeBindings';
 import GraphTypeStore from '@studio/stores/graphtype';
 import { GraphTypeStoreProvider } from './context';
 
@@ -22,6 +23,7 @@ function Schema() {
 
   useEffect(() => () => graphTypeStore.destroySchemaStore(), [graphTypeStore]);
   const { selectedKeys, schemas, updateSelectedKeys, createGraphModalInfo } = schemaStore;
+  const schemaTree = useSchemaTreeBindings(false);
 
   useEffect(() => {
     if (isGuiTarget) {
@@ -97,7 +99,17 @@ function Schema() {
           background: theme.palette.vesoft.v2.bg1,
         }}
       >
-        <SchemaTree showDetail={false} onItemSelected={handleItemSelected} selectedKeys={selectedKeys} />
+        <SchemaTree
+          showDetail={false}
+          schema={schemaTree.schema}
+          onReady={schemaTree.onReady}
+          onLoadNode={schemaTree.onLoadNode}
+          onCreateGraphType={schemaTree.onCreateGraphType}
+          onCreateGraph={schemaTree.onCreateGraph}
+          selector={schemaTree.selector}
+          onItemSelected={handleItemSelected}
+          selectedKeys={selectedKeys}
+        />
         <Box
           position="relative"
           padding={theme.spacing(3, 0)}
@@ -114,6 +126,7 @@ function Schema() {
           onCancel={() => {
             schemaStore.updateCreateGraphModalInfo({ visible: false });
           }}
+          onCreate={(values) => schemaStore.createGraph(values.graphName, values.graphType)}
           onOk={() => {
             schemaStore.updateGraphsBySchema();
             navigate('/schema-manager/graphs');

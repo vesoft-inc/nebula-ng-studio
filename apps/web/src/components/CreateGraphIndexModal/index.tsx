@@ -12,9 +12,8 @@ import FormVectorIndex, { CreateGraphVectorIndexFormValues } from './FormVectorI
 import FormSpatialIndex, { CreateGraphSpatialIndexFormValues } from './FormSpatialIndex';
 import FormFulltextIndex, { CreateGraphFulltextIndexFormValues } from './FormFulltextIndex';
 import FormVertexCentricIndex, { CreateGraphVertexCentricIndexFormValues } from './FormVertexCentricIndex';
-import { execGql } from '@studio/services';
-import { useModal } from '@studio/stores/useModal';
-import { schemaStore } from '@studio/stores/session';
+import { modalStore } from '@vesoft-inc/ui-components/modal';
+import { IndexQueryProvider, type RunGql } from './queryContext';
 import { EdgeDirectionType, GraphEntityType, SortType } from '@vesoft-inc/utils';
 import { extractEdgeByEdgeTypeName } from '@studio/utils';
 
@@ -26,24 +25,28 @@ export const CreateGraphIndexModal = ({
   graphName,
   onOk,
   onCancel,
+  runGql,
+  loadEntities,
 }: {
   open: boolean;
   graphName: string;
   onOk?: () => void;
   onCancel?: () => void;
+  runGql: RunGql;
+  loadEntities: (graphName: string) => Promise<GraphTypeElementOption[]>;
 }) => {
   const theme = useTheme();
   const { t } = useTranslation(['graph', 'common']);
-  const { message } = useModal();
+  const { message } = modalStore;
 
   const [entities, setEntities] = useState<GraphTypeElementOption[]>([]);
   useEffect(() => {
     if (!open) return;
 
-    schemaStore.getEntityTypeInfoByGraphName(graphName).then((res) => {
-      setEntities(res as GraphTypeElementOption[]);
+    loadEntities(graphName).then((res) => {
+      setEntities(res);
     });
-  }, [open]);
+  }, [open, graphName, loadEntities]);
 
   const formForNormalIndex = useForm<CreateGraphIndexFormValues>({
     resolver: typedZodResolver<CreateGraphIndexFormValues>(
@@ -140,7 +143,7 @@ export const CreateGraphIndexModal = ({
   const handleSubmitForNormalIndex = async () => {
     const { indexName, on } = formForNormalIndex.getValues();
     const createIndexGql = `USE \`${graphName}\` CREATE INDEX \`${indexName}\` ON ${on.entity_type} \`${on.type_name}\` (${(on.indexProperties || []).map((property) => `\`${property.name}\` ${property.sort}`).join(', ')})`;
-    const res = await execGql(createIndexGql);
+    const res = await runGql(createIndexGql);
     if (res.code === 0) {
       message.success(t('createIndexSuccess', { ns: 'graph' }));
       onOk?.();
@@ -154,7 +157,7 @@ export const CreateGraphIndexModal = ({
       .filter((key) => on.metrics[key as keyof typeof on.metrics])
       .map((key) => `${key}: ${on.metrics[key as keyof typeof on.metrics]}`)
       .join(', ')}}`;
-    const res = await execGql(createIndexGql);
+    const res = await runGql(createIndexGql);
     if (res.code === 0) {
       message.success(t('createIndexSuccess', { ns: 'graph' }));
       onOk?.();
@@ -163,7 +166,7 @@ export const CreateGraphIndexModal = ({
   const handleSubmitForSpatialIndex = async () => {
     const { indexName, on } = formForSpatialIndex.getValues();
     const createIndexGql = `USE \`${graphName}\` CREATE SPATIAL INDEX \`${indexName}\` ON ${on.entity_type} \`${on.type_name}\`(\`${on.propName}\`, s2_max_level = ${on.s2_max_level}, s2_max_cells = ${on.s2_max_cells})`;
-    const res = await execGql(createIndexGql);
+    const res = await runGql(createIndexGql);
     if (res.code === 0) {
       message.success(t('createIndexSuccess', { ns: 'graph' }));
       onOk?.();
@@ -172,7 +175,7 @@ export const CreateGraphIndexModal = ({
   const handleSubmitForFulltextIndex = async () => {
     const { indexName, on } = formForFulltextIndex.getValues();
     const createIndexGql = `USE \`${graphName}\` CREATE FULLTEXT INDEX \`${indexName}\` ON ${on.entity_type} ${on.type_name}(\`${on.propName}\`)`;
-    const res = await execGql(createIndexGql);
+    const res = await runGql(createIndexGql);
     if (res.code === 0) {
       message.success(t('createIndexSuccess', { ns: 'graph' }));
       onOk?.();
@@ -198,7 +201,7 @@ export const CreateGraphIndexModal = ({
       .map((property) => `\`${property.name}\` ${property.sort}`)
       .join(', ');
     const createIndexGql = `USE \`${graphName}\` CREATE INDEX \`${indexName}\` ON EDGE \`${on.type_name}\` (${on.anchor}${propertyClauses ? `, ${propertyClauses}` : ''})`;
-    const res = await execGql(createIndexGql);
+    const res = await runGql(createIndexGql);
     if (res.code === 0) {
       message.success(t('createIndexSuccess', { ns: 'graph' }));
       onOk?.();
@@ -249,107 +252,109 @@ export const CreateGraphIndexModal = ({
   };
 
   return (
-    <Modal
-      title={t('createIndex', { ns: 'graph' })}
-      open={open}
-      slotProps={{
-        footer: {
-          onOk: () => handleSubmit(),
-          okText: isCreating ? '' : t('create', { ns: 'common' }),
-          cancelText: t('cancel', { ns: 'common' }),
-          slotProps: {
-            cancelButton: {
-              disabled: isCreating,
-            },
-            okButton: {
-              startIcon: null,
-              loading: isCreating,
-              // disabled: !formForNormalIndex.formState.isValid,
+    <IndexQueryProvider value={runGql}>
+      <Modal
+        title={t('createIndex', { ns: 'graph' })}
+        open={open}
+        slotProps={{
+          footer: {
+            onOk: () => handleSubmit(),
+            okText: isCreating ? '' : t('create', { ns: 'common' }),
+            cancelText: t('cancel', { ns: 'common' }),
+            slotProps: {
+              cancelButton: {
+                disabled: isCreating,
+              },
+              okButton: {
+                startIcon: null,
+                loading: isCreating,
+                // disabled: !formForNormalIndex.formState.isValid,
+              },
             },
           },
-        },
-      }}
-      onCancel={onCancel}
-    >
-      <Box sx={{ padding: `${theme.spacing(1)} ${theme.spacing(1)} 0` }}>
-        <Box sx={{ mb: 3 }}>
-          <Box>
-            <strong>{t('indexType', { ns: 'graph' })}</strong>
+        }}
+        onCancel={onCancel}
+      >
+        <Box sx={{ padding: `${theme.spacing(1)} ${theme.spacing(1)} 0` }}>
+          <Box sx={{ mb: 3 }}>
+            <Box>
+              <strong>{t('indexType', { ns: 'graph' })}</strong>
+            </Box>
+            <Box sx={{ mb: 1 }}>
+              <RadioGroup
+                row
+                value={currentTab}
+                name="indexType"
+                onChange={(e) => {
+                  setCurrentTab(e.target.value as IndexTab);
+                }}
+                sx={{
+                  gap: '12px',
+                }}
+              >
+                <FormControlLabel
+                  value="normal"
+                  control={<Radio size="small" />}
+                  label={t('normalIndex.title', { ns: 'graph' })}
+                  sx={{ marginRight: 0 }}
+                />
+                <Box display="flex" alignItems="center" gap="4px">
+                  <FormControlLabel
+                    value="vertexCentric"
+                    control={<Radio size="small" />}
+                    label={t('vertexCentricIndex.title', { ns: 'graph' })}
+                    sx={{ marginRight: 0 }}
+                  />
+                  <Tooltip title={t('vertexCentricIndex.description', { ns: 'graph' })} placement="top">
+                    <HelpCircleOutline fontSize="small" color="action" />
+                  </Tooltip>
+                </Box>
+                <Box display="flex" alignItems="center" gap="4px">
+                  <FormControlLabel
+                    value="vector"
+                    control={<Radio size="small" />}
+                    label={t('vectorIndex.title', { ns: 'graph' })}
+                    sx={{ marginRight: 0 }}
+                  />
+                  <Tooltip title={t('vectorIndex.description')} placement="top">
+                    <HelpCircleOutline fontSize="small" color="action" />
+                  </Tooltip>
+                </Box>
+                <Box display="flex" alignItems="center" gap="4px">
+                  <FormControlLabel
+                    value="spatial"
+                    control={<Radio size="small" />}
+                    label={t('spatialIndex.title', { ns: 'graph' })}
+                    sx={{ marginRight: 0 }}
+                  />
+                  <Tooltip title={t('spatialIndex.description')} placement="top">
+                    <HelpCircleOutline fontSize="small" color="action" />
+                  </Tooltip>
+                </Box>
+                <Box display="flex" alignItems="center" gap="4px">
+                  <FormControlLabel
+                    value="fulltext"
+                    control={<Radio size="small" />}
+                    label={t('fulltextIndex.title', { ns: 'graph' })}
+                    sx={{ marginRight: 0 }}
+                  />
+                  <Tooltip title={t('fulltextIndex.description')} placement="top">
+                    <HelpCircleOutline fontSize="small" color="action" />
+                  </Tooltip>
+                </Box>
+              </RadioGroup>
+            </Box>
+            {currentTab === 'normal' && <FormNormalIndex form={formForNormalIndex} entities={entities} />}
+            {currentTab === 'vertexCentric' && (
+              <FormVertexCentricIndex form={formForVertexCentricIndex} entities={entities} />
+            )}
+            {currentTab === 'vector' && <FormVectorIndex form={formForVectorIndex} entities={entities} />}
+            {currentTab === 'spatial' && <FormSpatialIndex form={formForSpatialIndex} entities={entities} />}
+            {currentTab === 'fulltext' && <FormFulltextIndex form={formForFulltextIndex} entities={entities} />}
           </Box>
-          <Box sx={{ mb: 1 }}>
-            <RadioGroup
-              row
-              value={currentTab}
-              name="indexType"
-              onChange={(e) => {
-                setCurrentTab(e.target.value as IndexTab);
-              }}
-              sx={{
-                gap: '12px',
-              }}
-            >
-              <FormControlLabel
-                value="normal"
-                control={<Radio size="small" />}
-                label={t('normalIndex.title', { ns: 'graph' })}
-                sx={{ marginRight: 0 }}
-              />
-              <Box display="flex" alignItems="center" gap="4px">
-                <FormControlLabel
-                  value="vertexCentric"
-                  control={<Radio size="small" />}
-                  label={t('vertexCentricIndex.title', { ns: 'graph' })}
-                  sx={{ marginRight: 0 }}
-                />
-                <Tooltip title={t('vertexCentricIndex.description', { ns: 'graph' })} placement="top">
-                  <HelpCircleOutline fontSize="small" color="action" />
-                </Tooltip>
-              </Box>
-              <Box display="flex" alignItems="center" gap="4px">
-                <FormControlLabel
-                  value="vector"
-                  control={<Radio size="small" />}
-                  label={t('vectorIndex.title', { ns: 'graph' })}
-                  sx={{ marginRight: 0 }}
-                />
-                <Tooltip title={t('vectorIndex.description')} placement="top">
-                  <HelpCircleOutline fontSize="small" color="action" />
-                </Tooltip>
-              </Box>
-              <Box display="flex" alignItems="center" gap="4px">
-                <FormControlLabel
-                  value="spatial"
-                  control={<Radio size="small" />}
-                  label={t('spatialIndex.title', { ns: 'graph' })}
-                  sx={{ marginRight: 0 }}
-                />
-                <Tooltip title={t('spatialIndex.description')} placement="top">
-                  <HelpCircleOutline fontSize="small" color="action" />
-                </Tooltip>
-              </Box>
-              <Box display="flex" alignItems="center" gap="4px">
-                <FormControlLabel
-                  value="fulltext"
-                  control={<Radio size="small" />}
-                  label={t('fulltextIndex.title', { ns: 'graph' })}
-                  sx={{ marginRight: 0 }}
-                />
-                <Tooltip title={t('fulltextIndex.description')} placement="top">
-                  <HelpCircleOutline fontSize="small" color="action" />
-                </Tooltip>
-              </Box>
-            </RadioGroup>
-          </Box>
-          {currentTab === 'normal' && <FormNormalIndex form={formForNormalIndex} entities={entities} />}
-          {currentTab === 'vertexCentric' && (
-            <FormVertexCentricIndex form={formForVertexCentricIndex} entities={entities} />
-          )}
-          {currentTab === 'vector' && <FormVectorIndex form={formForVectorIndex} entities={entities} />}
-          {currentTab === 'spatial' && <FormSpatialIndex form={formForSpatialIndex} entities={entities} />}
-          {currentTab === 'fulltext' && <FormFulltextIndex form={formForFulltextIndex} entities={entities} />}
         </Box>
-      </Box>
-    </Modal>
+      </Modal>
+    </IndexQueryProvider>
   );
 };
 

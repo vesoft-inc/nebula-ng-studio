@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Box, Chip, IconButton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import {
   AddFilled,
@@ -15,7 +14,6 @@ import { DescEdgeTypeResult, DescNodeTypeResult, EdgeDirectionType, GraphEntityT
 
 import { SchemaItemType } from '@studio/utils/constant';
 import { extractEdgeByEdgeTypeName, getLabelColor } from '@studio/utils';
-import { schemaStore } from '@studio/stores/session';
 import { GraphTypeElement, NebulaSchema } from '@studio/interfaces';
 import { useTranslation } from 'react-i18next';
 
@@ -50,12 +48,15 @@ export const generateTreeNodeKey = (
   }
 };
 
-export default function useConvertSchemaToTree(schema: NebulaSchema, showDetail: boolean) {
+export default function useConvertSchemaToTree(
+  schema: NebulaSchema,
+  showDetail: boolean,
+  actions?: { onCreateGraphType?: () => void; onCreateGraph?: () => void }
+) {
   const theme = useTheme();
   const { t } = useTranslation(['common']);
-  const navigate = useNavigate();
   const handleCreateGraphType = () => () => {
-    navigate('/schema-manager/graphtype/create');
+    actions?.onCreateGraphType?.();
   };
 
   const renderEdgeInfo = (entity: GraphTypeElement) => {
@@ -240,7 +241,7 @@ export default function useConvertSchemaToTree(schema: NebulaSchema, showDetail:
           rightPart: showDetail ? undefined : (
             <IconButton
               onClick={() => {
-                schemaStore.updateCreateGraphModalInfo({ visible: true });
+                actions?.onCreateGraph?.();
               }}
             >
               <AddFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />
@@ -277,7 +278,7 @@ export default function useConvertSchemaToTree(schema: NebulaSchema, showDetail:
         },
       ];
     },
-    [schema]
+    [schema, showDetail, actions?.onCreateGraph, actions?.onCreateGraphType, t, theme]
   );
 
   return convertSchemasToTree;

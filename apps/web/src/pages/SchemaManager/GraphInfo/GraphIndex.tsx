@@ -3,7 +3,7 @@ import { Box, Button, IconButton, useTheme } from '@mui/material';
 import { AddFilled, Delete } from '@vesoft-inc/icons';
 import { Table } from '@vesoft-inc/ui-components';
 import { MRT_ColumnDef } from 'material-react-table';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
@@ -11,6 +11,8 @@ import { IGraphIndex } from '@studio/interfaces';
 import { useModal } from '@studio/stores/useModal';
 import { schemaStore } from '@studio/stores/session';
 import CreateGraphIndexModal from '@studio/components/CreateGraphIndexModal';
+import { execGql } from '@studio/services';
+import type { GraphTypeElementOption } from '@studio/components/CreateGraphIndexModal/FormNormalIndex';
 
 function GraphIndex() {
   const [indexData, setIndexData] = useState<IGraphIndex[]>([]);
@@ -21,6 +23,11 @@ function GraphIndex() {
   const { message } = modalStore;
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const loadEntities = useCallback(
+    async (graphName: string) =>
+      (await schemaStore.getEntityTypeInfoByGraphName(graphName)) as GraphTypeElementOption[],
+    []
+  );
 
   useEffect(() => {
     fetchData();
@@ -130,6 +137,8 @@ function GraphIndex() {
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         graphName={params.graphName!}
+        runGql={execGql}
+        loadEntities={loadEntities}
         onOk={() => {
           fetchData();
           setModalOpen(false);

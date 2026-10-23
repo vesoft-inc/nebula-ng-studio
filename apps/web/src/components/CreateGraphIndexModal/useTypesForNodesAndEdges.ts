@@ -1,10 +1,10 @@
 import { DescEdgeTypeResult, DescNodeTypeResult } from '@studio/interfaces';
-import { execGql } from '@studio/services';
 import { useEffect, useRef, useState } from 'react';
 import { GraphTypeElementOption } from './FormNormalIndex';
 import { GQLResult } from '@vesoft-inc/utils';
+import { useIndexQuery, type RunGql } from './queryContext';
 
-const getTypesForNodesAndEdges = async (graphTypeName: string) => {
+const getTypesForNodesAndEdges = async (graphTypeName: string, runGql: RunGql) => {
   const gqls = [
     [
       `{LET gtn = "${graphTypeName}"`,
@@ -22,7 +22,7 @@ const getTypesForNodesAndEdges = async (graphTypeName: string) => {
   const items = (
     await Promise.all(
       gqls.map((gql) =>
-        execGql<GQLResult<DescNodeTypeResult | DescEdgeTypeResult>>(gql).then((r) => r.data?.tables || [])
+        runGql<GQLResult<DescNodeTypeResult | DescEdgeTypeResult>>(gql).then((r) => r.data?.tables || [])
       )
     )
   ).flat();
@@ -38,6 +38,7 @@ export const useTypesForNodesAndEdges = ({
   entities: GraphTypeElementOption[];
   enabled?: boolean;
 }) => {
+  const runGql = useIndexQuery();
   const [items, setItems] = useState<(DescNodeTypeResult | DescEdgeTypeResult)[]>([]);
 
   // Cache for vector property options
@@ -57,7 +58,7 @@ export const useTypesForNodesAndEdges = ({
         return;
       }
 
-      const nextItems = await getTypesForNodesAndEdges(graphTypeName);
+      const nextItems = await getTypesForNodesAndEdges(graphTypeName, runGql);
       setItems(nextItems);
     };
 

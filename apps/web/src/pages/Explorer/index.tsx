@@ -2,7 +2,6 @@ import { Box } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { EXPLORER_DEFAULT_SETTINGS } from '@studio/components/Settings/constants';
-import { CommonStore } from '@studio/stores/common';
 import { ExplorerStore } from '@studio/stores/explorer';
 import { commonStore, consoleStore, schemaStore } from '@studio/stores/session';
 import { ExplorerStoreProvider } from './context';
@@ -18,8 +17,7 @@ function Explorer() {
   useEffect(() => {
     store.getCurrentSchema();
     store.getGraphItems();
-    const unregister =
-      commonStore instanceof CommonStore ? commonStore.registerExplorerDestroy(() => store.destroy()) : undefined;
+    const unregister = commonStore.registerExplorerDestroy(() => store.destroy());
     return () => {
       unregister?.();
       store.destroy();

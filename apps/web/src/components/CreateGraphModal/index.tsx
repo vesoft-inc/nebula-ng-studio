@@ -5,8 +5,7 @@ import { Box, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { FormContainer, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
 import { useEffect } from 'react';
-import { useModal } from '@studio/stores/useModal';
-import { schemaStore } from '@studio/stores/session';
+import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { GraphType } from '@studio/interfaces';
 
 export interface CreateGraphFormValues {
@@ -19,6 +18,7 @@ interface CreateGraphModalProps {
   graphTypes: GraphType[];
   onCancel?: () => void;
   onOk?: () => void;
+  onCreate: (values: CreateGraphFormValues) => Promise<{ code: number }>;
 }
 
 const getDefaultValues = () => ({
@@ -27,19 +27,19 @@ const getDefaultValues = () => ({
 });
 
 const CreateGraphModal = (props: CreateGraphModalProps) => {
-  const { open, onCancel, graphTypes, onOk } = props;
+  const { open, onCancel, graphTypes, onOk, onCreate } = props;
   const theme = useTheme();
   const form = useForm<CreateGraphFormValues>({
     defaultValues: getDefaultValues(),
   });
 
-  const { message } = useModal();
+  const { message } = modalStore;
 
   const { t } = useTranslation(['graphtype', 'common']);
 
   const onSubmit = async (values: CreateGraphFormValues) => {
     const { graphName, graphType } = values;
-    const res = await schemaStore.createGraph(graphName, graphType);
+    const res = await onCreate({ graphName, graphType });
     if (res.code === 0) {
       message.success(t('createGraphSuccess', { ns: 'graphtype' }));
       onOk?.();
