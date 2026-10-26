@@ -56,7 +56,10 @@ export const fetcher = new FetchService({
         if (error.config) signalDisposers.get(error.config)?.();
         const isCancelError = error?.code === 'ERR_CANCELED';
         const response = error?.response || {
-          data: { code: isCancelError ? HTTP_CANCEL_CODE : HttpResCode.ErrUnknown },
+          data: {
+            code: isCancelError ? HTTP_CANCEL_CODE : HttpResCode.ErrUnknown,
+            message: error?.message || 'Unknown error',
+          },
         };
         const session = error.config && requestSessions.get(error.config);
         if (session && session !== sessionRequests.signal) {

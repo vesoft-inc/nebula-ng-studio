@@ -57,6 +57,43 @@ describe('ConsoleController lifecycle', () => {
     expect(controller.editorRunning).toBe(false);
   });
 
+  it.each([undefined, null])('records errors without a message (%s) and allows the next query', async (message) => {
+    const execute = vi.fn().mockResolvedValue(response()).mockResolvedValueOnce({ code: 1, message });
+    const controller = new ConsoleController({ execute: execute as QueryExecutor, query: executor() });
+    controller.updateEditorValue('RETURN 1');
+    const failed = controller.runGql(controller.editorValue);
+    await vi.runAllTimersAsync();
+    await failed;
+
+    expect(controller.editorRunning).toBe(false);
+    expect(controller.editorValue).toBe('RETURN 1');
+    expect(controller.results[0]).toMatchObject({ code: 1, message: '' });
+
+    const retry = controller.runGql(controller.editorValue);
+    await vi.runAllTimersAsync();
+    await retry;
+    expect(controller.results).toHaveLength(2);
+    expect(controller.results[0].code).toBe(0);
+    expect(controller.editorValue).toBe('');
+    controller.destroy();
+  });
+
+  it('releases the running state when processing a delayed result throws', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const execute = vi.fn().mockResolvedValue(response()).mockResolvedValueOnce({ code: 1, message: 42 });
+    const controller = new ConsoleController({ execute: execute as QueryExecutor, query: executor() });
+    try {
+      const run = controller.runGql('RETURN 1');
+      await vi.runAllTimersAsync();
+      await run;
+      expect(controller.editorRunning).toBe(false);
+      expect(error).toHaveBeenCalledWith('error', expect.any(TypeError));
+    } finally {
+      error.mockRestore();
+      controller.destroy();
+    }
+  });
+
   it('ignores a cancelled response even when the adapter resolves after a new run', async () => {
     const pending = deferred<ServerResponse<object>>();
     const execute = vi.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(response());

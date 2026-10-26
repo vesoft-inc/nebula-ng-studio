@@ -328,31 +328,24 @@ export default class ConsoleController {
     await onAfterExecute?.(res);
 
     if (!config?.signal?.aborted && shouldRecordResult) {
-      await new Promise<void>((resolve) => {
-        setTimeout(() => {
-          if (config?.signal?.aborted) {
-            resolve();
-            return;
-          }
-          this.unsafeAction(() => {
-            const message = res.message.replace(/^\w+::/, '');
-            const result = {
-              ...res,
-              message,
-              id: uuid(),
-              gql: originalGql || trimmedGql,
-            } as Omit<ConsoleResult, 'destroy'>;
-            const interceptedResult = interceptConsoleResult
-              ? interceptConsoleResult({ ...result, destroy: () => undefined })
-              : result;
-            const finalResult: ConsoleResult = {
-              ...interceptedResult,
-              destroy: () => this.removeResult(finalResult),
-            };
-            this.results.unshift(finalResult);
-          });
-          resolve();
-        }, 200);
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      if (config?.signal?.aborted) return false;
+      this.unsafeAction(() => {
+        const message = (res.message ?? '').replace(/^\w+::/, '');
+        const result = {
+          ...res,
+          message,
+          id: uuid(),
+          gql: originalGql || trimmedGql,
+        } as Omit<ConsoleResult, 'destroy'>;
+        const interceptedResult = interceptConsoleResult
+          ? interceptConsoleResult({ ...result, destroy: () => undefined })
+          : result;
+        const finalResult: ConsoleResult = {
+          ...interceptedResult,
+          destroy: () => this.removeResult(finalResult),
+        };
+        this.results.unshift(finalResult);
       });
     }
 
