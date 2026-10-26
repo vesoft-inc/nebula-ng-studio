@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useModal } from '@studio/stores/useModal';
-import { commonStore, schemaStore } from '@studio/stores/session';
-import type { TreeNode } from '@studio/components/LazyTree';
-import type { ISchemaItem, ISchemaTreeRawData } from '@studio/interfaces';
-import { SchemaItemType } from '@studio/utils/constant';
+import { commonStore, schemaStore } from '@studio/app/session';
+import type { TreeNode } from '@vesoft-inc/ui-components/schema';
+import type { ISchemaItem, ISchemaTreeRawData } from '@vesoft-inc/ui-components/schema/types';
+import { SchemaItemType } from '@vesoft-inc/ui-components/utilities';
 import { isGuiTarget } from '@studio/utils';
 
 export async function loadSchemaTreeNode(node: TreeNode<ISchemaTreeRawData>, showDetail: boolean) {

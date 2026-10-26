@@ -1,4 +1,4 @@
-import { SketchListItem, ISketchItem } from '@studio/interfaces';
+import { SketchListItem, ISketchItem } from '@vesoft-inc/ui-components/schema/types';
 import { fetcher } from './fetcher';
 
 export const createSketch = async (payload: ISketchItem) => {

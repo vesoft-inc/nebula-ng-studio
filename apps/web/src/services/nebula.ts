@@ -1,4 +1,4 @@
-import { IUserInfo } from '@studio/interfaces';
+import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import { ConfigType, fetcher } from './fetcher';
 export const connect = async (payload: { address: string }, config: { headers: { Authorization: string } }) => {
   const res = await fetcher.post('/db/connect', payload, config);

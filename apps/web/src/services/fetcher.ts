@@ -1,6 +1,6 @@
 import { FetchService, HttpResCode, mergeAbortSignals, type ServiceProps } from '@vesoft-inc/utils';
 import { modalStore } from '@vesoft-inc/ui-components/modal';
-import { JSONBig } from '@studio/utils';
+import { JSONBig } from '@vesoft-inc/ui-components/utilities';
 import { sessionRequests } from './sessionRequests';
 
 export type ConfigType = ServiceProps['config'];

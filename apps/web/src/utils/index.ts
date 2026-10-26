@@ -1,4 +1,3 @@
-export * from '@vesoft-inc/ui-components/utilities';
 import { AppTarget } from './constant';
 
 export const isDevMode = () => process.env.NODE_ENV === 'development';

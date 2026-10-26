@@ -6,7 +6,7 @@ import { UiProvider } from '@vesoft-inc/ui-components/provider';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/ui-components/theme';
 import { modalStore, iconGroupStore } from './session';
 import i18n from '@studio/utils/i18n';
-import { injectCssVariable } from '@studio/utils';
+import { injectCssVariable } from '@vesoft-inc/ui-components/utilities';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => autorun(() => injectCssVariable(themeStore.theme)), []);

@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { ExplorerController, ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
 import { EXPLORER_DEFAULT_SETTINGS } from '@vesoft-inc/ui-components/settings';
-import { commonStore, consoleStore, schemaStore } from '@studio/stores/session';
+import { commonStore, consoleStore, schemaStore } from '@studio/app/session';
 import { createExplorerServices } from '@studio/services/explorerWorkbench';
 
 export default observer(function Explorer() {

@@ -9,7 +9,7 @@ import { fetcher } from '@studio/services/fetcher';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { loginReturnPath } from './paths';
 import { App } from './App';
-import type { IUserInfo } from '@studio/interfaces';
+import type { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import type { ReactNode } from 'react';
 
 vi.mock('./routes', () => ({ default: [{ path: '*', element: <div>page</div> }] }));

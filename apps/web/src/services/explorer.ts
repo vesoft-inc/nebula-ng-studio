@@ -1,6 +1,6 @@
 import { fetcher, type ConfigType } from './fetcher';
-import type { IconGroup, IconItem, Snapshot } from '@studio/interfaces/explorer/explorer';
-import { IconGroupType } from '@studio/utils/explorer/constant';
+import type { IconGroup, IconItem, Snapshot } from '@vesoft-inc/ui-components/graph/data';
+import { IconGroupType } from '@vesoft-inc/ui-components/graph/utils';
 
 type SnapshotPage = { total: number; page: number; pageSize: number; items: Snapshot[] };
 export const fetchSnapshots = async (

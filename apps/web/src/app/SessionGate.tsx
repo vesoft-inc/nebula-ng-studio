@@ -1,7 +1,7 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Navigate, useLocation } from 'react-router-dom';
-import PageLoading from '@studio/components/PageLoading';
+import { PageLoading } from '@vesoft-inc/ui-components';
 import { commonStore } from './session';
 import { loginPath } from './paths';
 

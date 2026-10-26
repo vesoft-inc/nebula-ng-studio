@@ -5,7 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { UiProvider } from '@vesoft-inc/ui-components/provider';
 import PageHeader from './index';
 
-vi.mock('@studio/stores/session', () => ({
+vi.mock('@studio/app/session', () => ({
   commonStore: { userInfo: undefined, hasDarkMode: true, changeLanguage: vi.fn(), logout: vi.fn() },
 }));
 vi.mock('@studio/utils', () => ({ brandConfig: { consoleName: 'NebulaGraph' } }));

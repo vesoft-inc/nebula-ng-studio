@@ -8,8 +8,8 @@ import {
   useStorageSettings,
   type ConsoleSettingsForm,
 } from '@vesoft-inc/ui-components/settings';
-import { StudioSettingIdPrefix } from '@studio/components/Settings/constants';
-import { commonStore, consoleStore, modalStore, schemaStore } from '@studio/stores/session';
+import { CONSOLE_SETTINGS_ID_PREFIX } from '@studio/app/settings';
+import { commonStore, consoleStore, modalStore, schemaStore } from '@studio/app/session';
 import { studioConsoleServices } from '@studio/stores/console';
 import { useSchemaTreeBindings } from '../schemaTreeBindings';
 import { brandConfig } from '@studio/utils';
@@ -20,7 +20,7 @@ export default observer(function ConsolePage() {
   const { t } = useTranslation('console');
   const schemaTree = useSchemaTreeBindings(true);
   const { settings, upsertSettings, isPending } = useStorageSettings<ConsoleSettingsForm>({
-    settingId: `${StudioSettingIdPrefix}${commonStore.userInfo?.username ?? ''}`,
+    settingId: `${CONSOLE_SETTINGS_ID_PREFIX}${commonStore.userInfo?.username ?? ''}`,
     defaultSettings: CONSOLE_DEFAULT_LOCAL_SETTINGS,
     storageInstance: sessionStorage,
   });

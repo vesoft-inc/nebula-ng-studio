@@ -2,14 +2,14 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { loadSchemaTreeNode, useSchemaTreeBindings } from './schemaTreeBindings';
-import { commonStore, schemaStore } from '@studio/stores/session';
-import { SchemaItemType } from '@studio/utils/constant';
+import { commonStore, schemaStore } from '@studio/app/session';
+import { SchemaItemType } from '@vesoft-inc/ui-components/utilities';
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@studio/stores/useModal', () => ({ useModal: () => ({ message: { success: vi.fn() } }) }));
-vi.mock('@studio/stores/session', () => ({
+vi.mock('@studio/app/session', () => ({
   commonStore: { userInfo: { curSchemaPath: '/a' }, setSchemaPath: vi.fn() },
   schemaStore: {
     currentSchema: { path: '/a' },

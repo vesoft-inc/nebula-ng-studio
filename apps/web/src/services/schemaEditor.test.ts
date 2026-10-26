@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NodeLayoutMap } from '@studio/interfaces';
+import type { NodeLayoutMap } from '@vesoft-inc/ui-components/schema/types';
 
 const globalConfig = vi.hoisted(() => ({
   fetchGlobalConfig: vi.fn(async (_key: string, _config?: unknown): Promise<unknown> => null),
@@ -8,17 +8,12 @@ const globalConfig = vi.hoisted(() => ({
   deleteGlobalConfig: vi.fn(),
 }));
 vi.mock('@studio/services/globalConfig', () => globalConfig);
-vi.mock('@studio/services', async () => ({
-  ...(await import('@studio/services/schemaLayout')),
-  execGql: vi.fn(),
-  getSketchById: vi.fn(),
-}));
-vi.mock('@studio/utils', () => ({ extractEdgeByEdgeTypeName: vi.fn() }));
+vi.mock('./nebula', () => ({ execGql: vi.fn() }));
 
-import { INodeTypeItem, IEdgeTypeItem } from '@studio/interfaces';
-import { execGql, readGraphTypeLayout } from '@studio/services';
-import { SCHEMA_LAYOUT_READ_TIMEOUT_MS } from '@studio/services/schemaLayout';
-import SchemaStore from './schema';
+import { INodeTypeItem, IEdgeTypeItem } from '@vesoft-inc/ui-components/schema/types';
+import { execGql } from './nebula';
+import { readGraphTypeLayout, SCHEMA_LAYOUT_READ_TIMEOUT_MS } from './schemaLayout';
+import { SchemaEditorState } from '@vesoft-inc/ui-components/schema-editor/model';
 
 const identity = {
   address: '127.0.0.1:9669',
@@ -29,12 +24,12 @@ const identity = {
 const saved: NodeLayoutMap = { A: { x: 10, y: 20 } };
 
 describe('graph type layout restoration', () => {
-  let store: SchemaStore;
+  let store: SchemaEditorState;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    store = new SchemaStore({
+    store = new SchemaEditorState({
       execute: execGql,
       layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
     });
@@ -79,7 +74,7 @@ describe('DECIMAL describe metadata', () => {
   it.each(['DECIMAL', 'DECIMAL(12)', 'DECIMAL(256,128)'])(
     'preserves node and edge parameters loaded from %s',
     async (data_type) => {
-      const store = new SchemaStore({
+      const store = new SchemaEditorState({
         execute: execGql,
         layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
       });

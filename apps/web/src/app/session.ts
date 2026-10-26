@@ -4,7 +4,7 @@ import { routerStore } from '@vesoft-inc/utils';
 import { CommonStore } from '@studio/stores/common';
 import ConsoleStore from '@studio/stores/console';
 import { IconGroupStore } from '@studio/stores/iconGroup';
-import SchemaStore from '@studio/stores/schema';
+import { SchemaController } from '@vesoft-inc/ui-components/schema/model';
 import { createSchemaServices } from '@studio/services/schemaCatalog';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { loginPath, toAppPath, toBrowserPath } from './paths';
@@ -12,7 +12,7 @@ import { loginPath, toAppPath, toBrowserPath } from './paths';
 export { modalStore, routerStore, themeStore };
 
 export const commonStore = new CommonStore();
-export const schemaStore = new SchemaStore(createSchemaServices(() => commonStore.userInfo));
+export const schemaStore = new SchemaController(createSchemaServices(() => commonStore.userInfo));
 export const consoleStore = new ConsoleStore();
 export const iconGroupStore = new IconGroupStore();
 

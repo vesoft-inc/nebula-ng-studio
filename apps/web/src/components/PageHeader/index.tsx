@@ -4,7 +4,7 @@ import { useHref, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { StudioHeader } from '@vesoft-inc/ui-components/shell';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
-import { commonStore } from '@studio/stores/session';
+import { commonStore } from '@studio/app/session';
 import { Language } from '@studio/utils/i18n';
 import { brandConfig } from '@studio/utils';
 import darkLogo from '/images/studio-logo-dark.svg?url';

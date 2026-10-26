@@ -16,7 +16,7 @@ vi.mock('./session', () => ({
   schemaStore: { currentSchema: { path: '/a' }, services: {} },
 }));
 vi.mock('@studio/components/PageHeader', () => ({ default: () => <header>Studio navigation</header> }));
-vi.mock('@studio/components/PageLoading', () => ({ default: () => <div>loading page</div> }));
+vi.mock('@vesoft-inc/ui-components', () => ({ PageLoading: () => <div>loading page</div> }));
 vi.mock('@studio/pages/Login', () => ({ default: () => <div>login page</div> }));
 vi.mock('@studio/pages/Console', () => ({
   default: () => {

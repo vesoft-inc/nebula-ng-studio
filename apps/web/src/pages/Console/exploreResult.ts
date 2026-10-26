@@ -1,16 +1,21 @@
 import { HttpResCode, type ConsoleResult } from '@vesoft-inc/utils';
-import type { GraphDataTable } from '@studio/interfaces/console';
+import type { GraphDataTable } from '@vesoft-inc/ui-components/graph/data';
 import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
-import { exportSnapshotTransfer } from '@studio/stores/explorer';
-import type ConsoleStore from '@studio/stores/console';
-import type SchemaStore from '@studio/stores/schema';
-import { buildHandoffPayload, buildSnapshotName, ensureSnapshotSchemaPath, pickGraphType } from '@studio/utils/console';
+import { exportSnapshotTransfer } from '@vesoft-inc/ui-components/explorer/model';
+import type { SchemaController } from '@vesoft-inc/ui-components/schema/model';
+import {
+  type ConsoleController,
+  buildHandoffPayload,
+  buildSnapshotName,
+  ensureSnapshotSchemaPath,
+  pickGraphType,
+} from '@vesoft-inc/ui-components/console/model';
 
 type ExploreResultArgs = {
   result: ConsoleResult<GraphDataTable>;
   graph?: string;
-  consoleStore: ConsoleStore;
-  schemaStore: SchemaStore;
+  consoleStore: ConsoleController;
+  schemaStore: SchemaController;
   schemaPathFallback?: string;
   navigate: (to: string) => void;
   notifyError: (message: string) => void;

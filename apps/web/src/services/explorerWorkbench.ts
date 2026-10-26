@@ -3,7 +3,7 @@ import { EXPLORER_DEFAULT_SETTINGS, type ExplorerSettings } from '@vesoft-inc/ui
 import { execGql } from './nebula';
 import { addSnapshot, deleteSnapshot, fetchSnapshots, getSnapshotDetail, updateSnapShot } from './explorer';
 import { fetchGlobalConfig, upsertGlobalConfig } from './globalConfig';
-import { EXPLORER_APP_CONFIG_KEY } from '@studio/components/Settings/hook';
+import { EXPLORER_APP_CONFIG_KEY } from '@studio/app/settings';
 
 export function createExplorerServices(username?: string): ExplorerServices {
   const personalKey = username ? `${EXPLORER_APP_CONFIG_KEY}-${encodeURI(username)}` : undefined;

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RawEntityType } from '@vesoft-inc/ui-components/graph/data';
+import { RawEntityType } from '../graph/types/console';
 import type { NodeObject } from '@vesoft-inc/force-graph';
-import type { GraphItem, GraphTypeElement } from '@studio/interfaces';
-import type { SnapshotData } from '@studio/interfaces/explorer/explorer';
+import type { GraphItem, GraphTypeElement } from '../schema/types';
+import type { SnapshotData } from '../graph/types/explorer';
 import {
   CONSOLE_SNAPSHOT_NAME_MAX_LENGTH,
   buildHandoffPayload,
@@ -10,7 +10,7 @@ import {
   ensureSnapshotSchemaPath,
   pickGraphType,
   rankGraphCandidates,
-} from './console';
+} from './handoff';
 
 const node = (graph: string, id: string = graph, nodeStyle: { color?: string; type?: string } = {}): NodeObject =>
   ({

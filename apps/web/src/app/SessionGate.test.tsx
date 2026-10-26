@@ -7,7 +7,7 @@ import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-do
 import { SessionGate } from './SessionGate';
 import { commonStore } from './session';
 import { fetchUserInfo } from '@studio/services';
-import type { IUserInfo } from '@studio/interfaces';
+import type { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 
 vi.mock('@studio/services', () => ({
   fetchUserInfo: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('./session', async () => {
   const { CommonStore } = await import('@studio/stores/common');
   return { commonStore: new CommonStore() };
 });
-vi.mock('@studio/components/PageLoading', () => ({ default: () => <div>checking session</div> }));
+vi.mock('@vesoft-inc/ui-components', () => ({ PageLoading: () => <div>checking session</div> }));
 
 afterEach(cleanup);
 const user = (username = 'a') => ({ username, address: 'db:9669', curSchemaPath: '/a' }) as IUserInfo;

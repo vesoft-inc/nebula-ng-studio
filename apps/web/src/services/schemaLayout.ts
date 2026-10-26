@@ -1,4 +1,4 @@
-import type { NodeLayoutMap, NodePosition } from '@studio/interfaces';
+import type { NodeLayoutMap, NodePosition } from '@vesoft-inc/ui-components/schema/types';
 import { safeParse } from '@studio/utils/function';
 import {
   deleteGlobalConfig,
@@ -144,8 +144,6 @@ export const sanitizeNodeLayoutMap = (input: unknown): NodeLayoutMap => {
   }
   return layout;
 };
-
-export { serializeNodePositions } from '@vesoft-inc/ui-components/schema-editor/model';
 
 const normalizeIdentity = (identity: SchemaLayoutIdentity): NormalizedIdentity | null => {
   const { address, username, graphTypeName } = identity;

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { LoginPage } from '@vesoft-inc/ui-components/shell';
 import { themeStore } from '@vesoft-inc/ui-components/theme';
-import { commonStore } from '@studio/stores/session';
+import { commonStore } from '@studio/app/session';
 import { fetchOauth2Config } from '@studio/services';
 import { brandConfig } from '@studio/utils';
 import { loginReturnPath } from '@studio/app/paths';

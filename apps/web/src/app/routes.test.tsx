@@ -3,13 +3,10 @@ import { matchRoutes } from 'react-router-dom';
 
 vi.mock('@studio/pages/Login', () => ({ default: () => null }));
 vi.mock('@studio/components/PageLayout', () => ({ default: () => null }));
-vi.mock('@studio/components/PageLoading', () => ({ default: () => null }));
+vi.mock('@vesoft-inc/ui-components', () => ({ PageLoading: () => null }));
 vi.mock('@studio/app/SessionGate', () => ({ SessionGate: () => null }));
 vi.mock('@studio/app/PageError', () => ({ PageError: () => null }));
 vi.mock('@vesoft-inc/icons', () => ({}));
-vi.mock('./interfaces', () => ({
-  GraphTypeBuildMode: { Readonly: 'Readonly', Edit: 'Edit', Create: 'Create', Sketch: 'Sketch' },
-}));
 
 describe('Explorer browser route contract', () => {
   afterEach(() => vi.unstubAllGlobals());
