@@ -231,14 +231,15 @@ type SnapshotActionResult struct {
 }
 
 type SnapshotItem struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Graph     string `json:"graph"`
-	GraphType string `json:"graph_type"`
-	Data      string `json:"data"`
-	Thumbnail string `json:"thumbnail"`
-	CreatedAt int64  `json:"created_at"`
-	UpdatedAt int64  `json:"updated_at"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Graph      string `json:"graph"`
+	GraphType  string `json:"graph_type"`
+	SchemaPath string `json:"schemaPath"`
+	Data       string `json:"data"`
+	Thumbnail  string `json:"thumbnail"`
+	CreatedAt  int64  `json:"created_at"`
+	UpdatedAt  int64  `json:"updated_at"`
 }
 
 type UpdateGlobalConfigParams struct {

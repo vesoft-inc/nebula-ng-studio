@@ -2,6 +2,7 @@ package explorer
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,11 +32,18 @@ func TestSnapshotServiceCRUDAndOwnership(t *testing.T) {
 	require.Equal(t, 1, list.Total)
 	require.Len(t, list.Items, 1)
 	require.Equal(t, "demo_type", list.Items[0].GraphType)
+	require.Equal(t, "/schema/demo", list.Items[0].SchemaPath)
 
 	detail, err := alice.Detail(&types.GetSnapshotDetailParams{ID: created.ID})
 	require.NoError(t, err)
 	require.Equal(t, `{"nodes":[]}`, detail.Data)
 	require.Equal(t, "thumbnail", detail.Thumbnail)
+	require.Equal(t, "/schema/demo", detail.SchemaPath)
+	encoded, err := json.Marshal(detail)
+	require.NoError(t, err)
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal(encoded, &payload))
+	require.Equal(t, "/schema/demo", payload["schemaPath"])
 
 	_, err = bob.Detail(&types.GetSnapshotDetailParams{ID: created.ID})
 	require.Error(t, err)

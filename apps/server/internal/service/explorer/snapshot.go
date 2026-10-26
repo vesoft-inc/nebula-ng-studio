@@ -92,7 +92,7 @@ func (s *SnapshotService) List(request *types.GetSnapshotsParams) (*types.GetSna
 
 	var snapshots []db.Snapshot
 	offset := (request.Page - 1) * request.PageSize
-	if err := query.Select("id", "name", "graph", "graph_type", "thumbnail", "created_at", "updated_at").
+	if err := query.Select("id", "name", "graph", "graph_type", "schema_path", "thumbnail", "created_at", "updated_at").
 		Order("updated_at desc").Offset(offset).Limit(request.PageSize).Find(&snapshots).Error; err != nil {
 		return nil, s.withErrorMessage(ecode.ErrInternalDatabase, err)
 	}
@@ -202,13 +202,14 @@ func (s *SnapshotService) dependencies() (*gorm.DB, *auth.AuthData, error) {
 
 func snapshotItem(snapshot db.Snapshot) types.SnapshotItem {
 	return types.SnapshotItem{
-		ID:        snapshot.ID,
-		Name:      snapshot.Name,
-		Graph:     snapshot.Graph,
-		GraphType: snapshot.GraphType,
-		Data:      snapshot.Data,
-		Thumbnail: snapshot.Thumbnail,
-		CreatedAt: snapshot.CreatedAt.UnixMilli(),
-		UpdatedAt: snapshot.UpdatedAt.UnixMilli(),
+		ID:         snapshot.ID,
+		Name:       snapshot.Name,
+		Graph:      snapshot.Graph,
+		GraphType:  snapshot.GraphType,
+		SchemaPath: snapshot.SchemaPath,
+		Data:       snapshot.Data,
+		Thumbnail:  snapshot.Thumbnail,
+		CreatedAt:  snapshot.CreatedAt.UnixMilli(),
+		UpdatedAt:  snapshot.UpdatedAt.UnixMilli(),
 	}
 }

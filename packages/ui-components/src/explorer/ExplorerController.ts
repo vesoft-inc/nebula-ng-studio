@@ -222,21 +222,31 @@ export class ExplorerStore {
     // Keep the canvas gated on the screenshot restore instead of flashing the empty state while
     // the payload is fetched, parsed and applied.
     graphWorkspace.setRestoreState('restoring');
-    const snapshotDetail = await this.getSnapshotDetail(snapshotId).finally(() => {
-      if (this.graphWorkspace === graphWorkspace) this.updateLoading(false);
-    });
-    if (this.graphWorkspace !== graphWorkspace) return;
     try {
-      if (snapshotDetail) {
-        // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
-        const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
-        graphWorkspace.initSnapShot({
-          ...snapshotDetail,
-          data,
-        });
+      const snapshotDetail = await this.getSnapshotDetail(snapshotId);
+      if (this.graphWorkspace !== graphWorkspace || !snapshotDetail) return;
+      const { schemaPath } = snapshotDetail;
+      if (!schemaPath) throw new Error('Snapshot schema is missing');
+
+      // A queued switch may still change the session, even when the current path already matches.
+      if (this.currentSchema.path !== schemaPath || this.schemaStore.switchingSchema) {
+        const res = await this.schemaStore.switchSchema(schemaPath);
+        if (res.code !== 0) throw new Error('Failed to restore snapshot schema');
+        this.services.onSchemaChanged?.(schemaPath);
       }
+      if (this.graphWorkspace !== graphWorkspace) return;
+
+      // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
+      const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
+      graphWorkspace.initSnapShot({
+        ...snapshotDetail,
+        data,
+      });
     } finally {
-      graphWorkspace.setRestoreState('ready');
+      if (this.graphWorkspace === graphWorkspace) {
+        this.updateLoading(false);
+        graphWorkspace.setRestoreState('ready');
+      }
     }
   };
 

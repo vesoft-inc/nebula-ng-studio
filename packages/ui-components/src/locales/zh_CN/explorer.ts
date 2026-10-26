@@ -6,6 +6,7 @@ const explorer = {
   explorerSettings: 'Explorer 设置',
   newExplorer: '添加图探索',
   addExplorerSuccess: '添加图探索成功',
+  openSnapshotFailed: '无法打开此图探索，请确认其 Schema 可用后重试。',
   deleteExplorer: '删除图探索',
   graphName: '图名称:',
   graphType: '图类型:',

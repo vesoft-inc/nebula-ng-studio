@@ -177,7 +177,7 @@ describe('Explorer snapshot serialization', () => {
     };
     vi.mocked(getSnapshotDetail).mockResolvedValueOnce({
       code: 0,
-      data: { id: 'snap-1', data: JSON.stringify(emptySnapshotData) },
+      data: { id: 'snap-1', schemaPath: '/schema/demo', data: JSON.stringify(emptySnapshotData) },
     } as never);
 
     await store.openSnapshot('snap-1', workspace as never);

@@ -6,6 +6,7 @@ const explorer = {
   noMatchingExplorations: 'No matching explorations. Try changing the filters.',
   explorerSettings: 'Explorer settings',
   addExplorerSuccess: 'Add new exploration success',
+  openSnapshotFailed: 'Unable to open this exploration. Check that its schema is available and try again.',
   deleteExplorer: 'Delete Exploration',
   graphName: 'Graph:',
   graphType: 'Graph Type:',
