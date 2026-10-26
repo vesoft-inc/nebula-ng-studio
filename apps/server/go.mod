@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.25.14
 
 require (
-	github.com/golang-jwt/jwt/v4 v4.5.1
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/mock v1.6.0
 	github.com/klauspost/compress v1.18.0
 	github.com/pkg/errors v0.9.1
