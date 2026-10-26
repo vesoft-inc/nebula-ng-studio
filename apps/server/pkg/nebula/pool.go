@@ -27,7 +27,7 @@ func InitClientContainer() {
 }
 
 func GetClientContainer() *ClientLRU {
-	logx.Infof("clientContainer len: %v", clientContainer.list.Len())
+	logx.Infof("clientContainer len: %v", clientContainer.Len())
 	return clientContainer
 }
 
@@ -131,10 +131,9 @@ func GetClient(uniqueId string) (*Client, error) {
 func RemoveClient(uniqueId string) {
 	clientMux.Lock()
 	defer clientMux.Unlock()
-	client := clientContainer.GetClient(uniqueId)
+	client := clientContainer.RemoveSpecClient(uniqueId)
 	if client != nil {
 		client.GetPool().Close()
-		clientContainer.RemoveSpecClient(uniqueId)
 	}
 	ClearConsoleClient(uniqueId)
 }

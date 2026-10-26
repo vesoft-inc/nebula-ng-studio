@@ -3,6 +3,7 @@ package nebula
 import (
 	"container/list"
 	"fmt"
+	"sync"
 	"time"
 
 	nebulaTypes "github.com/vesoft-inc/nebula-go/v5/pkg/types"
@@ -11,6 +12,7 @@ import (
 )
 
 type ClientLRU struct {
+	mu       sync.Mutex
 	capacity int
 	cache    map[string]*list.Element
 	list     *list.List
@@ -74,6 +76,8 @@ func NewClientLRU(capacity int) *ClientLRU {
 
 // Get retrieves the client from the container and updates its priority.
 func (c *ClientLRU) GetClient(key string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if elem, ok := c.cache[key]; ok {
 		c.list.MoveToFront(elem)
 		return elem.Value.(*Client)
@@ -83,6 +87,8 @@ func (c *ClientLRU) GetClient(key string) *Client {
 
 // Put inserts a client into the container.
 func (c *ClientLRU) PutClient(key string, client *Client) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if elem, ok := c.cache[key]; ok {
 		logx.Infof("client %s already existed, update client instance, and move to first\n", key)
 		c.list.MoveToFront(elem)
@@ -103,6 +109,8 @@ func (c *ClientLRU) PutClient(key string, client *Client) {
 }
 
 func (c *ClientLRU) RemoveExpiredClient() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, elem := range c.cache {
 		client := elem.Value.(*Client)
 		if client.IsExpired() {
@@ -113,10 +121,20 @@ func (c *ClientLRU) RemoveExpiredClient() {
 	}
 }
 
-func (c *ClientLRU) RemoveSpecClient(key string) {
+func (c *ClientLRU) RemoveSpecClient(key string) *Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if elem, ok := c.cache[key]; ok {
 		c.list.Remove(elem)
 		delete(c.cache, key)
 		logx.Infof("client disconnect, remove it %s", key)
+		return elem.Value.(*Client)
 	}
+	return nil
+}
+
+func (c *ClientLRU) Len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.list.Len()
 }
