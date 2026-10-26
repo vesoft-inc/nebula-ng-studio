@@ -55,8 +55,7 @@ const Modal = (props: ModalProps) => {
   return (
     <BootstrapDialog
       open={open}
-      disablePortal
-      container={props.container}
+      container={container}
       onClose={handleCancel}
       slots={{
         root: slots?.root,
