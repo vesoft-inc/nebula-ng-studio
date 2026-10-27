@@ -112,6 +112,8 @@ import { ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
 />;
 ```
 
+旧版快照接口未返回 `schemaPath` 时，列表项使用此次 `schema_path` 筛选确定的归属。直接打开快照会先按 `id` 和当前 Schema 查询列表确认归属；无法确认时拒绝恢复，避免在错误的 Schema 下加载或修改图数据。
+
 `ExplorerServices` 注入 `execute` 和快照的 `list/create/read/update/delete`；可选 `settings.load/save` 接入远端或本地存储，`snapshotVersion` 标记导出文件版本。`onSnapshotDeleted` 用于清理宿主的 Console 结果映射，`onSchemaChanged` 用于同步宿主会话。Web 的 `services/explorerWorkbench.ts` 负责服务端路径、用户名和配置 key。
 
 默认使用内部页面状态；`snapshotId={null}` 表示快照列表，字符串表示打开指定快照。搭配 `onSnapshotChange` 即可接入路由。宿主路由有离开保护时传入 `blocker`（`state/proceed/reset`）；内部导航自动提供未保存提示和保存后离开操作。Web 的适配器把 React Router 的 blocker 接到此契约。

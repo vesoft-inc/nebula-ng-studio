@@ -50,6 +50,12 @@ function snapshot(id: string, schemaPath: string): Snapshot {
   };
 }
 
+function legacySnapshot(id: string): Snapshot {
+  const detail = snapshot(id, '');
+  delete (detail as Partial<Snapshot>).schemaPath;
+  return detail;
+}
+
 function setup() {
   let sessionSchema = '/b';
   const calls: { gql: string; schema: string }[] = [];
@@ -93,6 +99,11 @@ function setup() {
     message: '',
     data: snapshot(id, `/${id}`),
   }));
+  const list = vi.fn<SnapshotServices['list']>().mockResolvedValue({
+    code: 0,
+    message: '',
+    data: { items: [], total: 0, page: 1, pageSize: 9 },
+  });
   const onSchemaChanged = vi.fn();
   const controller = new ExplorerStore({
     settings: {},
@@ -100,12 +111,12 @@ function setup() {
     services: {
       execute: execute as QueryExecutor,
       onSchemaChanged,
-      snapshots: { read, create: vi.fn(), update: vi.fn(), delete: vi.fn(), list: vi.fn() },
+      snapshots: { read, create: vi.fn(), update: vi.fn(), delete: vi.fn(), list },
     },
   });
   controllers.push(controller);
   const workspace = () => new GraphWorkspaceStore({ execGql: execute as QueryExecutor });
-  return { controller, schema, workspace, execute, calls, switchRequest, read, onSchemaChanged };
+  return { controller, schema, workspace, execute, calls, switchRequest, read, list, onSchemaChanged };
 }
 
 it('waits for the saved schema before loading metadata or allowing graph writes', async () => {
@@ -135,11 +146,99 @@ it('waits for the saved schema before loading metadata or allowing graph writes'
 });
 
 it('opens a snapshot in the current schema without reconnecting the session', async () => {
-  const { controller, workspace, switchRequest } = setup();
+  const { controller, workspace, switchRequest, list } = setup();
   const graph = workspace();
   await controller.openSnapshot('b', graph);
   expect(switchRequest).not.toHaveBeenCalled();
   expect(graph.currentSnapshot?.id).toBe('b');
+  expect(list).not.toHaveBeenCalled();
+});
+
+it('restores a legacy snapshot using its schema-filtered list context after the session changes', async () => {
+  const { controller, schema, workspace, switchRequest, read, list, calls } = setup();
+  const detail = legacySnapshot('legacy');
+  list.mockResolvedValueOnce({
+    ...success,
+    data: { items: [detail], total: 1, page: 1, pageSize: 9 },
+  });
+  read.mockResolvedValueOnce({ ...success, data: detail });
+  await controller.getSnapshots(1);
+  expect(controller.snapshots[0].schemaPath).toBe('/b');
+  await schema.switchSchema('/a');
+  const graph = workspace();
+
+  await controller.openSnapshot('legacy', graph);
+  await vi.waitFor(() => expect(graph.graphTypeDetails).toHaveLength(1));
+
+  expect(list).toHaveBeenCalledOnce();
+  expect(switchRequest.mock.calls.map(([path]) => path)).toEqual(['/a', '/b']);
+  expect(graph.currentSnapshot?.schemaPath).toBe('/b');
+  expect(calls.every(({ schema: path }) => path === '/b')).toBe(true);
+});
+
+it('checks schema-filtered membership before opening a legacy snapshot directly', async () => {
+  const { controller, workspace, read, list, switchRequest } = setup();
+  const detail = legacySnapshot('legacy');
+  read.mockResolvedValueOnce({ ...success, data: detail });
+  list.mockResolvedValueOnce({
+    ...success,
+    data: { items: [detail], total: 1, page: 1, pageSize: 1 },
+  });
+  const graph = workspace();
+
+  await controller.openSnapshot('legacy', graph);
+
+  expect(list).toHaveBeenCalledWith(
+    { page: 1, pageSize: 1, filter: JSON.stringify({ id: 'legacy', schema_path: '/b' }) },
+    { signal: expect.any(AbortSignal) }
+  );
+  expect(graph.currentSnapshot?.schemaPath).toBe('/b');
+  expect(graph.currentSnapshot?.name).toBe('legacy');
+  expect(switchRequest).not.toHaveBeenCalled();
+});
+
+it.each([{ items: [] as Snapshot[] }, { items: [legacySnapshot('different')] }])(
+  'does not guess a legacy snapshot schema when the filtered lookup does not contain its id: %j',
+  async ({ items }) => {
+    const { controller, workspace, read, list, switchRequest, execute } = setup();
+    read.mockResolvedValueOnce({ ...success, data: legacySnapshot('legacy') });
+    list.mockResolvedValueOnce({
+      ...success,
+      data: { items, total: items.length, page: 1, pageSize: 1 },
+    });
+    const graph = workspace();
+
+    await expect(controller.openSnapshot('legacy', graph)).rejects.toThrow('Snapshot schema is missing');
+
+    expect(switchRequest).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(graph.currentSnapshot).toBeUndefined();
+    expect(graph.graphEdit.canEdit).toBe(false);
+    expect(graph.restoreState).toBe('ready');
+    expect(controller.loading).toBe(false);
+  }
+);
+
+it('ignores a legacy membership lookup that finishes after another snapshot is opened', async () => {
+  const { controller, workspace, read, list, switchRequest } = setup();
+  const detail = legacySnapshot('legacy');
+  read.mockResolvedValueOnce({ ...success, data: detail });
+  const lookup = deferred<Awaited<ReturnType<SnapshotServices['list']>>>();
+  list.mockReturnValueOnce(lookup.promise);
+  const first = workspace();
+  const openingFirst = controller.openSnapshot('legacy', first);
+  await vi.waitFor(() => expect(list).toHaveBeenCalledOnce());
+  const latest = workspace();
+  await controller.openSnapshot('b', latest);
+  lookup.resolve({
+    ...success,
+    data: { items: [{ ...detail, schemaPath: '/a' }], total: 1, page: 1, pageSize: 1 },
+  });
+  await openingFirst;
+
+  expect(first.currentSnapshot).toBeUndefined();
+  expect(latest.currentSnapshot?.id).toBe('b');
+  expect(switchRequest).not.toHaveBeenCalled();
 });
 
 it.each(['missing schema', 'failed switch', 'rejected switch'])(

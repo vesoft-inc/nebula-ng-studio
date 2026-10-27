@@ -146,7 +146,13 @@ export class ExplorerStore {
     if (res.code === 0) {
       runInAction(() => {
         this.currentPage = Math.max(1, page);
-        this.snapshots.replace(res.data?.items || []);
+        // Older APIs omit schemaPath; the server-side schema filter still establishes ownership.
+        this.snapshots.replace(
+          (res.data?.items || []).map((item) => ({
+            ...item,
+            schemaPath: item.schemaPath || schemaPath,
+          }))
+        );
         this.total = res.data?.total || 0;
       });
     }
@@ -176,7 +182,22 @@ export class ExplorerStore {
     try {
       const snapshotDetail = await this.getSnapshotDetail(snapshotId);
       if (this.graphWorkspace !== graphWorkspace || !snapshotDetail) return;
-      const { schemaPath } = snapshotDetail;
+      let schemaPath = snapshotDetail.schemaPath || this.snapshots.find((item) => item.id === snapshotId)?.schemaPath;
+      if (!schemaPath && this.currentSchema.path) {
+        // Direct links have no list context. Verify membership before using the current schema.
+        const currentPath = this.currentSchema.path;
+        const result = await this.services.snapshots.list(
+          {
+            page: 1,
+            pageSize: 1,
+            filter: JSON.stringify({ id: snapshotId, schema_path: currentPath }),
+          },
+          { signal: this.abort.signal }
+        );
+        if (this.graphWorkspace !== graphWorkspace) return;
+        const item = result.code === 0 ? result.data?.items.find((item) => item.id === snapshotId) : undefined;
+        if (item) schemaPath = item.schemaPath || currentPath;
+      }
       if (!schemaPath) throw new Error('Snapshot schema is missing');
 
       // A queued switch may still change the session, even when the current path already matches.
@@ -191,6 +212,7 @@ export class ExplorerStore {
       const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
       graphWorkspace.initSnapShot({
         ...snapshotDetail,
+        schemaPath,
         data,
       });
     } finally {

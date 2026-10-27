@@ -40,8 +40,9 @@ function ExplorerGraph({ snapshotId, onBack, blocker, allowRemoteIconManagement 
       settings: explorerStore.settings,
     });
     setGraphWorkspace(workspace);
-    void explorerStore.openSnapshot(snapshotId, workspace).catch(() => {
+    void explorerStore.openSnapshot(snapshotId, workspace).catch((error: unknown) => {
       if (explorerStore.graphWorkspace === workspace) {
+        console.error('[explorer] Failed to open snapshot', snapshotId, error);
         modalStore.message.error(workspace.translate('openSnapshotFailed', { ns: 'explorer' }));
       }
     });
