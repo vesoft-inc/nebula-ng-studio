@@ -33,13 +33,13 @@ export default observer(function ConsolePage() {
       settings={settings}
       onSettingsChange={upsertSettings}
       settingsPending={isPending}
-      sidebar={<SchemaTree showDetail {...schemaTree} />}
+      sidebar={<SchemaTree {...schemaTree} />}
       onExplore={(result, graph) =>
         exploreConsoleResult({
           result,
           graph,
-          consoleStore,
-          schemaStore,
+          consoleController: consoleStore,
+          schemaController: schemaStore,
           schemaPathFallback: commonStore.userInfo?.curSchemaPath,
           navigate,
           notifyError: (text) => modalStore.message.error(text),

@@ -1,105 +1,35 @@
-import { HttpResCode, type ConsoleResult } from '@vesoft-inc/utils';
-import type { GraphDataTable } from '@vesoft-inc/ui-components/graph/data';
-import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
-import { exportSnapshotTransfer } from '@vesoft-inc/ui-components/explorer/model';
-import type { SchemaController } from '@vesoft-inc/ui-components/schema/model';
 import {
-  type ConsoleController,
-  buildHandoffPayload,
-  buildSnapshotName,
-  ensureSnapshotSchemaPath,
-  pickGraphType,
-} from '@vesoft-inc/ui-components/console/model';
+  ensureExplorerSnapshot,
+  type ConsoleExplorerOptions,
+} from '@vesoft-inc/ui-components/integrations/console-explorer';
+import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 
-type ExploreResultArgs = {
-  result: ConsoleResult<GraphDataTable>;
-  graph?: string;
-  consoleStore: ConsoleController;
-  schemaStore: SchemaController;
-  schemaPathFallback?: string;
+type ExploreResultArgs = Omit<ConsoleExplorerOptions, 'snapshots' | 'snapshotVersion'> & {
   navigate: (to: string) => void;
   notifyError: (message: string) => void;
   exploreFailedMessage: string;
 };
 
+const snapshots: ConsoleExplorerOptions['snapshots'] = {
+  read: (id) => getSnapshotDetail(id, { errTip: false }),
+  create: (payload) => addSnapshot(payload, { errTip: false }),
+};
+
 export async function exploreConsoleResult({
-  result,
-  graph,
-  consoleStore,
-  schemaStore,
-  schemaPathFallback,
   navigate,
   notifyError,
   exploreFailedMessage,
+  ...options
 }: ExploreResultArgs) {
   try {
-    const existing = consoleStore.getResultSnapshot(result.id);
-    if (!existing) {
-      const workspace = consoleStore.graphWorkspaces.get(result.id);
-      if (!graph || !workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
-    }
-
-    let targetGraph = graph;
-
-    if (existing) {
-      const detail = await getSnapshotDetail(existing.snapshotId, { errTip: false });
-      if (detail?.code === 0 && detail.data) {
-        navigate(`/explorer/snapshots/${existing.snapshotId}`);
-        return;
-      }
-      if (detail?.code !== HttpResCode.ErrNotFound) {
-        notifyError(detail?.message?.replace(/^\w+::/, '') || exploreFailedMessage);
-        return;
-      }
-      consoleStore.removeResultSnapshot(result.id);
-      targetGraph = existing.graph;
-    }
-
-    if (!targetGraph) return;
-    const graphName = targetGraph;
-    const workspace = consoleStore.graphWorkspaces.get(result.id);
-    if (!workspace || workspace.graph.loading || workspace.graph.isEmpty) return;
-
-    const resolveGraphType = () =>
-      pickGraphType({
-        graph: graphName,
-        consoleGraphs: consoleStore.graphs,
-        graphTypeInfo: consoleStore.graphTypeInfo,
-        schemaGraphs: schemaStore.currentSchema?.graphs ?? [],
-      });
-
-    const payload = buildHandoffPayload({
-      workspace,
-      explorerStore: { exportSnapshotTransfer: (data) => exportSnapshotTransfer(data, process.env.VERSION) },
-      name: buildSnapshotName(result.gql),
-      graph: graphName,
-      graphType: resolveGraphType() ?? '',
-      schemaPath: schemaStore.currentSchema?.path ?? '',
+    const snapshot = await ensureExplorerSnapshot({
+      ...options,
+      snapshots,
+      snapshotVersion: process.env.VERSION,
     });
-
-    let graphType = payload.graph_type;
-    if (!graphType) {
-      await consoleStore.updateGraphTypeMap([graphName]);
-      graphType = resolveGraphType() ?? '';
+    if (snapshot) {
+      navigate(`/explorer/snapshots/${encodeURIComponent(snapshot.snapshotId)}`);
     }
-    if (!graphType) {
-      notifyError(exploreFailedMessage);
-      return;
-    }
-
-    const schemaPath = await ensureSnapshotSchemaPath({
-      getPath: () => schemaStore.currentSchema?.path,
-      refresh: () => schemaStore.refreshCurrentSchema(),
-      fallback: () => schemaPathFallback,
-    });
-
-    const res = await addSnapshot({ ...payload, graph_type: graphType, schema_path: schemaPath }, { errTip: false });
-    if (res?.code !== 0 || !res.data?.id) {
-      notifyError(res?.message?.replace(/^\w+::/, '') || exploreFailedMessage);
-      return;
-    }
-    consoleStore.setResultSnapshot(result.id, { snapshotId: res.data.id, graph: graphName });
-    navigate(`/explorer/snapshots/${res.data.id}`);
   } catch (error) {
     notifyError(error instanceof Error && error.message ? error.message : exploreFailedMessage);
   }

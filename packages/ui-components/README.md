@@ -12,6 +12,7 @@ Studio 的基础 UI 和业务组件。`apps/web`、`apps/gui` 是实际接入方
 | `/editor` | `GqlEditor`、`GqlViewer`：受控内容、图名称补全、提交/清空回调、高度配置 |
 | `/console` | `ConsoleWorkbench`，以及可单独组合的 `ConsoleProvider`、`QueryComposer`、`QueryToolbar`、`QueryResultList`、`QueryResultCard` 和结果视图 |
 | `/console/model` | `ConsoleController`、查询服务契约、Console 到 Explorer 的数据转换 |
+| `/integrations/console-explorer` | 可选的 `ensureExplorerSnapshot`：查询结果快照的复用、重建与创建；由宿主注入服务并处理导航 |
 | `/graph` | `GraphCanvas`、`GraphMinimap`、`GraphStylePanel`、节点/边样式按钮、标签、图标选择器 |
 | `/graph/model` | `GraphWorkspaceStore`、编辑状态、过滤状态 |
 | `/graph/data`、`/graph/utils` | 图数据类型、结果转换、DML、快照兼容工具；不初始化画布 |
@@ -98,6 +99,30 @@ import { ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
 自定义布局时使用 `ExplorerProvider`，组合 `SnapshotList`、`SnapshotCard`、`ExplorerGraph` 或更细的 `ExplorerHeader`、`ExplorerCanvas`、`ExplorerSidePanels`、查询/过滤/属性面板及图编辑弹窗。传入 controller 时由宿主管理其 `destroy()`；默认创建的 controller 会随工作台卸载清理。独立快照、请求、画布和设置状态属于对应实例。外部传入的 SchemaController 生命周期由宿主管理。
 
 远程图标管理通过 `GraphResourcesProvider` 的图标服务与 `allowRemoteIconManagement` 显式启用；未启用时使用内置资源。
+
+## Console 与 Explorer 集成
+
+```ts
+import { ensureExplorerSnapshot } from '@vesoft-inc/ui-components/integrations/console-explorer';
+
+const snapshot = await ensureExplorerSnapshot({
+  result,
+  graph,
+  consoleController,
+  schemaController,
+  snapshots: snapshotServices,
+  snapshotVersion: appVersion,
+  schemaPathFallback: currentSessionSchema,
+});
+
+if (snapshot) openSnapshot(snapshot.snapshotId);
+```
+
+`snapshots` 只需实现现有 `SnapshotServices` 的 `read/create`。函数复用有效快照，仅在服务明确返回 `HttpResCode.ErrNotFound` 时重建；新快照会补齐图类型和 Schema，并记录 Console 结果与快照的关联。图数据在等待元数据前同步序列化。普通 Console 使用者无需配置此能力。
+
+没有可探索数据时返回 `null`；服务失败则抛出错误，缺少错误详情时 `Error.message` 为空，供宿主使用本地化兜底文案。宿主统一处理 HTTP 错误展示、版本来源、controller 生命周期和快照打开方式。Web 的 `pages/Console/exploreResult.ts` 仅做这些适配。
+
+集成入口复用 Console 工具和独立的快照序列化函数，不加载 Explorer controller；业务模块不反向依赖集成入口。既有的 `exportSnapshotTransfer` 导出和 controller 实例方法继续可用。
 
 ## Shell 与连接界面
 

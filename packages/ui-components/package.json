@@ -47,6 +47,12 @@
       "import": "./dist/entries/console-model.js",
       "default": "./dist/entries/console-model.js"
     },
+    "./integrations/console-explorer": {
+      "source": "./src/entries/console-explorer.ts",
+      "types": "./dist/entries/console-explorer.d.ts",
+      "import": "./dist/entries/console-explorer.js",
+      "default": "./dist/entries/console-explorer.js"
+    },
     "./graph/model": {
       "source": "./src/entries/graph-model.ts",
       "types": "./dist/entries/graph-model.d.ts",

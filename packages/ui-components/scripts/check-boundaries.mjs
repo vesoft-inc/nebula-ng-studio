@@ -26,7 +26,7 @@ async function files(directory) {
 async function checkSources(directory, library) {
   for (const path of await files(directory)) {
     if (!/\.[cm]?[jt]sx?$/.test(path)) continue;
-    const business = library && /^(schema|schema-editor|explorer|shell)\//.test(relative(directory, path));
+    const business = library && /^(schema|schema-editor|explorer|shell|integrations)\//.test(relative(directory, path));
     const production = !/\.test\.[jt]sx?$/.test(path);
     const source = ts.createSourceFile(path, await readFile(path, 'utf8'), ts.ScriptTarget.Latest, true);
     const report = (node, message) => {
@@ -73,6 +73,13 @@ async function checkSources(directory, library) {
         if (name.startsWith('.')) {
           const target = relative(directory, resolve(dirname(path), name));
           if (target.startsWith('..')) report(node, `Import escapes the source directory: ${name}`);
+          if (
+            library &&
+            production &&
+            target.startsWith('integrations/') &&
+            !/^(entries|integrations)\//.test(relative(directory, path))
+          )
+            report(node, 'Optional integrations are composed by hosts; business modules must not depend on them.');
         } else if (library) {
           const dependency = name.startsWith('@') ? name.split('/').slice(0, 2).join('/') : name.split('/')[0];
           if (!dependencies.has(dependency)) report(node, `Undeclared dependency: ${dependency}`);

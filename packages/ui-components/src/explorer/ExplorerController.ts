@@ -1,5 +1,5 @@
-import { makeAutoObservable, observable, ObservableSet, runInAction } from 'mobx';
-import { DisplayedPropertyItem, IGraph, RawEntityType, Snapshot, SnapshotData } from '../graph/types/index';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
+import type { IGraph, Snapshot, SnapshotData } from '../graph/types/index';
 import type { ExplorerServices } from './services';
 import { EXPLORER_DEFAULT_SETTINGS, type ExplorerSettings } from '../shared/Settings/constants';
 import { safeParse } from '../graph/helpers';
@@ -9,62 +9,13 @@ import type { Settings4GraphStore } from '../shared/Settings/constants';
 import { migrateSnapshotEdgeIds, SerializedSnapshotGraphData } from '../graph/utils/base/migrateSnapshotEdgeIds';
 import type { ISchemaItem } from '../schema/types';
 import type SchemaStore from '../schema/SchemaController';
+import {
+  exportSnapshotTransfer,
+  SNAPSHOT_SET_FIELDS as AttrSet,
+  SNAPSHOT_ARRAY_FIELDS as AttrArray,
+} from './snapshotTransfer';
 
-function createSet<T extends string>(items: T[]): Set<T> {
-  return new Set(items);
-}
-
-const AttrSet = createSet(['nodes', 'links', 'nodesSelected', 'linksSelected']);
-const AttrArray = Array.from(['displayedNodePropertyItems', 'displayedEdgePropertyItems', 'filterList']);
-
-/**
- * Serialize snapshot data before save or download.
- * Pure: it does not read store instance state, so Console can call it without an ExplorerStore.
- */
-export function exportSnapshotTransfer(data: SnapshotData, version = '1') {
-  // node id may be number 0, check it
-  // SAFETY: the exported object is assembled dynamically and is only consumed by `JSON.stringify`.
-  const ret = {
-    version,
-    filterType: data.filterType,
-  } as Record<string, unknown>;
-
-  // handle nowDataMap
-  const { nowDataMap } = data;
-  const dataMap = Array.from(nowDataMap.entries()).reduce(
-    (dataMap: Record<string, NodeObject | LinkObject>, item: [string, NodeObject | LinkObject]) => {
-      const [key, value] = item;
-      dataMap[key] = { ...value };
-      if (value.data.type === RawEntityType.EDGE) {
-        dataMap[key].target = (nowDataMap.get(key)?.target as NodeObject).id;
-        dataMap[key].source = (nowDataMap.get(key)?.source as NodeObject).id;
-      }
-      return dataMap;
-    },
-    {} as Record<string, NodeObject | LinkObject>
-  );
-  ret.nowDataMap = dataMap;
-
-  // handle imagesCache
-  const { imagesCache } = data;
-  if (imagesCache) {
-    ret.imagesCache = Array.from(imagesCache).map(([key, img]) => [
-      key,
-      img instanceof HTMLImageElement ? img.src : img,
-    ]);
-  }
-  // handle ObservableSet
-  Array.from(AttrSet).forEach((key) => {
-    ret[key] = Array.from(data[key] as ObservableSet).map((i) => i.id);
-  });
-
-  // handle ObservableArray
-  AttrArray.forEach((key) => {
-    ret[key] = Array.from(data[key as keyof SnapshotData] as Array<DisplayedPropertyItem>);
-  });
-
-  return ret;
-}
+export { exportSnapshotTransfer } from './snapshotTransfer';
 
 /**
  * SnapShot Store Data Structure
