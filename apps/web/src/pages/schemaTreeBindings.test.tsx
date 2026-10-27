@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { loadSchemaTreeNode, useSchemaTreeBindings } from './schemaTreeBindings';
+import type { ReactNode } from 'react';
+import { UiProvider } from '@vesoft-inc/ui-components/provider';
+import { useSchemaTreeBindings } from './schemaTreeBindings';
 import { commonStore, schemaStore } from '@studio/app/session';
-import { SchemaItemType } from '@vesoft-inc/ui-components/utilities';
 
 const navigate = vi.hoisted(() => vi.fn());
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock('@studio/stores/useModal', () => ({ useModal: () => ({ message: { success: vi.fn() } }) }));
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => navigate,
+}));
+vi.mock('@studio/utils', () => ({ isGuiTarget: false }));
 vi.mock('@studio/app/session', () => ({
   commonStore: { userInfo: { curSchemaPath: '/a' }, setSchemaPath: vi.fn() },
   schemaStore: {
@@ -16,16 +19,26 @@ vi.mock('@studio/app/session', () => ({
     schemas: [],
     switchingSchema: false,
     switchSchema: vi.fn(),
-    updateGraphTypeDetailBySchema: vi.fn(),
-    updateEntityTypeDescsBySchema: vi.fn(),
+    createSchema: vi.fn(),
+    getSchemas: vi.fn(),
   },
 }));
 afterEach(cleanup);
 beforeEach(() => vi.clearAllMocks());
 
+function renderBindings() {
+  return renderHook(() => useSchemaTreeBindings(true), {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <UiProvider locale="en_US" renderGlobalModal={false} cssBaseline={false}>
+        {children}
+      </UiProvider>
+    ),
+  });
+}
+
 it('switches Console Schema through the session lifecycle without a browser reload', async () => {
   vi.mocked(schemaStore.switchSchema).mockResolvedValueOnce({ code: 0, message: '' });
-  const { result } = renderHook(() => useSchemaTreeBindings(true));
+  const { result } = renderBindings();
   await expect(result.current.selector.onSwitchSchema({ path: '/b', name: 'b', owner: '' })).resolves.toBe(true);
   expect(commonStore.setSchemaPath).toHaveBeenCalledWith('/b');
   expect(navigate).not.toHaveBeenCalled();
@@ -33,33 +46,34 @@ it('switches Console Schema through the session lifecycle without a browser relo
 
 it('keeps the current session Schema when a switch fails', async () => {
   vi.mocked(schemaStore.switchSchema).mockResolvedValueOnce({ code: 500, message: 'failed' });
-  const { result } = renderHook(() => useSchemaTreeBindings(true));
+  const { result } = renderBindings();
   await expect(result.current.selector.onSwitchSchema({ path: '/b', name: 'b', owner: '' })).resolves.toBe(false);
   expect(commonStore.setSchemaPath).not.toHaveBeenCalled();
   expect(navigate).not.toHaveBeenCalled();
 });
 
-it('loads names containing separators from node data instead of splitting presentation keys', async () => {
-  await loadSchemaTreeNode(
-    {
-      key: 'GraphTypeDescItem-book-type',
-      rawData: {
-        type: SchemaItemType.GraphTypeDescItem,
-        graphType: { graph_type: 'book-type' },
-      },
-    } as Parameters<typeof loadSchemaTreeNode>[0],
-    true
-  );
-  expect(schemaStore.updateGraphTypeDetailBySchema).toHaveBeenCalledWith('book-type');
-  await loadSchemaTreeNode(
-    {
-      key: 'EntityTypeDescItem-book-type-book-node',
-      rawData: {
-        type: SchemaItemType.EntityTypeDescItem,
-        entity: { graph_type_name: 'book-type', type_name: 'book-node' },
-      },
-    } as Parameters<typeof loadSchemaTreeNode>[0],
-    true
-  );
-  expect(schemaStore.updateEntityTypeDescsBySchema).toHaveBeenCalledWith('book-type', 'book-node');
+it('keeps lazy initial loading in the Studio adapter', () => {
+  const { result } = renderBindings();
+  expect(schemaStore.getSchemas).not.toHaveBeenCalled();
+  result.current.onReady();
+  expect(schemaStore.getSchemas).toHaveBeenCalledOnce();
+  expect(result.current.showDetail).toBe(true);
+  expect(result.current.selector.schemaLabel).toBe('a');
+});
+
+it('opens the Studio schema list after creation without switching the session', async () => {
+  vi.mocked(schemaStore.createSchema).mockResolvedValueOnce({ code: 0, message: '' });
+  const { result } = renderBindings();
+  await expect(result.current.selector.onCreateSchema('/new')).resolves.toBe(true);
+  expect(schemaStore.getSchemas).toHaveBeenCalledOnce();
+  expect(navigate).toHaveBeenCalledWith('/schema-list');
+  expect(commonStore.setSchemaPath).not.toHaveBeenCalled();
+});
+
+it('maps semantic tree actions to Studio routes', () => {
+  const { result } = renderBindings();
+  result.current.onCreateGraphType?.();
+  expect(navigate).toHaveBeenLastCalledWith('/schema-manager/graphtype/create');
+  result.current.selector.onViewAllSchemas();
+  expect(navigate).toHaveBeenLastCalledWith('/schema-list');
 });

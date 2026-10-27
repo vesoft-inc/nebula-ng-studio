@@ -3,6 +3,8 @@ export { default as SchemaSelector } from '../schema/SchemaTree/SchemaSelector';
 export { PATH_SPLITTER } from '../schema/SchemaTree/index';
 export { generateTreeNodeKey } from '../schema/SchemaTree/index';
 export { default as SchemaTree } from '../schema/SchemaTree/index';
+export type { SchemaTreeProps } from '../schema/SchemaTree/index';
+export { useSchemaTreeBindings, type SchemaTreeBindingsOptions } from '../schema/useSchemaTreeBindings';
 export { default as useConvertSchemaToTree } from '../schema/SchemaTree/useConvertSchemaToTree';
 export type { TreeNode } from '../shared/LazyTree/index';
 export { default as LazyTree } from '../shared/LazyTree/index';

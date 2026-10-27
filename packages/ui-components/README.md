@@ -81,6 +81,26 @@ import { SchemaWorkbench } from '@vesoft-inc/ui-components/schema';
 
 创建图与五类索引表单、DDL 弹窗、删除确认弹窗也从 `/schema` 导出；索引表单在 `IndexQueryProvider` 中共享查询依赖。
 
+`useSchemaTreeBindings` 复用树节点加载、Schema 切换与创建后的列表刷新。它显式接收 `SchemaController`，在 `UiProvider` 内使用；不要求 `SchemaProvider`，也不读取应用全局 store。在 `observer` 组件内调用，以响应 controller 的状态变化：
+
+```tsx
+import { SchemaTree, useSchemaTreeBindings } from '@vesoft-inc/ui-components/schema';
+
+const bindings = useSchemaTreeBindings({
+  controller: schemaController,
+  showDetail: true,
+  collapsed: false,
+  onSchemaChange: setCurrentSchemaPath,
+  onSchemaCreated: openSchemaList,
+  onCreateGraphType: openGraphTypeEditor,
+  onViewAllSchemas: openSchemaList,
+});
+
+<SchemaTree {...bindings} onReady={() => void schemaController.getSchemas()} />;
+```
+
+hook 不主动初始化数据，宿主可通过 `onReady` 懒加载；`SchemaWorkbench` 已负责初始化，因此其 `SchemaSidebar` 不重复加载。切换成功后才通知 `onSchemaChange` 并显示成功消息。创建成功后尝试刷新列表，再通知 `onSchemaCreated`；刷新异常不会将创建判为失败。组件卸载或 controller 更换后，旧创建流程不会再发起列表刷新或触发完成回调。导航由回调决定：Console 切换 Schema 后留在当前页，Schema 管理页返回图类型列表。
+
 ## Explorer
 
 ```tsx

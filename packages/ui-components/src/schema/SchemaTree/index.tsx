@@ -19,7 +19,7 @@ export const PATH_SPLITTER = '-';
 
 export { generateTreeNodeKey } from './useConvertSchemaToTree';
 
-interface ISchemaTreeProps {
+export interface SchemaTreeProps {
   schema: NebulaSchema;
   onItemSelected?: (node: TreeNode<ISchemaTreeRawData>) => void;
   selectedKeys?: string[];
@@ -31,7 +31,7 @@ interface ISchemaTreeProps {
   selector: Omit<SchemaSelectorProps, 'paperWidth'>;
 }
 
-function SchemaTree(props: ISchemaTreeProps) {
+function SchemaTree(props: SchemaTreeProps) {
   const { schema, showDetail = true, onReady, onLoadNode, onCreateGraphType, onCreateGraph, selector } = props;
   const [curWidth, setCurWidth] = useState<number>(300);
   const siderItemRef = useRef<HTMLDivElement>(null);
