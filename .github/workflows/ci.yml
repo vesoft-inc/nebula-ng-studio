@@ -71,6 +71,11 @@ jobs:
       - name: Lint repository
         run: pnpm lint
 
+      - name: Check shared package source boundaries
+        run: |
+          pnpm --filter @vesoft-inc/studio-core check:boundaries
+          pnpm --filter @vesoft-inc/ui-components check:boundaries
+
       - name: Typecheck workspaces
         run: pnpm -r --if-present lint:types
 
@@ -104,6 +109,11 @@ jobs:
         run: |
           pnpm build
           pnpm build:gui
+
+      - name: Check built shared package exports
+        run: |
+          pnpm --filter @vesoft-inc/studio-core check:boundaries --dist
+          pnpm --filter @vesoft-inc/ui-components check:boundaries --dist
 
       - name: Smoke test the workspace apps
         run: |

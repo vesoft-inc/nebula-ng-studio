@@ -31,7 +31,6 @@
     "@vesoft-inc/icons": "^2.3.0",
     "@vesoft-inc/ui-components": "workspace:*",
     "@vesoft-inc/studio-core": "workspace:*",
-    "@vesoft-inc/utils": "workspace:*",
     "@xyflow/react": "^12.6.4",
     "bezier-js": "^6.1.4",
     "bignumber.js": "^9.1.2",

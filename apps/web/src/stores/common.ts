@@ -3,9 +3,9 @@ import i18n, { Language } from '@studio/utils/i18n';
 import { connect, disconnect, fetchUserInfo, oauth2Connect } from '@studio/services';
 import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import { LANG_KEY } from '@studio/utils/constant';
-import { LocalStorageUtil } from '@studio/utils/function';
+import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 import { brandConfig } from '@studio/utils';
-import { encrypt } from '@vesoft-inc/utils';
+import { encrypt } from '@vesoft-inc/studio-core/crypto';
 import { sessionRequests } from '@studio/services/sessionRequests';
 
 export class CommonStore {

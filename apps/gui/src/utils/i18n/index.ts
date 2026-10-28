@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import en_US from './en_US';
 import zh_CN from './zh_CN';
-import { LocalStorageUtil } from '@vesoft-inc/utils';
+import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 import { LANG_KEY } from '@gui/utils/preferences';
 import { Language } from '@vesoft-inc/ui-components/locales';
 import { brandConfig } from '@gui/utils/brand';

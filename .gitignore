@@ -22,7 +22,6 @@ dist
 
 # Generated TypeScript output
 *.tsbuildinfo
-/packages/utils/types/
 
 kubeconfig
 

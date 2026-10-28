@@ -15,7 +15,7 @@ vi.mock('@studio/utils/i18n', () => ({
   default: { language: 'en_US', on: vi.fn(), changeLanguage: vi.fn() },
   Language: { EN_US: 'en_US' },
 }));
-vi.mock('@vesoft-inc/utils', async (original) => ({
+vi.mock('@vesoft-inc/studio-core/crypto', async (original) => ({
   ...(await original<object>()),
   encrypt: vi.fn(async () => 'token'),
 }));

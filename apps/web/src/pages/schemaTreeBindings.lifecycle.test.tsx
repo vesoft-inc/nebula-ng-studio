@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { UiProvider } from '@vesoft-inc/ui-components/provider';
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import type { SchemaServices } from '@vesoft-inc/ui-components/schema/model';
 import { schemaStore } from '@studio/app/session';
 import { useSchemaTreeBindings } from './schemaTreeBindings';
