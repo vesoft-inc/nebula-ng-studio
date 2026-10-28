@@ -1,0 +1,77 @@
+{
+  "name": "@vesoft-inc/studio-core",
+  "version": "0.0.2",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "source": "./src/contracts/index.ts",
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "default": "./dist/contracts/index.js"
+    },
+    "./graph": {
+      "source": "./src/graph/index.ts",
+      "types": "./dist/graph/index.d.ts",
+      "import": "./dist/graph/index.js",
+      "default": "./dist/graph/index.js"
+    },
+    "./request": {
+      "source": "./src/request/index.ts",
+      "types": "./dist/request/index.d.ts",
+      "import": "./dist/request/index.js",
+      "default": "./dist/request/index.js"
+    },
+    "./browser": {
+      "source": "./src/browser/index.ts",
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "default": "./dist/browser/index.js"
+    },
+    "./crypto": {
+      "source": "./src/crypto.ts",
+      "types": "./dist/crypto.d.ts",
+      "import": "./dist/crypto.js",
+      "default": "./dist/crypto.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "build:types": "tsc -p tsconfig.build.json",
+    "test": "vitest run src",
+    "lint": "eslint src",
+    "lint:types": "tsc --noEmit",
+    "check:boundaries": "node scripts/check-boundaries.mjs"
+  },
+  "dependencies": {
+    "@types/json-bigint": "^1.0.4",
+    "@types/lodash": "^4.17.10",
+    "@types/sm-crypto": "^0.3.4",
+    "@types/uuid": "^8.3.4",
+    "bignumber.js": "^9.1.2",
+    "json-bigint": "^1.0.0",
+    "lodash": "^4.17.21",
+    "p-queue": "^8.1.0",
+    "sm-crypto": "0.4.0",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "vitest": "^2.1.9",
+    "vite": "^5.2.6"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.*"
+  ],
+  "sideEffects": false
+}

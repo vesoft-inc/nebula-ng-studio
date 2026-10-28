@@ -12,7 +12,7 @@ import (
 // Shared cross-language SM4-CBC vector.
 //
 // Every constant below must stay byte-identical to the constants in
-// packages/utils/src/crypto.cross.test.ts, which asserts the same ciphertext.
+// packages/studio-core/src/crypto.cross.test.ts, which asserts the same ciphertext.
 // The two test files are the only automated guard for the frontend encrypt() ->
 // server Sm4Decrypt() contract used by the Studio Authorization header.
 const (
