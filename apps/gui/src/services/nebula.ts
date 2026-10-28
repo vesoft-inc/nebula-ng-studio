@@ -1,3 +1,5 @@
+import type { GQLResult, ServerResponse } from '@vesoft-inc/studio-core/contracts';
+import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
 import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import { ConfigType, fetcher } from './fetcher';
 import { parseGqlResult, RestGqlResultParams } from '../utils/gql';
@@ -8,39 +10,29 @@ export interface LoginParams {
 }
 
 export interface LoginResponseData {
-  token?: string;
+  token: string;
 }
 export const EXECUTION_SUCCESS_CODE = '00000';
 
 export const connect = async (payload: { username: string; password: string }) => {
-  const res = await fetcher.post('/auth', payload);
-  return res;
+  const res = await fetcher.post<ServerResponse<LoginResponseData>>('/auth', payload);
+  return res.data;
 };
 
 export const disconnect = async () => {
-  const res = await fetcher.post('/signout');
-  return res;
+  const res = await fetcher.post<ServerResponse>('/signout');
+  return res.data;
 };
 
-export const execGql = async (gql: string, config?: ConfigType) => {
+export const execGql = async (gql: string, config?: ConfigType): Promise<ServerResponse<GQLResult>> => {
   const startTime = Date.now();
-  const res = await fetcher.post<RestGqlResultParams>('/gql', { gql, timeout: config?.timeout }, config);
-  const data = res as unknown as RestGqlResultParams;
+  const { data } = await fetcher.post<RestGqlResultParams>('/gql', { gql, timeout: config?.timeout }, config);
   const duration = Date.now() - startTime;
-  const parsedData = parseGqlResult(data, duration);
   if (data.code === EXECUTION_SUCCESS_CODE) {
-    return {
-      code: 0,
-      data: parsedData,
-      message: 'Success',
-    };
-  } else {
-    return {
-      code: data.code,
-      data: null,
-      message: data.message,
-    };
+    return { code: 0, data: parseGqlResult(data, duration), message: 'Success' };
   }
+  const code = Number(data.code);
+  return { code: Number.isFinite(code) && code !== 0 ? code : HttpResCode.ErrUnknown, message: data.message };
 };
 
 export const fetchUserInfo = async (): Promise<IUserInfo> => {
@@ -64,19 +56,20 @@ export const fetchUserInfo = async (): Promise<IUserInfo> => {
 };
 
 export const killQueriesBySessionId = async (sessionId: string) => {
-  const res = await fetcher.delete(`/sessions/${sessionId}/query`);
-  return res;
+  const res = await fetcher.delete<ServerResponse>(`/sessions/${sessionId}/query`);
+  return res.data;
 };
 
-export const fetchCoreInfo = () => {
-  return fetcher.get('/info', undefined, { errTip: false, timeout: 2000 }).then((res) => {
-    return res as unknown as {
-      version: string;
-      buildTime: string;
-      vendor: string;
-      gitSHA: string;
-      protocolVersion: string;
-      supportedProtocolVersions: string[];
-    };
-  });
+export interface CoreInfo {
+  version: string;
+  buildTime: string;
+  vendor: string;
+  gitSHA: string;
+  protocolVersion: string;
+  supportedProtocolVersions: string[];
+}
+
+export const fetchCoreInfo = async (): Promise<CoreInfo> => {
+  const response = await fetcher.get<CoreInfo>('/info', { errTip: false, timeout: 2000 });
+  return response.data;
 };

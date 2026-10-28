@@ -88,12 +88,18 @@ importers:
       '@vesoft-inc/icons':
         specifier: ^2.3.0
         version: 2.3.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@vesoft-inc/studio-core':
+        specifier: workspace:*
+        version: link:../../packages/studio-core
       '@vesoft-inc/ui-components':
         specifier: workspace:*
         version: link:../../packages/ui-components
       '@vesoft-inc/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      axios:
+        specifier: ^1.6.7
+        version: 1.9.0
       i18next:
         specifier: ^23.7.19
         version: 23.16.8
@@ -194,6 +200,9 @@ importers:
       '@vesoft-inc/icons':
         specifier: ^2.3.0
         version: 2.3.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@vesoft-inc/studio-core':
+        specifier: workspace:*
+        version: link:../../packages/studio-core
       '@vesoft-inc/ui-components':
         specifier: workspace:*
         version: link:../../packages/ui-components
@@ -203,6 +212,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.6.4
         version: 12.7.0(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      axios:
+        specifier: ^1.6.7
+        version: 1.9.0
       bezier-js:
         specifier: ^6.1.4
         version: 6.1.4

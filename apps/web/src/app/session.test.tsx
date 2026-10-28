@@ -2,7 +2,7 @@
 import '@studio/test-support/routerEnvironment';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import { HttpResCode } from '@vesoft-inc/utils';
+import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
 import { createStudioRouter } from './router';
 import { commonStore, consoleStore, schemaStore, iconGroupStore, modalStore } from './session';
 import { fetcher } from '@studio/services/fetcher';
@@ -28,7 +28,7 @@ const user = (username: string): IUserInfo => ({
   createdTime: '',
   roles: [],
 });
-const originalAdapter = fetcher.instance.defaults.adapter;
+const originalAdapter = fetcher.defaults.adapter;
 let application: ReturnType<typeof createStudioRouter> | undefined;
 
 beforeEach(() => {
@@ -41,7 +41,7 @@ afterEach(() => {
   cleanup();
   application?.dispose();
   application = undefined;
-  fetcher.instance.defaults.adapter = originalAdapter;
+  fetcher.defaults.adapter = originalAdapter;
   commonStore.invalidateSession();
   delete window.APP_CONFIG;
   vi.restoreAllMocks();
@@ -61,7 +61,7 @@ describe('application session and router lifecycle', () => {
       schemaStore.updateCreateGraphModalInfo({ visible: true });
       modalStore.show({ title: 'Previous session confirmation' });
       const oldSignal = sessionRequests.signal;
-      fetcher.instance.defaults.adapter = async (config) => {
+      fetcher.defaults.adapter = async (config) => {
         const expired = config.url === '/expired';
         const response = {
           config,
@@ -75,7 +75,7 @@ describe('application session and router lifecycle', () => {
         if (expired) throw { config, response };
         return response;
       };
-      await fetcher.get('/expired', undefined, { errTip: false });
+      await fetcher.get('/expired', { errTip: false });
 
       expect(oldSignal.aborted).toBe(true);
       expect(commonStore.userInfo).toBeUndefined();
@@ -105,7 +105,7 @@ describe('application session and router lifecycle', () => {
   it('ignores late authentication errors from a previous request scope', async () => {
     application = createStudioRouter();
     let reject!: () => void;
-    fetcher.instance.defaults.adapter = (config) =>
+    fetcher.defaults.adapter = (config) =>
       new Promise((_resolve, fail) => {
         reject = () =>
           fail({

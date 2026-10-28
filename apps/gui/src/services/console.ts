@@ -1,4 +1,4 @@
-import type { GQLResult, ServerResponse } from '@vesoft-inc/utils';
+import type { GQLResult } from '@vesoft-inc/studio-core/contracts';
 import type { ConsoleServices, QueryExecutor } from '@vesoft-inc/ui-components/console/model';
 import { execGql, killQueriesBySessionId } from './nebula';
 
@@ -9,7 +9,9 @@ const query: QueryExecutor = async <T extends object>(gql: string, options?: Par
     timeout: queryTimeout,
     ...(queryTimeout && queryTimeout > 0 ? { headers: { 'X-Request-Timeout': queryTimeout } } : {}),
   });
-  return result as unknown as ServerResponse<T>;
+  // The query caller supplies its expected result shape at this protocol boundary.
+  const data: unknown = result.data;
+  return { code: result.code, message: result.message, data: data as T | undefined };
 };
 export const guiConsoleServices: ConsoleServices = {
   execute: query,

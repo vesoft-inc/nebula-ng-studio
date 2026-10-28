@@ -55,7 +55,7 @@ describe('global config request options', () => {
   it('forwards a read deadline without enabling error notifications', async () => {
     fetcher.get.mockResolvedValueOnce({ data: { code: 0, data: { value: '{"x":1}' } } });
     await expect(fetchGlobalConfig('layout-key', { timeout: 2000 })).resolves.toEqual({ x: 1 });
-    expect(fetcher.get).toHaveBeenCalledWith('/explorer/global-config/layout-key', undefined, {
+    expect(fetcher.get).toHaveBeenCalledWith('/explorer/global-config/layout-key', {
       errTip: false,
       timeout: 2000,
     });

@@ -1,16 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import { ConsoleController } from '@vesoft-inc/ui-components/console/model';
-import { HttpResCode } from '@vesoft-inc/utils';
+import { HttpResCode, HTTP_CANCEL_CODE } from '@vesoft-inc/studio-core/contracts';
+import { modalStore } from '@vesoft-inc/ui-components/modal';
 import { fetcher } from './fetcher';
 import { execConsoleGql } from './nebula';
 
-const originalAdapter = fetcher.instance.defaults.adapter;
+vi.mock('@vesoft-inc/ui-components/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
+
+const originalAdapter = fetcher.defaults.adapter;
 let controller: ConsoleController | undefined;
 afterEach(() => {
   controller?.destroy();
-  fetcher.instance.defaults.adapter = originalAdapter;
+  fetcher.defaults.adapter = originalAdapter;
   vi.useRealTimers();
+  vi.clearAllMocks();
 });
 
 it.each([
@@ -18,7 +22,7 @@ it.each([
   ['ECONNABORTED', 'timeout of 1000ms exceeded'],
 ])('reports %s and unlocks the Console editor', async (code, message) => {
   vi.useFakeTimers();
-  fetcher.instance.defaults.adapter = async (config) => {
+  fetcher.defaults.adapter = async (config) => {
     throw Object.assign(new Error(message), { code, config });
   };
   controller = new ConsoleController({ execute: execConsoleGql, query: execConsoleGql });
@@ -30,4 +34,14 @@ it.each([
   expect(controller.results[0]).toMatchObject({ code: HttpResCode.ErrUnknown, message });
   expect(controller.editorValue).toBe('RETURN 1');
   expect(controller.editorRunning).toBe(false);
+  expect(modalStore.message?.error).not.toHaveBeenCalled();
+});
+
+it('returns cancellation without an error toast', async () => {
+  fetcher.defaults.adapter = async (config) => {
+    throw Object.assign(new Error('request canceled'), { code: 'ERR_CANCELED', config });
+  };
+
+  expect(await execConsoleGql('RETURN 1')).toEqual({ code: HTTP_CANCEL_CODE, message: 'request canceled' });
+  expect(modalStore.message?.error).not.toHaveBeenCalled();
 });

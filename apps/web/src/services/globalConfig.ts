@@ -1,4 +1,5 @@
-import { HttpResCode } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
+import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
 import { safeParse } from '@studio/utils/function';
 import { fetcher, type ConfigType } from './fetcher';
 
@@ -22,7 +23,7 @@ export interface GlobalConfigItem {
  */
 export const fetchGlobalConfig = async <T>(key: string, config?: ConfigType): Promise<T | null> => {
   const res = await fetcher
-    .get<GlobalConfigItem>(`/explorer/global-config/${encodeURIComponent(key)}`, undefined, {
+    .get<ServerResponse<GlobalConfigItem>>(`/explorer/global-config/${encodeURIComponent(key)}`, {
       errTip: false,
       ...config,
     })
@@ -43,7 +44,7 @@ export const upsertGlobalConfig = async <T>(
   config?: ConfigType
 ): Promise<GlobalConfigItem | undefined> => {
   const res = await fetcher
-    .post<GlobalConfigItem>(
+    .post<ServerResponse<GlobalConfigItem>>(
       '/explorer/global-config/upsert',
       {
         key,
@@ -73,7 +74,9 @@ export const listGlobalConfigs = async (
   pageSize = CONFIG_PAGE_SIZE
 ): Promise<GlobalConfigList | null> => {
   const res = await fetcher
-    .get<GlobalConfigList>('/explorer/global-config', { page, pageSize }, { errTip: false })
+    .get<
+      ServerResponse<GlobalConfigList>
+    >('/explorer/global-config', { params: { page, pageSize }, ...{ errTip: false } })
     .then((res) => res.data);
 
   return res.code === 0 ? (res.data ?? null) : null;
@@ -106,7 +109,9 @@ export const listAllGlobalConfigs = async (maxPages = 20): Promise<GlobalConfigI
 
 /** Idempotent: an entry that is already gone is not an error. */
 export const deleteGlobalConfig = async (key: string): Promise<void> => {
-  const res = await fetcher.delete(`/explorer/global-config/${encodeURIComponent(key)}`).then((res) => res.data);
+  const res = await fetcher
+    .delete<ServerResponse>(`/explorer/global-config/${encodeURIComponent(key)}`)
+    .then((res) => res.data);
 
   if (res.code !== 0 && res.code !== HttpResCode.ErrNotFound) {
     throw new Error(res.message);

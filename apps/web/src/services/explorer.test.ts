@@ -55,9 +55,9 @@ describe('Explorer persistence API paths', () => {
     await deleteIconGroupItem({ groupId: 'group-1', iconId: 'icon-1' });
 
     expect(fetcher.get.mock.calls).toEqual([
-      ['/explorer/snapshots', { page: 1, pageSize: 9 }],
+      ['/explorer/snapshots', { params: { page: 1, pageSize: 9 } }],
       ['/explorer/snapshots/snapshot-1'],
-      ['/explorer/icongroup', { type: IconGroupType.Img }],
+      ['/explorer/icongroup', { params: { type: IconGroupType.Img } }],
       ['/explorer/icongroup/group-1/icons'],
     ]);
     expect(fetcher.post.mock.calls).toEqual([
@@ -111,7 +111,7 @@ describe('Explorer persistence API paths', () => {
     await getSnapshotDetail('snapshot-1', { errTip: false });
 
     expect(fetcher.get).toHaveBeenCalledTimes(1);
-    expect(fetcher.get).toHaveBeenCalledWith('/explorer/snapshots/snapshot-1', undefined, { errTip: false });
+    expect(fetcher.get).toHaveBeenCalledWith('/explorer/snapshots/snapshot-1', { errTip: false });
   });
 
   it('never calls an absolute or legacy Explorer prefix', async () => {

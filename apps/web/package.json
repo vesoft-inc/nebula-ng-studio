@@ -30,6 +30,7 @@
     "@vesoft-inc/force-graph": "workspace:*",
     "@vesoft-inc/icons": "^2.3.0",
     "@vesoft-inc/ui-components": "workspace:*",
+    "@vesoft-inc/studio-core": "workspace:*",
     "@vesoft-inc/utils": "workspace:*",
     "@xyflow/react": "^12.6.4",
     "bezier-js": "^6.1.4",
@@ -60,7 +61,8 @@
     "react-transition-group": "^4.4.5",
     "react-window": "^1.8.10",
     "uuid": "^8.3.2",
-    "zod": "^4.0.14"
+    "zod": "^4.0.14",
+    "axios": "^1.6.7"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

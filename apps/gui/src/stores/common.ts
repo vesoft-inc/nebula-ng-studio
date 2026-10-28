@@ -3,7 +3,7 @@ import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '../utils/i18n';
 import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
 import { LANG_KEY } from '@gui/utils/preferences';
-import { LocalStorageUtil } from '@vesoft-inc/utils';
+import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 import { clearToken, setToken } from '../utils/auth';
 import { connect, disconnect, fetchUserInfo } from '../services';
 import { brandConfig } from '@gui/utils/brand';
@@ -43,8 +43,9 @@ export class CommonStore {
   login = async (payload: { address: string; port: string; username: string; password: string }): Promise<boolean> => {
     const { username, password } = payload;
     const res = await connect({ username, password });
-    const data = res.data as unknown as { token: string };
-    setToken(data.token);
+    const token = res.data?.token;
+    if (!token) return false;
+    setToken(token);
     await this.getUserInfo();
     this.toggleLoginModal(false);
     return true;
