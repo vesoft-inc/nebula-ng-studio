@@ -6,27 +6,19 @@ import { I18nextProvider } from 'react-i18next';
 import { RouterProvider } from 'react-router-dom';
 import { GlobalModal } from '@vesoft-inc/ui-components/modal';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/ui-components/theme';
-import { useBrowserRouter } from '@vesoft-inc/utils';
+import { createGuiRouter } from './app/router';
 import { autorun } from 'mobx';
-import { modalStore, routerStore } from './stores/session';
+import { modalStore } from './stores/session';
 import i18n from '@gui/utils/i18n';
 import { injectCssVariable } from '@vesoft-inc/ui-components/utilities';
 import { PageLoading } from '@vesoft-inc/ui-components';
-import routes from '@gui/routes';
 
-const PageRoot = () => {
+const PageRoot = ({ router }: { router: ReturnType<typeof createGuiRouter>['router'] }) => {
   useEffect(() => {
     return autorun(() => {
       injectCssVariable(themeStore.theme);
     });
   }, []);
-
-  const router = useBrowserRouter({
-    store: routerStore,
-    future: { v7_startTransition: true },
-    basename: window.APP_CONFIG?.basePath,
-    routes,
-  });
 
   return (
     <StrictMode>
@@ -34,7 +26,7 @@ const PageRoot = () => {
         <ThemeWrapper>
           <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
             <Suspense fallback={<PageLoading />}>
-              <RouterProvider router={router} />
+              <RouterProvider router={router} future={{ v7_startTransition: true }} />
               <GlobalModal store={modalStore} />
             </Suspense>
           </UiProvider>
@@ -44,9 +36,11 @@ const PageRoot = () => {
   );
 };
 
+const application = createGuiRouter();
 const rootElement = document.getElementById('guiApp');
 const root = import.meta.hot?.data?.root || createRoot(rootElement!);
 import.meta.hot?.dispose(() => {
+  application.dispose();
   import.meta.hot!.data.root = root;
 });
-root.render(<PageRoot />);
+root.render(<PageRoot router={application.router} />);

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { HttpResCode } from '@vesoft-inc/utils';
 import { createStudioRouter } from './router';
-import { commonStore, consoleStore, schemaStore, iconGroupStore, routerStore, modalStore } from './session';
+import { commonStore, consoleStore, schemaStore, iconGroupStore, modalStore } from './session';
 import { fetcher } from '@studio/services/fetcher';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { loginReturnPath } from './paths';
@@ -135,23 +135,30 @@ describe('application session and router lifecycle', () => {
     expect(application.router.state.location.search).toBe('?redirect=%2Fconsole');
   });
 
-  it('preserves one router through React rerenders and disposes the subscription and history listener', async () => {
+  it('preserves one router through rerenders and releases session navigation and history on disposal', async () => {
     const remove = vi.spyOn(window, 'removeEventListener');
     application = createStudioRouter();
     const { router } = application;
-    expect(routerStore.state).toBe(router.state);
     const view = render(<App router={router} />);
     await act(async () => {
       await router.navigate('/console');
     });
     view.rerender(<App router={router} />);
-    expect(routerStore.router).toBe(router);
-    expect(routerStore.state?.location.pathname).toBe('/studio/console');
+    expect(application.router).toBe(router);
+    expect(router.state.location.pathname).toBe('/studio/console');
+    await act(async () => commonStore.deps?.onLogout());
+    expect(router.state.location.pathname).toBe('/studio/login');
+    const state = router.state;
+    const signal = sessionRequests.signal;
     view.unmount();
     application.dispose();
     application = undefined;
-    expect(routerStore.router).toBeUndefined();
-    expect(routerStore.state).toBeUndefined();
+    sessionRequests.expire(signal);
+    expect(commonStore.userInfo?.username).toBe('user-a');
+    window.history.pushState(null, '', '/studio/after-dispose');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await Promise.resolve();
+    expect(router.state).toBe(state);
     expect(remove.mock.calls.some(([type]) => type === 'popstate')).toBe(true);
   });
 });
