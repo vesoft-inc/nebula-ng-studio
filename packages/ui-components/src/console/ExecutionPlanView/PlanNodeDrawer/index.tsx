@@ -3,7 +3,8 @@ import { Box, Typography, Divider, List, ListItem, useTheme } from '@mui/materia
 import { ChevronLeftFilled, ChevronRightFilled } from '@vesoft-inc/icons';
 import { useTranslation } from 'react-i18next';
 import GroupButton from '../../../shared/SegmentButton/index';
-import { GQLResultPlanInfo, GQLResultSummary } from '@vesoft-inc/utils';
+import { PlanNodeData as GQLResultPlanInfo } from '../../types';
+import { GQLResultSummary } from '@vesoft-inc/studio-core/contracts';
 import { formatMicroseconds } from '../../../shared/utilities';
 import {
   DrawerToggle,

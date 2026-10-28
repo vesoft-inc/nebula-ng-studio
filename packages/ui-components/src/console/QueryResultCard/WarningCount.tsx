@@ -1,6 +1,6 @@
 import { Paper, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import { WarningOutlined } from '@vesoft-inc/icons';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../types';
 import { useTranslation } from 'react-i18next';
 
 export const WarningCount = ({ result }: { result: ConsoleResult }) => {

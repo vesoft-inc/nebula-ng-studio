@@ -1,13 +1,13 @@
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import type { QueryExecutor, QueryOptions } from '../shared/query';
-import type { Snapshot } from '../graph/types/explorer';
+import type { SnapshotRecord } from '../contracts/snapshot';
 import type { ExplorerSettings } from '../shared/Settings/constants';
 
 export interface SnapshotServices {
   list: (
     options: { page: number; pageSize: number; filter?: string },
     request?: QueryOptions
-  ) => Promise<ServerResponse<{ total: number; page: number; pageSize: number; items: Snapshot[] }>>;
+  ) => Promise<ServerResponse<{ total: number; page: number; pageSize: number; items: SnapshotRecord[] }>>;
   create: (data: {
     name: string;
     graph: string;
@@ -16,8 +16,8 @@ export interface SnapshotServices {
     data?: string;
     thumbnail?: string;
   }) => Promise<ServerResponse<{ id: string }>>;
-  read: (id: string, request?: QueryOptions) => Promise<ServerResponse<Snapshot>>;
-  update: (snapshot: Omit<Snapshot, 'data'> & { data?: string }) => Promise<ServerResponse<object>>;
+  read: (id: string, request?: QueryOptions) => Promise<ServerResponse<SnapshotRecord>>;
+  update: (snapshot: SnapshotRecord) => Promise<ServerResponse<object>>;
   delete: (id: string) => Promise<ServerResponse<object>>;
 }
 export interface ExplorerServices {

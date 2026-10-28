@@ -1,4 +1,4 @@
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 
 /** Query timeout is expressed in milliseconds. Transport headers belong to the host adapter. */
 export interface QueryOptions {

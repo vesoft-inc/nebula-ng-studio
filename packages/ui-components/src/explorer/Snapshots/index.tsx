@@ -15,7 +15,7 @@ import EmptySnapShotDarkSvg from '../../assets/images/snapshot-empty-dark.svg?ur
 import EmptySnapShotLightSvg from '../../assets/images/snapshot-empty-light.svg?url';
 import PageLoading from '../../graph/components/PageLoading/index';
 import EditSnapshotModal from './SnapshotCard/EditSnapshotModal';
-import { Snapshot } from '../../graph/types/index';
+import type { SnapshotMetadata } from '../../contracts/snapshot';
 import CreateSnapshotModal from './SnapshotCard/CreateSnapshotModal';
 import EmptyCardImage from '../../assets/images/empty-card-content.svg?url';
 import EmptyCardDarkImage from '../../assets/images/empty-card-content-dark.svg?url';
@@ -101,7 +101,7 @@ function Snapshots({ onOpen }: SnapshotListProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { loading, graphItems, currentSchema } = explorerStore;
   const { snapshots, total, getSnapshots, currentPage, pageSize } = explorerStore;
-  const [editSnapShot, setEditSnapShot] = useState<Snapshot | undefined>(undefined);
+  const [editSnapShot, setEditSnapShot] = useState<SnapshotMetadata | undefined>(undefined);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [switchingSchema, setSwitchingSchema] = useState(false);
   const isDarkMode = useTheme().palette.mode === 'dark';

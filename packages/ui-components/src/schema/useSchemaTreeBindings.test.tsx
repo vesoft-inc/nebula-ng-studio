@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { GraphEntityType, type ServerResponse } from '@vesoft-inc/utils';
+import { GraphEntityType, type ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import { UiProvider } from '../provider';
 import ModalStore from '../shared/Modal/ModalStore';
 import { SchemaItemType } from '../shared/constants';

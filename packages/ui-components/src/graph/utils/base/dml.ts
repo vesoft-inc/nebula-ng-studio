@@ -1,7 +1,8 @@
 // Barrel-free imports (`./identifier`) keep this module free of the React/MUI side of the
 // `shared` helpers, so it stays unit-testable.
-import { EdgeDirectionType, extractEdgeByEdgeTypeName, GraphEntityType, PropertyDataType } from '@vesoft-inc/utils';
-import type { DescGraphTypeResult, DescNodeTypeResult, DescEdgeTypeResult } from '@vesoft-inc/utils';
+import { EdgeDirectionType, GraphEntityType, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
+import { extractEdgeByEdgeTypeName } from '@vesoft-inc/studio-core/graph';
+import type { DescGraphTypeResult, DescNodeTypeResult, DescEdgeTypeResult } from '@vesoft-inc/studio-core/contracts';
 import { handleKeyword } from './identifier';
 import { parseInt64Value } from '../parseInt64Value';
 

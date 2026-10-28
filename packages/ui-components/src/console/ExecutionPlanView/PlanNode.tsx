@@ -1,4 +1,4 @@
-import { GQLResultPlanInfo } from '@vesoft-inc/utils';
+import { PlanNodeData as GQLResultPlanInfo } from '../types';
 import { ContainerMap, NodeLevelType, PlanNodeTitle, SpHeader } from './styles';
 import { Typography, useTheme } from '@mui/material';
 import { memo } from 'react';

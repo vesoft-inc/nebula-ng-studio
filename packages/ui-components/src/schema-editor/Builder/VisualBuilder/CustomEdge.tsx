@@ -2,8 +2,8 @@ import { memo } from 'react';
 import { EdgeProps, EdgeLabelRenderer, BaseEdge, useStore } from '@xyflow/react';
 import { useTheme } from '@mui/material';
 import { IEdgeTypeItem } from '../../../schema/types';
-import { EdgeDirectionType } from '@vesoft-inc/utils';
-import { LINE_STYLE } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
+import { LINE_STYLE } from '../../../shared/styles';
 import { NODE_SIZE } from './CustomNode';
 
 interface CustomEdgeData extends Record<string, unknown> {

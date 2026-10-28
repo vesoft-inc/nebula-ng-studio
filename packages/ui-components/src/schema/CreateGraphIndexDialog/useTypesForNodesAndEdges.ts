@@ -1,6 +1,6 @@
 import type { DescEdgeTypeResult, DescNodeTypeResult } from '../types';
 import { useEffect, useState } from 'react';
-import { GraphEntityType, type GQLResult } from '@vesoft-inc/utils';
+import { GraphEntityType, type GQLResult } from '@vesoft-inc/studio-core/contracts';
 import { useIndexQuery, type RunGql } from './queryContext';
 
 const getTypesForNodesAndEdges = async (graphTypeName: string, runGql: RunGql) => {

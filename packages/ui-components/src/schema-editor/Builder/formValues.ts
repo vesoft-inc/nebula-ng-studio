@@ -1,5 +1,6 @@
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
-import { resolveDecimalParameters, PropertyDataType } from '@vesoft-inc/utils';
+import { resolveDecimalParameters } from '@vesoft-inc/studio-core/graph';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 
 export const getPropertyModel = (property: IProperty) =>
   new IProperty({

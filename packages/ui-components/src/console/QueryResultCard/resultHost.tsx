@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { ModalStore } from '../../shared/Modal/index';
-import type { ConsoleResult } from '@vesoft-inc/utils';
+import type { ConsoleResult } from '../types';
 import type { GraphDataTable } from '../../graph/types/console';
 import type { GraphWorkspaceStore } from '../../graph/stores/workspace';
 import type { QueryExecutor } from '../../shared/query';

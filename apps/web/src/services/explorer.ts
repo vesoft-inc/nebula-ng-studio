@@ -1,8 +1,12 @@
 import { fetcher, type ConfigType } from './fetcher';
-import type { IconGroup, IconItem, Snapshot } from '@vesoft-inc/ui-components/graph/data';
-import { IconGroupType } from '@vesoft-inc/ui-components/graph/utils';
+import type {
+  IconGroupType,
+  IconGroupRecord,
+  IconItemRecord,
+  SnapshotRecord,
+} from '@vesoft-inc/ui-components/contracts';
 
-type SnapshotPage = { total: number; page: number; pageSize: number; items: Snapshot[] };
+type SnapshotPage = { total: number; page: number; pageSize: number; items: SnapshotRecord[] };
 export const fetchSnapshots = async (
   payload: { page: number; pageSize: number; filter?: string },
   config?: ConfigType
@@ -19,7 +23,7 @@ export const addSnapshot = async (
     graph: string;
     graph_type: string;
     schema_path: string;
-    /** Serialized `SnapshotData`; optional so the existing Explorer "new snapshot" flow is unchanged. */
+    /** Serialized SnapshotPayload; omitted for a new, empty exploration. */
     data?: string;
     thumbnail?: string;
   },
@@ -38,12 +42,12 @@ export const deleteSnapshot = async (id: string) => {
 
 export const getSnapshotDetail = async (id: string, config?: ConfigType) => {
   const res = config
-    ? await fetcher.get<Snapshot>(`/explorer/snapshots/${id}`, undefined, config)
-    : await fetcher.get<Snapshot>(`/explorer/snapshots/${id}`);
+    ? await fetcher.get<SnapshotRecord>(`/explorer/snapshots/${id}`, undefined, config)
+    : await fetcher.get<SnapshotRecord>(`/explorer/snapshots/${id}`);
   return res.data;
 };
 
-export const updateSnapShot = async (snapshot: Omit<Snapshot, 'data'> & { data?: string }) => {
+export const updateSnapShot = async (snapshot: SnapshotRecord) => {
   const res = await fetcher.put(`/explorer/snapshots/${snapshot.id}`, snapshot);
   return res.data;
 };
@@ -62,7 +66,7 @@ export const deleteIconGroup = async (id: string) => {
 
 export const getIconGroupList = async (type: IconGroupType) => {
   const res = await fetcher.get<{
-    items: IconGroup[];
+    items: IconGroupRecord[];
   }>(`/explorer/icongroup`, {
     type,
   });
@@ -86,7 +90,7 @@ export const addIconGroupItem = async (payload: { groupId: string; name: string;
 
 export const getIconGroupItemList = async (groupId: string) => {
   const res = await fetcher.get<{
-    items: IconItem[];
+    items: IconItemRecord[];
   }>(`/explorer/icongroup/${groupId}/icons`);
   return res.data;
 };

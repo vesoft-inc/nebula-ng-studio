@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { hexToRgba } from '@vesoft-inc/utils';
+import { hexToRgba } from '@vesoft-inc/studio-core';
 
 export const TooltipContainer = styled(Box)`
   position: absolute;

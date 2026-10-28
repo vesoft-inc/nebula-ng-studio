@@ -10,7 +10,12 @@ import {
   Minus,
   SpaceDashboardFilled,
 } from '@vesoft-inc/icons';
-import { DescEdgeTypeResult, DescNodeTypeResult, EdgeDirectionType, GraphEntityType } from '@vesoft-inc/utils';
+import {
+  DescEdgeTypeResult,
+  DescNodeTypeResult,
+  EdgeDirectionType,
+  GraphEntityType,
+} from '@vesoft-inc/studio-core/contracts';
 
 import { SchemaItemType } from '../../shared/constants';
 import { extractEdgeByEdgeTypeName, getLabelColor } from '../../shared/utilities';

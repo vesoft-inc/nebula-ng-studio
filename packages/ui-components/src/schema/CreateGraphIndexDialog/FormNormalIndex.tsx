@@ -1,13 +1,12 @@
 import { Button, Grid, IconButton, List, MenuItem, Stack, Tooltip, Typography, styled } from '@mui/material';
 import {
   GeographyTypePattern,
-  GraphEntityType,
   ListTypePattern,
   MapTypePattern,
   SetTypePattern,
-  SortType,
   VectorTypePattern,
-} from '@vesoft-inc/utils';
+} from '@vesoft-inc/studio-core/graph';
+import { GraphEntityType, SortType } from '@vesoft-inc/studio-core/contracts';
 import { Box, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import {

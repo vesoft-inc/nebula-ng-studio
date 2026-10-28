@@ -3,7 +3,7 @@ import { FruchtermanLayout as FruchtermanGPULayout } from '@antv/layout-gpu';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import dagre from 'dagre';
 import { Graph } from '@antv/graphlib';
-import { NODE_SIZE } from '@vesoft-inc/utils';
+import { NODE_SIZE } from '../../shared/constants';
 
 import { GraphStore } from '../stores/graph';
 import { GraphLayoutType } from '../constants';

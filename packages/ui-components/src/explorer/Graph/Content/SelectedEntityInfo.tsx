@@ -3,7 +3,7 @@ import { Box, Button, ButtonGroup, Chip, Collapse, List, ListItemButton, Popover
 import { useTranslation } from 'react-i18next';
 import { useRef, useState } from 'react';
 import { ChevronRightFilled, Minus, TrayArrowUp } from '@vesoft-inc/icons';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import { GroupButton } from '../../../shared/index';
 import CollapseItem from '../../../graph/components/Collapse/index';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';

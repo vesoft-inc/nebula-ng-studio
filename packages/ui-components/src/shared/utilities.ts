@@ -1,17 +1,11 @@
 import { DEFAULT_SCHEMA_PATH } from './constants';
 import { type Theme } from '@mui/material/styles';
-import { v4 as uuid } from 'uuid';
-import JSONBigInt from 'json-bigint';
 import { cloneDeep, isEqual, isObject, throttle, unset } from 'lodash';
 import dayjs from 'dayjs';
 import durationPlugin from 'dayjs/plugin/duration';
-import {
-  BackwardEdgePattern,
-  EdgeDirectionType,
-  ForwardEdgePattern,
-  getGraphEdgeId,
-  UndirectedEdgePattern,
-} from '@vesoft-inc/utils';
+import { getGraphEdgeId } from '@vesoft-inc/studio-core/graph';
+export { JSONBig, extractEdgeByEdgeTypeName } from '@vesoft-inc/studio-core/graph';
+export { createUuid } from '@vesoft-inc/studio-core';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 
 dayjs.extend(durationPlugin);
@@ -60,18 +54,7 @@ export const getLabelColor = (index: number, theme: Theme): [string, string] => 
   return [colors[index % colors.length], bgColor[index % bgColor.length]];
 };
 
-// veditor's uuid should be a string without '-'
-export const createUuid = (): string => uuid().replaceAll('-', '');
-
 export const getVesoftBorder = ({ theme }: { theme: Theme }) => `${theme.palette.vesoft.textColor6} 1px solid`;
-
-/**
- * ```
- * JSONBig is a JSON parser that can handle bigInt
- * for GQL result, always use JSONBig to parse and stringify data
- * ```
- */
-export const JSONBig = JSONBigInt();
 
 export const transformNebulaResult = (data: unknown, raw?: boolean): unknown => {
   const isNebulaType = data && typeof data === 'object' && 'raw' in data && 'value' in data;
@@ -127,23 +110,6 @@ export function isEqualIgnoringFields<T>(obj1: T, obj2: T, ignoreFields?: Array<
   // 使用 Lodash 的 isEqual 函数比较两个清理后的对象
   return isEqual(cleanObj1, cleanObj2);
 }
-
-export const extractEdgeByEdgeTypeName = (edgeTypeName: string) => {
-  const arrs = [ForwardEdgePattern, BackwardEdgePattern, UndirectedEdgePattern];
-  for (let i = 0; i < arrs.length; i++) {
-    const pattern = arrs[i];
-    const matched = edgeTypeName.match(pattern);
-    if (!matched) continue;
-    const [fromNodeName, name, dstNodeName] = matched.slice(1);
-    return {
-      fromNodeName,
-      name,
-      dstNodeName,
-      direction: [EdgeDirectionType.Forward, EdgeDirectionType.Backward, EdgeDirectionType.Undirected][i],
-    };
-  }
-  return undefined;
-};
 
 export function formatMicroseconds(microseconds: number) {
   const milliseconds = microseconds / 1000;

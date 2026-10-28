@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { GraphEntityType, PropertyDataType, type DescGraphTypeResult, type ServerResponse } from '@vesoft-inc/utils';
+import {
+  GraphEntityType,
+  PropertyDataType,
+  type DescGraphTypeResult,
+  type ServerResponse,
+} from '@vesoft-inc/studio-core/contracts';
 import { GraphWorkspaceStore } from '../graph/stores/workspace';
-import type { Snapshot, SnapshotData } from '../graph/types/explorer';
+import type { SnapshotRecord } from '../contracts/snapshot';
 import SchemaController from '../schema/SchemaController';
 import type { QueryExecutor } from '../shared/query';
 import { ExplorerStore } from './ExplorerController';
@@ -27,7 +32,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function snapshot(id: string, schemaPath: string): Snapshot {
+function snapshot(id: string, schemaPath: string): SnapshotRecord {
   return {
     id,
     schemaPath,
@@ -46,13 +51,13 @@ function snapshot(id: string, schemaPath: string): Snapshot {
       displayedNodePropertyItems: [],
       displayedEdgePropertyItems: [],
       filterList: [],
-    }) as unknown as SnapshotData,
+    }),
   };
 }
 
-function legacySnapshot(id: string): Snapshot {
+function legacySnapshot(id: string): SnapshotRecord {
   const detail = snapshot(id, '');
-  delete (detail as Partial<Snapshot>).schemaPath;
+  delete (detail as Partial<SnapshotRecord>).schemaPath;
   return detail;
 }
 
@@ -197,7 +202,7 @@ it('checks schema-filtered membership before opening a legacy snapshot directly'
   expect(switchRequest).not.toHaveBeenCalled();
 });
 
-it.each([{ items: [] as Snapshot[] }, { items: [legacySnapshot('different')] }])(
+it.each([{ items: [] as SnapshotRecord[] }, { items: [legacySnapshot('different')] }])(
   'does not guess a legacy snapshot schema when the filtered lookup does not contain its id: %j',
   async ({ items }) => {
     const { controller, workspace, read, list, switchRequest, execute } = setup();
@@ -281,7 +286,7 @@ it('restores the newest snapshot schema behind an earlier pending switch', async
 
 it('does not switch schemas when the snapshot detail arrives after leaving Explorer', async () => {
   const { controller, workspace, read, switchRequest, execute } = setup();
-  const detail = deferred<ServerResponse<Snapshot>>();
+  const detail = deferred<ServerResponse<SnapshotRecord>>();
   read.mockReturnValueOnce(detail.promise);
   const opening = controller.openSnapshot('a', workspace());
   controller.destroy();

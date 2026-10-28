@@ -177,6 +177,12 @@
       "types": "./dist/entries/shell.d.ts",
       "import": "./dist/entries/shell.js",
       "default": "./dist/entries/shell.js"
+    },
+    "./contracts": {
+      "source": "./src/entries/contracts.ts",
+      "types": "./dist/entries/contracts.d.ts",
+      "import": "./dist/entries/contracts.js",
+      "default": "./dist/entries/contracts.js"
     }
   },
   "scripts": {
@@ -201,7 +207,7 @@
     "@emotion/is-prop-valid": "^1.3.1",
     "@mui/utils": "^7.1.1",
     "@vesoft-inc/icons": "^2.3.0",
-    "@vesoft-inc/utils": "workspace:*",
+    "@vesoft-inc/studio-core": "workspace:*",
     "material-react-table": "^2.13.3",
     "material-ui-popup-state": "^5.3.1",
     "mobx": "^6.12.0",
@@ -222,7 +228,6 @@
     "dagre": "^0.8.5",
     "dayjs": "^1.11.10",
     "i18next": "^23.7.19",
-    "json-bigint": "^1.0.0",
     "lodash": "^4.17.21",
     "monaco-editor": "^0.52.2",
     "react-color": "^2.19.3",
@@ -236,7 +241,8 @@
     "@hookform/resolvers": "^5.2.1",
     "zod": "^4.0.14",
     "copy-to-clipboard": "^3.3.3",
-    "react-window": "^1.8.10"
+    "react-window": "^1.8.10",
+    "@json2csv/plainjs": "^7.0.6"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -257,7 +263,6 @@
     "@vitejs/plugin-react-swc": "^3.5.0",
     "@types/node": "^22",
     "@types/lodash": "^4.17.10",
-    "@types/json-bigint": "^1.0.4",
     "@types/randomcolor": "^0.5.9",
     "@types/react-color": "^3.0.12",
     "@types/bezier-js": "^4.1.3",

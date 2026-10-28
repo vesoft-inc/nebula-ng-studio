@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { observable } from 'mobx';
-import { HttpResCode, type ServerResponse } from '@vesoft-inc/utils';
+import { HttpResCode, type ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import type { NodeObject } from '@vesoft-inc/force-graph';
 import ConsoleController from '../console/ConsoleController';
 import SchemaController from '../schema/SchemaController';
 import type { GraphWorkspaceStore } from '../graph/stores/workspace';
-import type { Snapshot, SnapshotData } from '../graph/types/explorer';
+import type { SnapshotData } from '../graph/types/explorer';
+import type { SnapshotRecord } from '../contracts/snapshot';
 import { RawEntityType } from '../graph/types/gql';
 import type { QueryExecutor } from '../shared/query';
 import { ensureExplorerSnapshot, type ConsoleExplorerOptions } from '../entries/console-explorer';
@@ -93,7 +94,7 @@ describe('Console to Explorer integration without a browser or application store
     const { options, snapshots, consoleController, workspace } = setup();
     consoleController.setResultSnapshot('result-1', { snapshotId: 'existing', graph: 'people' });
     consoleController.graphWorkspaces.delete('result-1');
-    snapshots.read.mockResolvedValue({ code: 0, message: '', data: { id: 'existing' } as Snapshot });
+    snapshots.read.mockResolvedValue({ code: 0, message: '', data: { id: 'existing' } as SnapshotRecord });
 
     await expect(ensureExplorerSnapshot({ ...options, graph: undefined })).resolves.toEqual({ snapshotId: 'existing' });
     expect(snapshots.read).toHaveBeenCalledWith('existing');
@@ -167,7 +168,7 @@ describe('Console to Explorer integration without a browser or application store
     expect(workspace.graph.toSnapShotData).toHaveBeenCalledOnce();
     expect(query).toHaveBeenCalledOnce();
     // The payload must remain usable after the live graph changes or is disposed.
-    data.nodes.length = 0;
+    data.nodes = [];
     data.nowDataMap.clear();
     consoleController.graphWorkspaces.clear();
     finish({ code: 0, message: '', data: { tables: [{ graph_type_name: 'Person' }] } });

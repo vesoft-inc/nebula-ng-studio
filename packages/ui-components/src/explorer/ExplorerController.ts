@@ -1,19 +1,16 @@
 import { makeAutoObservable, observable, runInAction } from 'mobx';
-import type { IGraph, Snapshot, SnapshotData } from '../graph/types/index';
+import type { IGraph } from '../contracts/graph';
+import type { SnapshotMetadata } from '../contracts/snapshot';
+import type { GraphRuntimeState, OpenedSnapshot } from '../graph/snapshot/types';
+import { decodeSnapshotPayload, encodeSnapshotPayload } from '../graph/snapshot/codec';
+import { materializeSnapshot } from '../graph/snapshot/runtime';
 import type { ExplorerServices } from './services';
 import { EXPLORER_DEFAULT_SETTINGS, type ExplorerSettings } from '../shared/Settings/constants';
-import { safeParse } from '../graph/helpers';
-import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphWorkspaceStore } from '../graph/stores/workspace';
 import type { Settings4GraphStore } from '../shared/Settings/constants';
-import { migrateSnapshotEdgeIds, SerializedSnapshotGraphData } from '../graph/utils/base/migrateSnapshotEdgeIds';
 import type { ISchemaItem } from '../schema/types';
 import type SchemaStore from '../schema/SchemaController';
-import {
-  exportSnapshotTransfer,
-  SNAPSHOT_SET_FIELDS as AttrSet,
-  SNAPSHOT_ARRAY_FIELDS as AttrArray,
-} from './snapshotTransfer';
+import { exportSnapshotTransfer } from './snapshotTransfer';
 
 export { exportSnapshotTransfer } from './snapshotTransfer';
 
@@ -26,7 +23,7 @@ export { exportSnapshotTransfer } from './snapshotTransfer';
  * nowDataMap: Record<string, NodeObject | LinkObject>;
  */
 export class ExplorerStore {
-  snapshots = observable.array<Snapshot>([], { deep: false });
+  snapshots = observable.array<SnapshotMetadata>([], { deep: false });
   currentPage = 1;
   pageSize = 9;
   total = 0;
@@ -148,7 +145,7 @@ export class ExplorerStore {
         this.currentPage = Math.max(1, page);
         // Older APIs omit schemaPath; the server-side schema filter still establishes ownership.
         this.snapshots.replace(
-          (res.data?.items || []).map((item) => ({
+          (res.data?.items || []).map(({ data: _data, ...item }) => ({
             ...item,
             schemaPath: item.schemaPath || schemaPath,
           }))
@@ -208,13 +205,22 @@ export class ExplorerStore {
       }
       if (this.graphWorkspace !== graphWorkspace) return;
 
-      // SAFETY: the detail API serializes `SnapshotData` as a JSON string while `Snapshot.data` is typed as parsed data.
-      const data = this.importSnapshotTransfer(snapshotDetail.data as unknown as string);
-      graphWorkspace.initSnapShot({
+      const payload = decodeSnapshotPayload(snapshotDetail.data);
+      const data = payload ? materializeSnapshot(payload) : undefined;
+      graphWorkspace.restoreSnapshot({
         ...snapshotDetail,
         schemaPath,
         data,
       });
+      if (snapshotDetail.graph_type) {
+        // Keep metadata loading parallel with the restored canvas, as before. This controller
+        // owns the task and suppresses reports for a workspace that has already been replaced.
+        void graphWorkspace.loadGraphTypeDetails(snapshotDetail.graph_type).catch((error: unknown) => {
+          if (this.graphWorkspace === graphWorkspace) {
+            console.warn('[graph-metadata] failed to load snapshot graph type', error);
+          }
+        });
+      }
     } finally {
       if (this.graphWorkspace === graphWorkspace) {
         this.updateLoading(false);
@@ -234,7 +240,7 @@ export class ExplorerStore {
     return res.data;
   };
 
-  editSnapshot = async (snapshot: Omit<Snapshot, 'data'>) => {
+  editSnapshot = async (snapshot: SnapshotMetadata) => {
     const res = await this.services.snapshots.update(snapshot);
     return res;
   };
@@ -257,88 +263,23 @@ export class ExplorerStore {
     return res.data;
   };
 
-  saveSnapShotDetail = async (snapshot: Snapshot) => {
+  saveSnapShotDetail = async (snapshot: OpenedSnapshot) => {
     const data = this.exportSnapshotTransfer(snapshot.data!);
     const res = await this.services.snapshots.update({
       ...snapshot,
-      data: JSON.stringify(data),
+      data: encodeSnapshotPayload(data),
     });
     return res;
   };
 
-  /**
-   * transfer snapshot data from jsonstring to SnapshotData
-   * @param dataStr
-   * @returns
-   */
+  /** Compatibility entry: decode data and materialize the existing runtime representation. */
   importSnapshotTransfer = (dataStr: string) => {
-    const [data, err] = safeParse<SnapshotData>(dataStr) || ({} as SnapshotData);
-    if (err) {
-      // console.error('importSnapshotTransfer error', err);
-      return;
-    }
-    // SAFETY: `safeParse` yields the serialized shape (string endpoints/ids) that must be migrated before use.
-    migrateSnapshotEdgeIds(data as unknown as SerializedSnapshotGraphData);
-
-    // handle imagesCache
-    // SAFETY: the serialized form is an array of [key, src] tuples, not the runtime Map.
-    ((data.imagesCache ?? []) as unknown as [string, string | HTMLImageElement][]).forEach((item) => {
-      if (Array.isArray(item) && item.length !== 2) {
-        return;
-      }
-      if (typeof item[1] === 'string') {
-        const img = new Image();
-        img.src = item[1];
-        item[1] = img;
-      }
-    });
-
-    // handle nodes & links
-    Array.from(AttrSet).forEach((key) => {
-      // SAFETY: serialized sets are stored as id arrays until rebuilt below.
-      const items = data[key] as unknown as Array<string>;
-      // SAFETY: `nowDataMap` is a plain object of serialized entries until rebuilt below.
-      const nowDataMap = data.nowDataMap as unknown as Record<string, NodeObject | LinkObject>;
-      if (items?.length) {
-        if (key === 'nodes' || key === 'nodesSelected') {
-          // @ts-expect-error
-          data[key] = observable.set<NodeObject>(items.map((id) => nowDataMap?.[id] as NodeObject).filter(Boolean), {
-            deep: false,
-          });
-        }
-        if (key === 'links' || key === 'linksSelected') {
-          // @ts-expect-error
-          data[key] = observable.set<LinkObject>(items.map((id) => nowDataMap?.[id] as LinkObject).filter(Boolean), {
-            deep: false,
-          });
-        }
-      }
-    });
-
-    // make link's node string=>object
-    data.links?.forEach((link) => {
-      // SAFETY: link endpoints are serialized as ids resolved through the serialized `nowDataMap` object.
-      const nowDataMap = data.nowDataMap as unknown as Record<string, NodeObject>;
-      link.source = nowDataMap[link.source as string] || ({} as NodeObject);
-      link.target = nowDataMap[link.target as string] || ({} as NodeObject);
-    });
-
-    // handle nowDataMap
-    data.nowDataMap = new Map<string, NodeObject | LinkObject>(Object.entries(data.nowDataMap));
-
-    // handle ObservableArray
-    AttrArray.forEach((key) => {
-      const items = (data[key as keyof SnapshotData] || []) as unknown;
-      // @ts-expect-error
-      data[key] = observable.array(items, {
-        deep: false,
-      });
-    });
-    return data;
+    const payload = decodeSnapshotPayload(dataStr);
+    return payload ? materializeSnapshot(payload) : undefined;
   };
 
-  /** Serialize snapshot data. Same function as the module export; kept on the instance for existing callers. */
-  exportSnapshotTransfer = (data: SnapshotData) => exportSnapshotTransfer(data, this.services.snapshotVersion);
+  /** Compatibility instance wrapper; the standalone export is also retained. */
+  exportSnapshotTransfer = (data: GraphRuntimeState) => exportSnapshotTransfer(data, this.services.snapshotVersion);
 
   loadSettings = async () => {
     if (!this.services.settings) return;

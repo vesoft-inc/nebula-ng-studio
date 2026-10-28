@@ -4,7 +4,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Box, MenuItem, TextField, Typography } from '@mui/material';
 import { Modal } from '../../../shared/index';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import type { GraphWorkspaceStore } from '../../../graph/stores/workspace';
 import type { GraphEditEdgeModal, GraphEditNodeModal } from '../../../graph/stores/graphEdit';
 import PropertyField from './PropertyField';

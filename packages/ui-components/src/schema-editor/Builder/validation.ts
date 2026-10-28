@@ -1,10 +1,6 @@
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
-import {
-  getDecimalParameterError,
-  parseDecimalType,
-  PropertyDataType,
-  resolveDecimalParameters,
-} from '@vesoft-inc/utils';
+import { getDecimalParameterError, parseDecimalType, resolveDecimalParameters } from '@vesoft-inc/studio-core/graph';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 
 export function getPropertyDecimalError(property: IProperty): boolean {
   if (/^\s*(DECIMAL|DEC)\s*$/i.test(property.type)) return !!getDecimalParameterError(property);

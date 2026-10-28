@@ -1,12 +1,8 @@
 import { Checkbox, TextField } from '@mui/material';
 import { useController, useFormContext, type FieldPath } from 'react-hook-form-mui';
 import { useTranslation } from 'react-i18next';
-import {
-  DECIMAL_MAX_PRECISION,
-  DECIMAL_MAX_SCALE,
-  getDecimalParameterError,
-  PropertyDataType,
-} from '@vesoft-inc/utils';
+import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE, getDecimalParameterError } from '@vesoft-inc/studio-core/graph';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { INodeTypeItem } from '../../schema/types';
 import { PropertyBodyCell } from './styles';
 

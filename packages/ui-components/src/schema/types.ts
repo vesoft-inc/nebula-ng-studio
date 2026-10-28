@@ -1,5 +1,23 @@
-import { LINE_STYLE } from '@vesoft-inc/utils';
-import { createUuid, EdgeDirectionType, GraphEntityType, MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/utils';
+export { LINE_STYLE, ToolNodeColor } from '../shared/styles';
+import type { GraphType, GraphItem, GraphTypeElement, DescTypeItemResult } from '@vesoft-inc/studio-core/contracts';
+export type {
+  ISchemaItem,
+  NebulaSchema,
+  GraphType,
+  GraphItem,
+  GraphTypeElement,
+  ILabelItem,
+  DescTypeItemResult,
+  DescNodeTypeResult,
+  DescEdgeTypeResult,
+  IGraphIndex,
+  IGraphStats,
+} from '@vesoft-inc/studio-core/contracts';
+export type { RawGraphTypeDescription as DescGraphTypeResult } from '@vesoft-inc/studio-core/contracts';
+export { EdgeStatsEntryName, NodeStatsEntryName } from '@vesoft-inc/studio-core/contracts';
+import { LINE_STYLE } from '../shared/styles';
+import { createUuid } from '@vesoft-inc/studio-core';
+import { EdgeDirectionType, MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { SchemaItemType, VisualEditorType } from '../shared/constants';
 
 export const idSymbol = Symbol('id');
@@ -229,79 +247,6 @@ export interface VisualNodeCustomizeInfo {
   invalid?: false;
 }
 
-export interface ISchemaItem {
-  name: string;
-  path: string;
-  owner: string;
-}
-
-export interface NebulaSchema extends ISchemaItem {
-  graphTypes: GraphType[];
-  graphs: GraphItem[];
-}
-
-export interface GraphType {
-  schema: string;
-  graph_type: string;
-  owner: string;
-  entities: GraphTypeElement[];
-}
-
-export interface GraphItem {
-  graph: string;
-  graph_type: string;
-  owner: string;
-  schema: string;
-  index_cnt: number;
-}
-
-export interface GraphTypeElement {
-  entity_type: GraphEntityType;
-  type_name: string;
-  graph_type_name: string;
-  labels: string[];
-  type_pattern?: string;
-  'primary_key/multiedge_key': 'Unique' | string[] | 'Auto';
-  /** currently `string[]` is used for `properties` field, but it should be `Property[]` */
-  properties: string[];
-  propertyInfos?: DescNodeTypeResult[] | DescEdgeTypeResult[];
-}
-
-export interface ILabelItem {
-  name: string;
-  entity_type: GraphEntityType;
-}
-
-export interface DescGraphTypeResult {
-  labels: string[];
-  properties: string[];
-  entity_type: GraphEntityType;
-  type_name: string;
-  type_pattern?: string;
-  'primary_key/multiedge_key'?: 'Unique' | string[] | 'Auto';
-}
-
-export interface DescTypeItemResult {
-  type_name: string;
-  type: GraphEntityType;
-}
-
-export interface DescNodeTypeResult extends DescTypeItemResult {
-  property_name: string;
-  data_type: PropertyDataType;
-  primary_key: 'Y' | '';
-  nullable: boolean;
-  default: string;
-}
-
-export interface DescEdgeTypeResult extends DescTypeItemResult {
-  property_name: string;
-  data_type: PropertyDataType;
-  multi_edge_key: 'Y' | '';
-  nullable: boolean;
-  default: string;
-}
-
 export interface ISketchItem {
   id?: number;
   name: string;
@@ -343,23 +288,3 @@ export enum GraphTypeBuildMode {
   Readonly = 'readonly',
   Sketch = 'sketch',
 }
-
-export interface IGraphIndex {
-  name: string;
-  state: 'Valid' | 'Building';
-  index_type: string;
-  schema: string;
-  graph_name: string;
-  entity_type: GraphEntityType;
-  element_type: string;
-  properties: string[];
-}
-
-export interface IGraphStats {
-  entry_name: string;
-  element_type: string;
-  total_num: number;
-}
-
-export const EdgeStatsEntryName = 'Edge Total';
-export const NodeStatsEntryName = 'Node Total';

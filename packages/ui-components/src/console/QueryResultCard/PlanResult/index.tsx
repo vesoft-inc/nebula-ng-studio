@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { GraphDataTable } from '../../../graph/types/console';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 import ExplainInfo from '../../ExecutionPlanView/index';
 
 interface PlanResultProps {

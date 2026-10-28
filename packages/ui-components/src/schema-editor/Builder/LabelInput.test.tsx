@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '../../theme/index';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { FormContainer } from 'react-hook-form-mui';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
 import NodeTypeConfigForm from './NodeType/NodeTypeConfigForm';

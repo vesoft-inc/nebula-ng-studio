@@ -16,7 +16,8 @@ import {
   Node,
 } from '@xyflow/react';
 import '../../styles.css';
-import { GQLResultPlanInfo, GQLResultSummary } from '@vesoft-inc/utils';
+import { PlanNodeData as GQLResultPlanInfo } from '../types';
+import { GQLResultSummary } from '@vesoft-inc/studio-core/contracts';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import BaseNode from './PlanNode';

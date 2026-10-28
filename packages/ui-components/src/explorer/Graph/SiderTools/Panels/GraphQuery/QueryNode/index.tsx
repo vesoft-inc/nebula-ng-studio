@@ -4,7 +4,7 @@ import { Box, Divider, Button, Chip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { IconButton, Typography } from '@mui/material';
 import { CloseFilled } from '@vesoft-inc/icons';
-import { DescGraphTypeResult, DescNodeTypeResult } from '@vesoft-inc/utils';
+import { DescGraphTypeResult, DescNodeTypeResult } from '@vesoft-inc/studio-core/contracts';
 import { useExplorerStore } from '../../../../../context';
 import { SiderPanel } from '../../../../../../graph/types/explorer';
 import { QueryTitle } from '../styles';

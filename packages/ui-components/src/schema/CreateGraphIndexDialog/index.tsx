@@ -14,7 +14,7 @@ import FormFulltextIndex, { CreateGraphFulltextIndexFormValues } from './FormFul
 import FormVertexCentricIndex, { CreateGraphVertexCentricIndexFormValues } from './FormVertexCentricIndex';
 import { useModal } from '../../shared/useModal';
 import { IndexQueryProvider, type RunGql } from './queryContext';
-import { EdgeDirectionType, GraphEntityType, SortType } from '@vesoft-inc/utils';
+import { EdgeDirectionType, GraphEntityType, SortType } from '@vesoft-inc/studio-core/contracts';
 import { extractEdgeByEdgeTypeName } from '../../shared/utilities';
 
 const typedZodResolver = <TFieldValues extends FieldValues>(schema: unknown) =>

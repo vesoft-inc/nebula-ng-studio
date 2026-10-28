@@ -1,4 +1,5 @@
-import { GQLResult, GraphEntityType, safeArray, type ServerResponse } from '@vesoft-inc/utils';
+import { GQLResult, GraphEntityType, type ServerResponse } from '@vesoft-inc/studio-core/contracts';
+import { safeArray } from '@vesoft-inc/studio-core';
 import {
   DescEdgeTypeResult,
   DescNodeTypeResult,

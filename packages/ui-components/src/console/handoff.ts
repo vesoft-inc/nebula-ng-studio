@@ -1,6 +1,6 @@
 import type { NodeObject } from '@vesoft-inc/force-graph';
 import type { GraphItem, GraphTypeElement } from '../schema/types';
-import type { SnapshotData } from '../graph/types/explorer';
+import type { GraphRuntimeState } from '../graph/snapshot/types';
 
 /**
  * Node color of a graph's visible nodes together with the node types (tags) painted with it.
@@ -44,13 +44,13 @@ export const CONSOLE_SNAPSHOT_GQL_MAX_LENGTH = 60;
 /** Minimal structural view of the Console graph workspace, kept store-free for unit tests. */
 type HandoffWorkspace = {
   graph: {
-    toSnapShotData: () => SnapshotData;
+    toSnapShotData: () => GraphRuntimeState;
   };
 };
 
 /** Minimal structural view of `ExplorerStore.exportSnapshotTransfer`. */
 type HandoffSerializer = {
-  exportSnapshotTransfer: (data: SnapshotData) => unknown;
+  exportSnapshotTransfer: (data: GraphRuntimeState) => unknown;
 };
 
 /** Graph and node type (tag) of a parsed node; both are `undefined` for malformed node data. */

@@ -4,7 +4,7 @@ import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { NodeObject } from '@vesoft-inc/force-graph';
 import { HelpCircleOutline } from '@vesoft-inc/icons';
-import { EdgeDirectionType } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 import { SelectElement } from 'react-hook-form-mui';
 import { useTranslation } from 'react-i18next';
 

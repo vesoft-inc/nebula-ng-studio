@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form-mui';
-import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/utils';
+import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/studio-core/contracts';
 import { Modal } from '../../../shared/index';
 import { useTranslation } from 'react-i18next';
 

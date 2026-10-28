@@ -7,7 +7,12 @@ import { ConditionFilterForm } from './index';
 import { Delete, DotsHexagon, EdgeType } from '@vesoft-inc/icons';
 import { observer } from 'mobx-react-lite';
 import { useExplorerStore } from '../../../../context';
-import { DescEdgeTypeResult, DescGraphTypeResult, DescNodeTypeResult, GraphEntityType } from '@vesoft-inc/utils';
+import {
+  DescEdgeTypeResult,
+  DescGraphTypeResult,
+  DescNodeTypeResult,
+  GraphEntityType,
+} from '@vesoft-inc/studio-core/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { OperatorType } from '../../../../../graph/constants';
 import { ConditionFilter } from '../../../../../graph/types/index';

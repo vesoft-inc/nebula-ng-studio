@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { waitFor } from '@testing-library/react';
-import { GraphEntityType, PropertyDataType, type DescGraphTypeResult, type ServerResponse } from '@vesoft-inc/utils';
+import {
+  GraphEntityType,
+  PropertyDataType,
+  type DescGraphTypeResult,
+  type ServerResponse,
+} from '@vesoft-inc/studio-core/contracts';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import type { QueryExecutor } from '../../shared/query';
 import { RawEntityType } from '../types/gql';

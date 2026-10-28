@@ -2,7 +2,7 @@
 import { StrictMode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ConsoleResult } from '@vesoft-inc/utils';
+import type { ConsoleResult } from '../../types';
 import type { GraphDataTable } from '../../../graph/types/console';
 import GraphResult from './index';
 

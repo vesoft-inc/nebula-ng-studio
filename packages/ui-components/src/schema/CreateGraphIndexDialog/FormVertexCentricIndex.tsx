@@ -12,14 +12,8 @@ import {
   Typography,
   styled,
 } from '@mui/material';
-import {
-  EdgeDirectionType,
-  GeographyTypePattern,
-  GraphEntityType,
-  ListTypePattern,
-  SortType,
-  VectorTypePattern,
-} from '@vesoft-inc/utils';
+import { EdgeDirectionType, GraphEntityType, SortType } from '@vesoft-inc/studio-core/contracts';
+import { GeographyTypePattern, ListTypePattern, VectorTypePattern } from '@vesoft-inc/studio-core/graph';
 import { useTranslation } from 'react-i18next';
 import {
   AutocompleteElement,

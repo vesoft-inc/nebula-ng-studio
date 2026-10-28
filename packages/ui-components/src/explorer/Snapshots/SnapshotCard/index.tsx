@@ -14,12 +14,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { DeleteOutline, EditOutlined, MoreHorizFilled } from '@vesoft-inc/icons';
-import { DateTimeFormat } from '@vesoft-inc/utils';
+import { DateTimeFormat } from '../../../shared/constants';
 import { Dropdown } from '../../../shared/index';
 
 import EmptyCardImage from '../../../assets/images/empty-card-content.svg?url';
 import EmptyCardDarkImage from '../../../assets/images/empty-card-content-dark.svg?url';
-import type { Snapshot } from '../../../graph/types/explorer';
+import type { SnapshotMetadata } from '../../../contracts/snapshot';
 import { useModal } from '../../../shared/useModal';
 
 const GraphCard = styled(Card)`
@@ -37,7 +37,7 @@ const GraphCard = styled(Card)`
 `;
 
 interface IProps {
-  item: Snapshot;
+  item: SnapshotMetadata;
   onOpen?: () => void;
   onDelete: () => void;
   onEdit: () => void;

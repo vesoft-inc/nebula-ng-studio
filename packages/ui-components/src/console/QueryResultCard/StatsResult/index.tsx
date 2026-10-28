@@ -1,6 +1,6 @@
 import { Box, useTheme } from '@mui/material';
 import { GraphDataTable } from '../../../graph/types/console';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 
 interface StatsResultProps {
   result: ConsoleResult<GraphDataTable>;

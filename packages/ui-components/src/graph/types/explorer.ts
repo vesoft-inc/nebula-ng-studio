@@ -1,39 +1,26 @@
 import React from 'react';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
-import { DescEdgeTypeResult, DescGraphTypeResult, DescNodeTypeResult, EdgeDirectionType } from '@vesoft-inc/utils';
+import {
+  DescEdgeTypeResult,
+  DescGraphTypeResult,
+  DescNodeTypeResult,
+  EdgeDirectionType,
+} from '@vesoft-inc/studio-core/contracts';
 import { FORCEGRAPH_COLOR_PICK_LIST, LABEL_COLOR_PICK_LIST } from '../../theme/palette';
-import { IDataMap, RawEntityType } from './gql';
-import { IObservableArray, ObservableSet } from 'mobx';
+import { RawEntityType } from './gql';
+import { IObservableArray } from 'mobx';
 import { ConditionFactories, DEFAULT_LINK_COLOR, OperatorType } from '../constants';
 import { parseValueByPropertyType } from '../utils/helpers';
-import type { VertexFilterDisplay } from '../stores/vertexFilter';
+import type { GraphRuntimeState, OpenedSnapshot } from '../snapshot/types';
+import type { FilterDefinition } from '../../contracts/filter';
+import type { IconGroupData, IconItemData } from '../../contracts/icons';
+export type { DisplayedPropertyItem } from '../../contracts/graph';
 
-export type SnapshotData = {
-  nodes: NodeObject[];
-  links: LinkObject[];
-  nodesSelected: ObservableSet<NodeObject>;
-  linksSelected: ObservableSet<LinkObject>;
-  displayedNodePropertyItems: IObservableArray<DisplayedPropertyItem>;
-  displayedEdgePropertyItems: IObservableArray<DisplayedPropertyItem>;
-  filterList: IObservableArray<ConditionFilter>;
-  filterType?: VertexFilterDisplay;
-  nowDataMap: IDataMap;
-  version?: string;
-  imagesCache?: Map<string, string | HTMLImageElement>; // [url, image]
-};
+/** @deprecated Runtime state, not API JSON. Use SnapshotRecord/SnapshotPayload from /contracts for transport. */
+export type SnapshotData = GraphRuntimeState;
 
-export interface Snapshot {
-  id: string;
-  name: string;
-  graph: string;
-  graph_type: string;
-  data?: SnapshotData;
-  /** base64 format */
-  thumbnail?: string;
-  created_at: string;
-  updated_at: string;
-  schemaPath: string;
-}
+/** @deprecated An opened runtime snapshot. API services use SnapshotRecord from /contracts. */
+export type Snapshot = OpenedSnapshot;
 
 export interface Pointer {
   top: number;
@@ -160,30 +147,14 @@ export interface IConditionQuery {
   conditions: ICondtionItem[];
 }
 
-export interface IconItem {
-  id: string;
-  name: string;
-  icon: string;
-  groupId: string;
-  category: string;
-  categoryCN?: string;
-  // [key: string]: unknown;
-}
+export type IconItem = IconItemData;
 
-export interface IconGroup {
-  id: string;
-  name: string;
-  nameCN?: string;
+/** Runtime catalog group. Service responses use IconGroupRecord. */
+export interface IconGroup extends Omit<IconGroupData, 'icons'> {
   icons: IObservableArray<IconItem>;
-  editable: boolean;
 }
 
-export interface DisplayedPropertyItem {
-  type_name: string;
-  properties: string[];
-}
-
-export class ConditionFilter {
+export class ConditionFilter implements FilterDefinition {
   property?: DescEdgeTypeResult | DescNodeTypeResult;
   property_name?: string;
   operator: OperatorType;
@@ -192,7 +163,7 @@ export class ConditionFilter {
   value: string;
   enable: boolean;
 
-  constructor(params: Omit<ConditionFilter, 'isMeetCondition' | 'getValues' | 'isSameType'>) {
+  constructor(params: FilterDefinition) {
     const { property, property_name, operator, entity, entity_name, value, enable } = params;
     this.property = property;
     this.property_name = property_name;
@@ -225,7 +196,7 @@ export class ConditionFilter {
     });
   };
 
-  getValues = () => {
+  getValues = (): FilterDefinition => {
     return {
       property: this.property,
       property_name: this.property_name,

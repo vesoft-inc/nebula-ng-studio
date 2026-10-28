@@ -2,7 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Box, FormControl, FormControlLabel, IconButton, Radio, RadioGroup } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import { NoopComponent } from '../../helpers';
 import PageLoading from '../PageLoading/index';
 // import { GroupButton } from '../../../shared/index';

@@ -163,7 +163,7 @@ describe('Explorer snapshot serialization', () => {
       schemaStore: schemaStore as never,
       services,
     });
-    const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
+    const workspace = { setRestoreState: vi.fn(), restoreSnapshot: vi.fn(), destroy: vi.fn() };
     const emptySnapshotData = {
       nodes: [],
       links: [],
@@ -183,7 +183,7 @@ describe('Explorer snapshot serialization', () => {
     await store.openSnapshot('snap-1', workspace as never);
 
     expect(workspace.setRestoreState.mock.calls.map(([state]) => state)).toEqual(['restoring', 'ready']);
-    expect(workspace.initSnapShot).toHaveBeenCalledTimes(1);
+    expect(workspace.restoreSnapshot).toHaveBeenCalledTimes(1);
     expect(store.loading).toBe(false);
   });
 
@@ -200,13 +200,13 @@ describe('Explorer snapshot serialization', () => {
       schemaStore: schemaStore as never,
       services,
     });
-    const workspace = { setRestoreState: vi.fn(), initSnapShot: vi.fn(), destroy: vi.fn() };
+    const workspace = { setRestoreState: vi.fn(), restoreSnapshot: vi.fn(), destroy: vi.fn() };
     vi.mocked(getSnapshotDetail).mockResolvedValueOnce({ code: 1, data: undefined } as never);
 
     await store.openSnapshot('missing', workspace as never);
 
     expect(workspace.setRestoreState.mock.calls.map(([state]) => state)).toEqual(['restoring', 'ready']);
-    expect(workspace.initSnapShot).not.toHaveBeenCalled();
+    expect(workspace.restoreSnapshot).not.toHaveBeenCalled();
     expect(store.loading).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { observable } from 'mobx';
-import { GraphEntityType, PropertyDataType, type DescGraphTypeResult } from '@vesoft-inc/utils';
+import { GraphEntityType, PropertyDataType, type DescGraphTypeResult } from '@vesoft-inc/studio-core/contracts';
 import type { NodeObject } from '@vesoft-inc/force-graph';
 import { UiProvider } from '../../provider';
 import { ExplorerStore, exportSnapshotTransfer } from '../../explorer/ExplorerController';

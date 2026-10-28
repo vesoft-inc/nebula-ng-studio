@@ -1,3 +1,4 @@
+export type { ConsoleResult, PlanNodeData } from '../console/types';
 export type { QueryToolbarProps } from '../console/QueryComposer';
 export { QueryToolbar } from '../console/QueryComposer';
 export type { QueryComposerProps } from '../console/QueryComposer';

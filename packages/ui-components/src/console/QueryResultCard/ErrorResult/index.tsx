@@ -1,7 +1,7 @@
 import { Stack } from '@mui/material';
 import Box from '@mui/material/Box';
 import { CancelFilled } from '@vesoft-inc/icons';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 
 export default function ErrorResult({ result }: { result: ConsoleResult }) {
   const { message } = result;

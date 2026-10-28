@@ -1,4 +1,4 @@
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import { observer } from 'mobx-react-lite';
 
 import { List } from '@mui/material';

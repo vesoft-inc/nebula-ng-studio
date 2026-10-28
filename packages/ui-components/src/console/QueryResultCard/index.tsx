@@ -17,7 +17,7 @@ import {
 } from '@vesoft-inc/icons';
 import Box from '@mui/material/Box';
 import Collapse from '@mui/material/Collapse';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../types';
 import { Dropdown } from '../../shared/index';
 import { observer } from 'mobx-react-lite';
 import {

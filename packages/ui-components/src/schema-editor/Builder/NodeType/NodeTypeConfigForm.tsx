@@ -18,14 +18,14 @@ import {
 import { AutocompleteElement, TextFieldElement, useWatch, useFieldArray, useFormContext } from 'react-hook-form-mui';
 import { Trans, useTranslation } from 'react-i18next';
 import PopupState from 'material-ui-popup-state';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { usePopupState, bindFocus, bindPopover, bindTrigger } from 'material-ui-popup-state/hooks';
 import { observer } from 'mobx-react-lite';
 import { CloseFilled, AddFilled, MoreVertFilled, HelpCircleOutline } from '@vesoft-inc/icons';
 
 import { TypeInfoContainer, PropertyFormContainer, PropertyBodyCell, PropertyHeaderCell } from '../styles';
 import { GraphTypeBuildMode, INodeTypeItem, IProperty } from '../../../schema/types';
-import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
+import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/studio-core/graph';
 import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
 import { getDuplicateValues } from '../../../shared/utilities';
 import { useGraphTypeStore } from '../../context';

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '../../theme/index';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
 import SchemaStore from '../SchemaEditorState';
 import NodeTypeConfigModal from './NodeType/NodeTypeConfigModal';

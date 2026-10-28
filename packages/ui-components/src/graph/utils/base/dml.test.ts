@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { EdgeDirectionType, GraphEntityType, PropertyDataType } from '@vesoft-inc/utils';
-import type { DescEdgeTypeResult, DescGraphTypeResult, DescNodeTypeResult } from '@vesoft-inc/utils';
+import { EdgeDirectionType, GraphEntityType, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
+import type { DescEdgeTypeResult, DescGraphTypeResult, DescNodeTypeResult } from '@vesoft-inc/studio-core/contracts';
 
 import {
   buildDeleteGql,

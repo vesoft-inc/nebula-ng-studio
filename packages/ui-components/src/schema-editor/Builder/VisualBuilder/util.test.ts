@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cloneDeep } from 'lodash';
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '../../../schema/types';
-import { MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/utils';
+import { MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { getEdgeTypeFormValues, getNodeTypeFormValues, getPropertyModel } from '../formValues';
 import { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL, parsePropertyDataType } from './util';
 

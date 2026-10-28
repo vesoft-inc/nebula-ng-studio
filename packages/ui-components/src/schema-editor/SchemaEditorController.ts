@@ -2,7 +2,7 @@ import { action, makeAutoObservable, observable } from 'mobx';
 import SchemaStore from './SchemaEditorState';
 import type { SchemaEditorServices } from './services';
 import { GraphTypeBuildMode, SketchListItem } from '../schema/types';
-import { GQLResult } from '@vesoft-inc/utils';
+import { GQLResult } from '@vesoft-inc/studio-core/contracts';
 import { CanvasStore } from './Builder/VisualBuilder/store';
 
 export interface IGraphTypeItem {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
 import {
   getNewNodeTypes,

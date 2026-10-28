@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import { List } from '@mui/material';
 
 import { useState } from 'react';

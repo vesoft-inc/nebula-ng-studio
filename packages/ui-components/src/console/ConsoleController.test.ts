@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import ConsoleController from './ConsoleController';
 import type { QueryExecutor } from '../shared/query';
 import type { GraphWorkspaceStore } from '../graph/stores/workspace';

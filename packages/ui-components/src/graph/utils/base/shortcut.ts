@@ -1,4 +1,4 @@
-import { EdgeDirectionType } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 import { ALL_EDGE_TYPE_KEY } from '../../constants';
 import type { GraphWorkspaceStore } from '../../stores/workspace';
 

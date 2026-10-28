@@ -1,5 +1,6 @@
 export type { GraphRestoreState } from '../graph/stores/workspace';
 export { GraphWorkspaceStore } from '../graph/stores/workspace';
+export type { GraphRuntimeState, GraphHistoryFrame, OpenedSnapshot } from '../graph/snapshot/types';
 export type { GraphEditNodeModal } from '../graph/stores/graphEdit';
 export type { GraphEditEdgeModal } from '../graph/stores/graphEdit';
 export type { GraphEditDeleteModal } from '../graph/stores/graphEdit';

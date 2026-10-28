@@ -1,7 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import Box from '@mui/material/Box';
 import { Table } from '../../../shared/index';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { MRT_Localization_ZH_HANS } from 'material-react-table/locales/zh-Hans';
 import { JSONBig, transformNebulaResult } from '../../../shared/utilities';

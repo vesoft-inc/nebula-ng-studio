@@ -15,7 +15,9 @@ import type { ForceGraphInstance, LinkObject, NodeObject } from '@vesoft-inc/for
 import type { GraphStore } from './graph';
 import { ITransform } from '../types/explorer';
 import pipeline from '../utils/base/pipeline';
-import { EdgeDirectionType, GREY_SCALE_ALPHA, hexToRgba } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
+import { GREY_SCALE_ALPHA } from '../../shared/constants';
+import { hexToRgba } from '@vesoft-inc/studio-core';
 import { createTheme } from '@mui/material/styles';
 import { LIGHT_PALETTE } from '../../theme/palette';
 import { throttle } from 'lodash';

@@ -1,13 +1,4 @@
-import {
-  action,
-  computed,
-  IReactionDisposer,
-  isObservableSet,
-  makeAutoObservable,
-  observable,
-  reaction,
-  toJS,
-} from 'mobx';
+import { action, computed, IReactionDisposer, makeAutoObservable, observable, reaction, toJS } from 'mobx';
 import { debounce } from '@mui/material/utils';
 import isEqual from 'lodash/isEqual';
 import {
@@ -21,7 +12,8 @@ import {
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import { v5 as uuidv5 } from 'uuid';
 
-import { IRules, ColorPicker, Pointer, SnapshotData, DisplayedPropertyItem, ConditionFilter } from '../types/explorer';
+import { IRules, ColorPicker, Pointer, DisplayedPropertyItem, ConditionFilter } from '../types/explorer';
+import type { GraphHistoryFrame, GraphRuntimeState } from '../snapshot/types';
 import { TwoGraphStore } from './two-graph';
 import {
   EdgeValue,
@@ -38,33 +30,21 @@ import { isNullLike } from '../utils/base/dml';
 import { convertBigNumberToString, getDirection, getPathPattern, parseValueByPropertyType } from '../utils/helpers';
 import type { GraphWorkspaceStore } from './workspace';
 import VertexFilterStore, { VertexFilterDisplay } from './vertexFilter';
-import {
-  DescNodeTypeResult,
-  downloadCSVFiles,
-  EdgeDirectionType,
-  extractEdgeByEdgeTypeName,
-  GQLResult,
-  GraphEntityType,
-} from '@vesoft-inc/utils';
+import { DescNodeTypeResult, EdgeDirectionType, GQLResult, GraphEntityType } from '@vesoft-inc/studio-core/contracts';
+import { downloadCSVFiles } from '../../shared/download';
+import { extractEdgeByEdgeTypeName } from '@vesoft-inc/studio-core/graph';
 import { ALL_EDGE_TYPE_KEY, GraphLayoutType, PathFilterType, PathType } from '../constants';
 import layouts from '../utils/layouts';
 import type { QueryExecutor } from '../../shared/query';
 import type { ModalStore } from '../../shared/Modal/index';
 import { Settings4GraphStore } from '../../shared/Settings/constants';
-import { RequestQueue } from '@vesoft-inc/utils';
+import { RequestQueue } from '@vesoft-inc/studio-core/request';
 
-const ORIGIN_HISTORY_STATE: SnapshotData = {
+const ORIGIN_HISTORY_STATE: GraphHistoryFrame = {
   nodes: [],
   links: [],
   nodesSelected: observable.set([] as NodeObject[], { deep: false }),
   linksSelected: observable.set([] as LinkObject[], { deep: false }),
-  displayedEdgePropertyItems: observable.array<DisplayedPropertyItem>([], {
-    deep: false,
-  }),
-  displayedNodePropertyItems: observable.array<DisplayedPropertyItem>([], {
-    deep: false,
-  }),
-  filterList: observable.array<ConditionFilter>([], { deep: false }),
   nowDataMap: new Map(),
 };
 
@@ -77,7 +57,7 @@ export class GraphStore {
   linksSelected = observable.set<LinkObject>([], { deep: false });
   nodeHovering?: NodeObject = undefined;
   linkHovering?: LinkObject = undefined;
-  actionHistory = observable.array<SnapshotData>([ORIGIN_HISTORY_STATE], {
+  actionHistory = observable.array<GraphHistoryFrame>([ORIGIN_HISTORY_STATE], {
     deep: false,
   });
   historyIndex = 0;
@@ -229,30 +209,22 @@ export class GraphStore {
     this.replaceNodeSelected(nodes);
   };
 
-  toSnapShotData = () => {
-    const data = (() => {
-      const { actionHistory, pointer, imagesCache: imgCacheMap, ...otherAttrs } = this || {};
-      // Map<string, Image> --> Array<[string, base64String]>
-      const imagesCache = [...imgCacheMap.entries()].map(([key, img]) => [key, (img as HTMLImageElement).src]);
-      return Object.keys(otherAttrs).reduce(
-        (ret, key) => {
-          // @ts-expect-error
-          ret[key] = isObservableSet(otherAttrs[key])
-            ? // @ts-ignore
-              [...otherAttrs[key]]
-            : // @ts-ignore
-              toJS(otherAttrs[key]);
-          return ret;
-        },
-        // SAFETY: the seed only carries `imagesCache`; the reducer fills in the remaining
-        // `SnapshotData` keys from the store's own attributes.
-        { imagesCache } as unknown as SnapshotData
-      );
-    })();
-
-    data.filterType = this.vertexFilterStore.filterType;
-    return data;
-  };
+  toSnapShotData = () =>
+    ({
+      nodes: [...this.nodes],
+      links: [...this.links],
+      nodesSelected: [...this.nodesSelected],
+      linksSelected: [...this.linksSelected],
+      nowDataMap: toJS(this.nowDataMap),
+      displayedNodePropertyItems: toJS(this.displayedNodePropertyItems),
+      displayedEdgePropertyItems: toJS(this.displayedEdgePropertyItems),
+      filterList: toJS(this.filterList),
+      filterType: this.vertexFilterStore.filterType,
+      imagesCache: Array.from(this.imagesCache, ([key, img]): [string, string] => [
+        key,
+        typeof img === 'string' ? img : img.src,
+      ]),
+    }) satisfies GraphRuntimeState;
 
   initDisplayedNodePropertyItems = () => {
     const { graphTypeDetails, nodeTypePrimaryKeysMap } = this.explorerStore;
@@ -292,28 +264,30 @@ export class GraphStore {
     this.filterList.replace(filterList);
   };
 
-  recoverSnapShotData = (data: SnapshotData) => {
+  recoverSnapShotData = (data: GraphRuntimeState) => {
     this.unsafeAction((store) => {
-      store.nodes.replace(data.nodes);
+      const nodes = Array.from(data.nodes);
+      const links = Array.from(data.links);
+      store.nodes.replace(nodes);
       // store.links.replace(data.links.filter(l => (l.source as NodeObject)?.id && (l.target as NodeObject)?.id));
-      store.links.replace(data.links);
-      store.nodesSelected.replace(data.nodesSelected);
-      store.linksSelected.replace(data.linksSelected);
-      store.displayedNodePropertyItems.replace(data.displayedNodePropertyItems);
-      store.displayedEdgePropertyItems.replace(data.displayedEdgePropertyItems);
+      store.links.replace(links);
+      store.nodesSelected.replace(Array.from(data.nodesSelected));
+      store.linksSelected.replace(Array.from(data.linksSelected));
+      store.displayedNodePropertyItems.replace([...data.displayedNodePropertyItems]);
+      store.displayedEdgePropertyItems.replace([...data.displayedEdgePropertyItems]);
       store.nowDataMap = data.nowDataMap;
       store.imagesCache = new Map(data.imagesCache);
       // Restore without marking a saved snapshot as edited. Older snapshots used grayscale.
       store.vertexFilterStore.filterType = data.filterType ?? VertexFilterDisplay.Grayscale;
       store.filterList.replace(data.filterList.map((f) => new ConditionFilter(f)));
       store.nodeColorPicker.initColorMap(
-        Array.from(data.nodes).map((node) => ({
+        nodes.map((node) => ({
           key: node.data.value.type,
           defaultColor: node.color as string,
         }))
       );
       store.linkColorPicker.initColorMap(
-        Array.from(data.links).map((link) => ({
+        links.map((link) => ({
           key: link.data.value.type,
           defaultColor: link.color as string,
         }))
@@ -321,12 +295,12 @@ export class GraphStore {
     });
   };
 
-  recorverHistoryData = (data: SnapshotData) => {
+  recorverHistoryData = (data: GraphHistoryFrame) => {
     this.unsafeAction((store) => {
-      store.nodes.replace(data.nodes);
-      store.links.replace(data.links);
-      store.nodesSelected.replace(data.nodesSelected);
-      store.linksSelected.replace(data.linksSelected);
+      store.nodes.replace(Array.from(data.nodes));
+      store.links.replace(Array.from(data.links));
+      store.nodesSelected.replace(Array.from(data.nodesSelected));
+      store.linksSelected.replace(Array.from(data.linksSelected));
       store.nowDataMap = data.nowDataMap;
     });
   };
@@ -550,10 +524,8 @@ export class GraphStore {
       linksSelected: this.linksSelected.toJSON(),
       nowDataMap: new Map(Array.from(this.nowDataMap)),
     };
-    // SAFETY: the history entry is a detached JSON snapshot; `nodesSelected`/`linksSelected`
-    // are reshaped back into observable sets when the entry is restored.
     this.actionHistory.splice(this.historyIndex + 1);
-    this.actionHistory.push(snapshot as unknown as SnapshotData);
+    this.actionHistory.push(snapshot);
     this.historyIndex = this.actionHistory.length - 1;
   };
 

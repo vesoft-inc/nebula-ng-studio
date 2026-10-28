@@ -3,7 +3,7 @@ import type { ComponentType, PropsWithChildren } from 'react';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useForm, type FieldValues, type UseFormReturn } from 'react-hook-form-mui';
-import { GraphEntityType, PropertyDataType, type ServerResponse } from '@vesoft-inc/utils';
+import { GraphEntityType, PropertyDataType, type ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import { UiProvider } from '../../provider';
 import type { QueryExecutor } from '../../shared/query';
 import FormVectorIndex from './FormVectorIndex';

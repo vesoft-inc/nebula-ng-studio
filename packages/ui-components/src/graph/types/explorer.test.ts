@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BigNumber } from 'bignumber.js';
-import { GraphEntityType, PropertyDataType } from '@vesoft-inc/utils';
+import { GraphEntityType, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import type { NodeObject } from '@vesoft-inc/force-graph';
 import { ConditionFilter } from './explorer';
 import { RawEntityType } from './gql';

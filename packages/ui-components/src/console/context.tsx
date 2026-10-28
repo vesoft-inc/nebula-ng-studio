@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import type { ConsoleResult } from '@vesoft-inc/utils';
+import type { ConsoleResult } from './types';
 import ConsoleController from './ConsoleController';
 import { ConsoleResultHostProvider, type ConsoleResultHost } from './QueryResultCard/resultHost';
 import type { GraphDataTable } from '../graph/types/console';

@@ -1,4 +1,5 @@
-import { GQLResultPlanInfo, GQLResultSummary } from '@vesoft-inc/utils';
+import { PlanNodeData as GQLResultPlanInfo } from '../../types';
+import { GQLResultSummary } from '@vesoft-inc/studio-core/contracts';
 
 export interface PlanNodeDrawerProps {
   open: boolean;

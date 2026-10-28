@@ -1,3 +1,4 @@
+export type { ConsoleResult, PlanNodeData } from '../console/types';
 export type { ConsoleResultSnapshotRef } from '../console/ConsoleController';
 export { default as ConsoleController } from '../console/ConsoleController';
 export type { GraphColorUsage } from '../console/handoff';

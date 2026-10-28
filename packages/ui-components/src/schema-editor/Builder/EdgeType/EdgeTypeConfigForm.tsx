@@ -25,7 +25,7 @@ import {
   useFieldArray,
 } from 'react-hook-form-mui';
 import PopupState from 'material-ui-popup-state';
-import { EdgeDirectionType, MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/utils';
+import { EdgeDirectionType, MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { Trans, useTranslation } from 'react-i18next';
 import { usePopupState, bindFocus, bindPopover, bindTrigger } from 'material-ui-popup-state/hooks';
 import { observer } from 'mobx-react-lite';
@@ -33,7 +33,7 @@ import { CloseFilled, AddFilled, MoreVertFilled, HelpCircleOutline } from '@veso
 
 import { TypeInfoContainer, PropertyFormContainer, PropertyBodyCell, PropertyHeaderCell } from '../styles';
 import { GraphTypeBuildMode, IEdgeTypeItem, ILabelItem, INodeTypeItem, IProperty } from '../../../schema/types';
-import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/utils';
+import { DECIMAL_MAX_PRECISION, DECIMAL_MAX_SCALE } from '@vesoft-inc/studio-core/graph';
 import { DecimalFields, PropertyCheckbox } from '../PropertyControls';
 import { getPropertyDecimalError } from '../validation';
 import { getDuplicateValues } from '../../../shared/utilities';

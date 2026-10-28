@@ -1,3 +1,4 @@
+export { LINE_STYLE, ToolNodeColor } from '../schema/types';
 export { idSymbol } from '../schema/types';
 export { styleSymbol } from '../schema/types';
 export { IProperty } from '../schema/types';

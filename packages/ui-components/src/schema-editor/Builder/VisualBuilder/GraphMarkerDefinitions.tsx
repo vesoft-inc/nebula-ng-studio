@@ -1,5 +1,5 @@
 import { useTheme } from '@mui/material';
-import { LINE_STYLE } from '@vesoft-inc/utils';
+import { LINE_STYLE } from '../../../shared/styles';
 
 function GraphMarkerDefinitions() {
   const theme = useTheme();

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTheme, Box } from '@mui/material';
 import MonacoEditor from '../../../editor/MonacoEditor/index';
 import { JSONBig, transformNebulaResult } from '../../../shared/utilities';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 
 export default function RawResult({ result }: { result: ConsoleResult }) {
   const themeMode = useTheme().palette.mode;

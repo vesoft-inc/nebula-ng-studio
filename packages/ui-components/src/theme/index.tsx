@@ -12,7 +12,7 @@ import { customizeMuiButton, customizeMuiIconButton } from './components/button'
 import { customizeMuiSelect } from './components/select';
 import { customizeMuiChip } from './components/chip';
 import { customizeMuiStepConnector, customizeMuiStepLabel } from './components/stepper';
-import { LocalStorageUtil } from '@vesoft-inc/utils';
+import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 export { renderPasswordIcon } from './styles';
 export { DARK_PALETTE, LIGHT_PALETTE, LABEL_COLOR_PICK_LIST, FORCEGRAPH_COLOR_PICK_LIST } from './palette';
 

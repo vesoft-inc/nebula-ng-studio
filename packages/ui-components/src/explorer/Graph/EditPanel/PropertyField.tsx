@@ -1,7 +1,7 @@
 import { Box, Chip } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { SelectElement, TextFieldElement } from 'react-hook-form-mui';
-import { GraphEntityType, PropertyDataType } from '@vesoft-inc/utils';
+import { GraphEntityType, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { isIntegerPropertyType, type PropertyMeta } from '../../../graph/utils/base/dml';
 
 const badgeSx = {

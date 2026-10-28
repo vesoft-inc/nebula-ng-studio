@@ -1,4 +1,4 @@
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import type { QueryExecutor } from '../shared/query';
 
 export interface SchemaServices {

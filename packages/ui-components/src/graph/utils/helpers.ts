@@ -1,7 +1,8 @@
-import { BigNumber } from 'bignumber.js';
+import { convertBigNumberToString } from '@vesoft-inc/studio-core/graph';
+export { convertBigNumberToString, removeNullCharacters } from '@vesoft-inc/studio-core/graph';
 import { throttle } from 'lodash';
 import { type Theme } from '@mui/material';
-import { DescGraphTypeResult, EdgeDirectionType, PropertyDataType } from '@vesoft-inc/utils';
+import { DescGraphTypeResult, EdgeDirectionType, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { css } from '@emotion/css';
 import dayjs from 'dayjs';
 
@@ -16,15 +17,6 @@ export const handleVidStringName = (name: string, spaceVidType?: string) => {
     return convertBigNumberToString(name);
   }
   return JSON.stringify(name);
-};
-
-export const convertBigNumberToString = (value: string) => {
-  // int precision length in nebula is longer than in javascript
-  return BigNumber.isBigNumber(value) ? value.toString() : value;
-};
-
-export const removeNullCharacters = (data: string) => {
-  return data.replace(/\u0000+$/, '');
 };
 
 /**

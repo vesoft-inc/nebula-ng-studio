@@ -1,5 +1,5 @@
 import { Box, BoxProps } from '@mui/material';
-import { hexToRgba } from '@vesoft-inc/utils';
+import { hexToRgba } from '@vesoft-inc/studio-core';
 import pageLoading from '../../../assets/loading.gif?url';
 import logoLoading from '../../../assets/logo-loading.gif?url';
 

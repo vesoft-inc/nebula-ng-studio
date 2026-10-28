@@ -1,4 +1,5 @@
-import { HttpResCode, type ConsoleResult } from '@vesoft-inc/utils';
+import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
+import { type ConsoleResult } from '../console/types';
 import type ConsoleController from '../console/ConsoleController';
 import { buildHandoffPayload, buildSnapshotName, ensureSnapshotSchemaPath, pickGraphType } from '../console/handoff';
 import type SchemaController from '../schema/SchemaController';

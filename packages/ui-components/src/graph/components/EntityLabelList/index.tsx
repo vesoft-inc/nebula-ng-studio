@@ -1,6 +1,6 @@
 import type { GraphWorkspaceStore } from '../../stores/workspace';
 import { Chip, Tooltip } from '@mui/material';
-import { hexToRgba } from '@vesoft-inc/utils';
+import { hexToRgba } from '@vesoft-inc/studio-core';
 import { observer } from 'mobx-react-lite';
 
 function EntityLabelList({ labels, mb, workspace }: { labels: string[]; mb?: number; workspace: GraphWorkspaceStore }) {

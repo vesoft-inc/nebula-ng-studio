@@ -3,7 +3,7 @@ import NodeStylesSetBtn from '../NodeStylesSetBtn/index';
 import type { GraphWorkspaceStore } from '../../stores/workspace';
 import { Box, IconButton, Typography } from '@mui/material';
 import { EyeOffOutline, RemoveRedeyeOutlined } from '@vesoft-inc/icons';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import { observer } from 'mobx-react-lite';
 import { SyntheticEvent, useState } from 'react';
 

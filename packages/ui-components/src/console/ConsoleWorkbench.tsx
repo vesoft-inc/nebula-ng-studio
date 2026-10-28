@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useTheme, Box, IconButton } from '@mui/material';
 import { VectorTriangle, Fullscreen, FullscreenExit, SettingsOutlined } from '@vesoft-inc/icons';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleResult } from '@vesoft-inc/utils';
+import type { ConsoleResult } from './types';
 import type { GraphDataTable } from '../graph/types/console';
 import type { ConsoleServices } from '../shared/query';
 import { Drawer } from '../shared/Drawer';

@@ -5,7 +5,7 @@ import { CloseFilled, KeyVariant } from '@vesoft-inc/icons';
 import { useTranslation } from 'react-i18next';
 import { GroupButton } from '../../../../../shared/index';
 import { useState } from 'react';
-import { GraphEntityType } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
 import CollapseItem from '../../../../../graph/components/Collapse/index';
 import { CheckboxButtonGroup, FormContainer, useForm } from 'react-hook-form-mui';
 import { DisplayedPropertyItem } from '../../../../../graph/types/index';

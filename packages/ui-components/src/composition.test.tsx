@@ -9,7 +9,7 @@ import { useSchema } from './schema/context';
 import { ExplorerWorkbench } from './explorer/ExplorerWorkbench';
 import { StudioShell } from './shell/StudioShell';
 import type { QueryExecutor } from './shared/query';
-import type { ServerResponse } from '@vesoft-inc/utils';
+import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import type { SnapshotServices } from './explorer/services';
 // jsdom cannot initialize WebGL; these tests exercise composition and list navigation.
 vi.mock('./graph/utils/layouts', () => ({ default: {} }));
@@ -158,29 +158,29 @@ describe('standalone business workbenches', () => {
         />
       </UiProvider>
     );
-    await screen.findByRole('button', { name: 'all-1' });
+    await screen.findByText('all-1');
     fireEvent.click(screen.getByRole('button', { name: 'Go to page 2' }));
-    await screen.findByRole('button', { name: 'all-2' });
+    await screen.findByText('all-2');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Exploration Name' }), { target: { value: 'needle' } });
-    await screen.findByRole('button', { name: 'needle-1' });
+    await screen.findByText('needle-1');
     expect(list).toHaveBeenCalledTimes(3);
     expect(screen.getByRole('button', { name: 'page 1' }).getAttribute('aria-current')).toBe('page');
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to page 2' }));
-    await screen.findByRole('button', { name: 'needle-2' });
+    await screen.findByText('needle-2');
     expect(JSON.parse(list.mock.lastCall![0].filter!)).toEqual({ name: 'needle', schema_path: '/demo' });
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Exploration Name' }), { target: { value: '' } });
-    await screen.findByRole('button', { name: 'all-1' });
+    await screen.findByText('all-1');
     expect(JSON.parse(list.mock.lastCall![0].filter!)).toEqual({ schema_path: '/demo' });
 
     delayNextPage = true;
     fireEvent.click(screen.getByRole('button', { name: 'Go to page 2' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Exploration Name' }), { target: { value: 'latest' } });
-    await screen.findByRole('button', { name: 'latest-1' });
+    await screen.findByText('latest-1');
     await act(async () => completePage());
-    expect(screen.getByRole('button', { name: 'latest-1' })).toBeTruthy();
+    expect(screen.getByText('latest-1')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'page 1' }).getAttribute('aria-current')).toBe('page');
   });
 
@@ -234,11 +234,11 @@ describe('standalone business workbenches', () => {
         </UiProvider>
       </Wrapper>
     );
-    await screen.findByRole('button', { name: '/a-all-1' });
+    await screen.findByText('/a-all-1');
     fireEvent.change(screen.getByRole('textbox', { name: 'Exploration Name' }), { target: { value: 'needle' } });
-    await screen.findByRole('button', { name: '/a-needle-1' });
+    await screen.findByText('/a-needle-1');
     fireEvent.click(screen.getByRole('button', { name: 'Go to page 3' }));
-    await screen.findByRole('button', { name: '/a-needle-3' });
+    await screen.findByText('/a-needle-3');
 
     fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Schema' }));
     fireEvent.click(await screen.findByRole('option', { name: '/b' }));
@@ -250,7 +250,7 @@ describe('standalone business workbenches', () => {
       expect(requests[0].page).toBe(1);
       expect(JSON.parse(requests[0].filter!)).toEqual({ schema_path: '/b' });
     });
-    expect(await screen.findByRole('button', { name: '/b-all-1' })).toBeTruthy();
+    expect(await screen.findByText('/b-all-1')).toBeTruthy();
     expect((screen.getByRole('textbox', { name: 'Exploration Name' }) as HTMLInputElement).value).toBe('');
     expect(screen.getByRole('button', { name: 'page 1' }).getAttribute('aria-current')).toBe('page');
   });

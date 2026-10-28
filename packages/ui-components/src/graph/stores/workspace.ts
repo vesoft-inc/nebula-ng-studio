@@ -1,17 +1,17 @@
 import type { Theme } from '@mui/material/styles';
 import type { TFunction } from 'i18next';
 import { defaultUiI18n } from '../../locales';
-import { action, computed, IReactionDisposer, makeAutoObservable, observable, reaction } from 'mobx';
+import { action, computed, makeAutoObservable, observable } from 'mobx';
 import {
   GraphEntityType,
   DescGraphTypeResult,
   DescNodeTypeResult,
   DescEdgeTypeResult,
   GQLResult,
-  RequestQueue,
-} from '@vesoft-inc/utils';
+} from '@vesoft-inc/studio-core/contracts';
+import { RequestQueue } from '@vesoft-inc/studio-core/request';
 import groupBy from 'lodash/groupBy';
-import type { Snapshot } from '../types/explorer';
+import type { OpenedSnapshot } from '../snapshot/types';
 import type { GraphDataTable } from '../types/gql';
 import type { QueryExecutor, QueryOptions } from '../../shared/query';
 import { ColorPicker, SiderPanel } from '../types/explorer';
@@ -29,13 +29,12 @@ export class GraphWorkspaceStore {
   theme?: Theme;
   translate: TFunction = defaultUiI18n.t.bind(defaultUiI18n);
   explorerId?: string;
-  currentSnapshot?: Snapshot;
+  currentSnapshot?: OpenedSnapshot;
   graphTypeDetails?: DescGraphTypeResult[];
   activeSiderKey?: SiderPanel;
   graph: GraphStore;
   graphEdit: GraphEditStore;
   isFullScreen = false;
-  snapShopDisposer?: IReactionDisposer;
   nodeTypePrimaryKeysMap = new Map<string, string[]>();
   edgeTypeMultiEdgeKeyMap = new Map<string, DescGraphTypeResult['primary_key/multiedge_key']>();
   minimap: MinimapStore;
@@ -49,6 +48,7 @@ export class GraphWorkspaceStore {
   execGql: QueryExecutor;
   private requestQueue: RequestQueue;
   private destroyed = false;
+  private restoreVersion = 0;
 
   constructor(options: {
     stores?: { modalStore?: ModalStore };
@@ -64,7 +64,6 @@ export class GraphWorkspaceStore {
       currentSnapshot: observable.ref,
       graph: observable.ref,
       graphEdit: observable.ref,
-      snapShopDisposer: false,
       minimap: false,
       curNodeTypes: computed,
 
@@ -90,7 +89,6 @@ export class GraphWorkspaceStore {
     this.graphEdit = new GraphEditStore(this.graph, this);
     this.explorerId = options.explorerId;
     this.labelColorPicker = new ColorPicker('label');
-    this.initReactions();
   }
 
   setRuntime = (theme: Theme, translate: TFunction) => {
@@ -106,9 +104,22 @@ export class GraphWorkspaceStore {
     this._settings = { ...this._settings, ...settings };
   };
 
-  initSnapShot = (snapshot?: Snapshot) => {
+  /** Apply an opened snapshot once. Metadata updates alone never restore graph data. */
+  restoreSnapshot = (snapshot?: OpenedSnapshot) => {
+    if (this.destroyed) return;
+    this.restoreVersion += 1;
     this.graphEdit.setEditMode(false);
-    this.updateCurrentSnapshot(snapshot);
+    this.updateSnapshotMetadata(snapshot);
+    if (snapshot?.data) {
+      this.graph.recoverSnapShotData(snapshot.data);
+      this.graph.pushHistory();
+    }
+  };
+
+  /** @deprecated Use restoreSnapshot and explicitly load graph type details. */
+  initSnapShot = (snapshot?: OpenedSnapshot) => {
+    this.restoreSnapshot(snapshot);
+    if (snapshot?.graph_type) this.initGraphTypeDetails(snapshot.graph_type);
   };
 
   setRestoreState = (restoreState: GraphRestoreState) => {
@@ -120,36 +131,29 @@ export class GraphWorkspaceStore {
     return primaryKeys?.includes(propertyName);
   };
 
-  initReactions = () => {
-    this.snapShopDisposer = reaction(
-      () => this.currentSnapshot?.name,
-      () => {
-        if (this.currentSnapshot?.graph_type) {
-          this.initGraphTypeDetails(this.currentSnapshot.graph_type);
-        }
-        if (this.currentSnapshot?.data) {
-          this.graph.recoverSnapShotData(this.currentSnapshot.data);
-          this.graph.pushHistory();
-        }
-      }
-    );
+  loadGraphTypeDetails = async (graphType: string) => {
+    if (this.destroyed) return;
+    const version = this.restoreVersion;
+    const graphTypes = await this.getGraphTypeDetail(graphType);
+    if (this.destroyed || version !== this.restoreVersion) return;
+    this.unsafeAction(() => {
+      this.graphTypeDetails = graphTypes;
+      this.nodeTypePrimaryKeysMap = this.getNodeTypePrimaryKeysMap();
+      this.edgeTypeMultiEdgeKeyMap = this.getEdgeTypeMultiEdgeKeyMap();
+      this.labelColorPicker.initColorMap(
+        getAllLabelsByGraphType(graphTypes).map((item) => ({
+          key: item,
+        }))
+      );
+      this.graph.initDisplayedNodePropertyItems();
+      this.graph.initDisplayedEdgePropertyItems();
+    });
   };
 
+  /** Compatibility entry for consumers that start metadata loading without awaiting it. */
   initGraphTypeDetails = (graphType: string) => {
-    this.getGraphTypeDetail(graphType).then((graphTypes) => {
-      if (this.destroyed) return;
-      this.unsafeAction(() => {
-        this.graphTypeDetails = graphTypes;
-        this.nodeTypePrimaryKeysMap = this.getNodeTypePrimaryKeysMap();
-        this.edgeTypeMultiEdgeKeyMap = this.getEdgeTypeMultiEdgeKeyMap();
-        this.labelColorPicker.initColorMap(
-          getAllLabelsByGraphType(graphTypes).map((item) => ({
-            key: item,
-          }))
-        );
-        this.graph.initDisplayedNodePropertyItems();
-        this.graph.initDisplayedEdgePropertyItems();
-      });
+    void this.loadGraphTypeDetails(graphType).catch((error: unknown) => {
+      if (!this.destroyed) console.warn('[graph-metadata] failed to load graph type', error);
     });
   };
 
@@ -175,9 +179,11 @@ export class GraphWorkspaceStore {
     this.activeSiderKey = key;
   };
 
-  updateCurrentSnapshot = (snapshot?: Snapshot) => {
+  updateSnapshotMetadata = (snapshot?: OpenedSnapshot) => {
     this.currentSnapshot = snapshot;
   };
+  /** @deprecated This setter only updates metadata. Use restoreSnapshot to restore graph data. */
+  updateCurrentSnapshot = (snapshot?: OpenedSnapshot) => this.updateSnapshotMetadata(snapshot);
   getGraphTypeDetail = async (graphType: string): Promise<DescGraphTypeResult[]> => {
     const gql = `CALL describe_graph_type("${graphType}") RETURN *`;
     const res = await this.execGqlBySerial<GQLResult<DescGraphTypeResult>>(gql);
@@ -297,14 +303,12 @@ export class GraphWorkspaceStore {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
-    this.snapShopDisposer?.();
-    this.snapShopDisposer = undefined;
     this.requestQueue.abortAll('Graph workspace destroyed');
     this.requestQueue.clear();
     this.graph.destroyGraph();
     this.minimap.destroy();
     this.restoreState = 'idle';
-    this.updateCurrentSnapshot(undefined);
+    this.updateSnapshotMetadata(undefined);
   }
 
   execGqlBySerial = async <T extends object>(gql: string, config?: QueryOptions) => {

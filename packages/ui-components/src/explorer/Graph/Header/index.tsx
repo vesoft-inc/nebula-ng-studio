@@ -19,11 +19,11 @@ import { useModal } from '../../../shared/useModal';
 import { useExplorerStore } from '../../context';
 import { OpenableSearchInput, ToolIconButton } from './styles';
 import { useTranslation } from 'react-i18next';
-import { EdgeValue, RawEntityType, Snapshot, VertexValue } from '../../../graph/types/index';
+import { EdgeValue, RawEntityType, VertexValue } from '../../../graph/types/index';
 import { Dropdown } from '../../../shared/index';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 import { ListboxComponent, OptionItem, StyledPopper } from './VirtualList';
-import { downloadCSVFiles } from '@vesoft-inc/utils';
+import { downloadCSVFiles } from '../../../shared/download';
 import { generateFullGraphCanvas } from '../../../graph/utils/base/screenshot';
 import { EditModeToggle } from '../EditToolbar/index';
 
@@ -92,6 +92,8 @@ function GraphHeader({ onBack, blocker }: { onBack?: () => void; blocker?: Explo
 
   const handleSave = async (): Promise<boolean> => {
     if (savingRef.current) return false;
+    const snapshot = graphWorkspace.currentSnapshot;
+    if (!snapshot) return false;
 
     savingRef.current = true;
     setIsSaving(true);
@@ -101,11 +103,11 @@ function GraphHeader({ onBack, blocker }: { onBack?: () => void; blocker?: Explo
       const canvas = await generateThumbnailCanvas();
       const thumbnail = canvas.toDataURL('image/png');
       const res = await explorerStore.saveSnapShotDetail({
-        ...(graphWorkspace.currentSnapshot || {}),
+        ...snapshot,
         thumbnail,
         data,
         schemaPath: currentSchema?.path,
-      } as Snapshot);
+      });
       if (res.code !== 0 || explorerStore.graphWorkspace !== graphWorkspace) return false;
 
       if (!graph.markSnapshotSaved(revision)) {

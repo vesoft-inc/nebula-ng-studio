@@ -2,10 +2,8 @@ import { makeAutoObservable, observable, ObservableSet } from 'mobx';
 import type { GraphStore } from './graph';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 
-export enum VertexFilterDisplay {
-  Hide = 'hide',
-  Grayscale = 'grey',
-}
+import { VertexFilterDisplay } from '../../contracts/filter';
+export { VertexFilterDisplay } from '../../contracts/filter';
 class VertexFilterStore {
   graph: GraphStore;
   filterType: VertexFilterDisplay = VertexFilterDisplay.Grayscale;

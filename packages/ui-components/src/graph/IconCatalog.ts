@@ -2,11 +2,17 @@ import { makeObservable, observable, runInAction } from 'mobx';
 import { IconGroupType } from './constants';
 import { IconGroup, IconItem } from './types/index';
 import type { IconCatalogService } from './iconService';
+import type { IconItemRecord } from '../contracts/icons';
 
 // import service from '@app/config/service';
 import iconCategory from './assets/icon-category.json';
 
 const OfficialPrefix = 'official';
+
+const toCatalogIcon = (icon: IconItemRecord): IconItem => ({
+  ...icon,
+  category: 'category' in icon && typeof icon.category === 'string' ? icon.category : icon.groupId,
+});
 
 export class IconCatalog {
   private generation = 0;
@@ -62,7 +68,7 @@ export class IconCatalog {
     if (!res?.data?.items?.length) {
       return [];
     }
-    return res.data.items.map((item: IconGroup) => ({
+    return res.data.items.map((item) => ({
       id: item.id,
       name: item.name,
       editable: true,
@@ -164,7 +170,7 @@ export class IconCatalog {
         const typeGroup = this[`${type}Group`];
         const targetGroup = typeGroup.serverGroupList.find((item) => item.id === groupId);
         if (targetGroup && res?.data?.items) {
-          targetGroup.icons.replace(res.data.items);
+          targetGroup.icons.replace(res.data.items.map(toCatalogIcon));
         }
         typeGroup.currentGroupId = groupId;
       });
@@ -177,12 +183,14 @@ export class IconCatalog {
     const iconId = res?.data?.id;
     iconId &&
       runInAction(() => {
-        group.icons.push({
-          id: iconId,
-          name,
-          icon,
-          groupId: group.id,
-        } as IconItem);
+        group.icons.push(
+          toCatalogIcon({
+            id: iconId,
+            name,
+            icon,
+            groupId: group.id,
+          })
+        );
       });
   };
 

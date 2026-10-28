@@ -3,7 +3,7 @@ import { getUsedGraphsFromData } from '../../../graph/parseData';
 import { Box } from '@mui/material';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../../types';
 import { CommonGraphContent } from '../../../graph/components/Content/index';
 import { useConsoleResultHost } from '../resultHost';
 import { GraphWorkspaceStore } from '../../../graph/stores/workspace';

@@ -1,4 +1,6 @@
-import { GQLResultPlanInfo, GQLResultSummary } from '@vesoft-inc/utils';
+import { toPlanNodeData } from '../types';
+import { PlanNodeData as GQLResultPlanInfo } from '../types';
+import { GQLResultSummary } from '@vesoft-inc/studio-core/contracts';
 import { Edge, Node, Position } from '@xyflow/react';
 import { useRef } from 'react';
 import { NodeLevelType } from './styles';
@@ -35,7 +37,7 @@ export const usePlanData = (summary: GQLResultSummary | null) => {
   const isExplainType = useRef<boolean>(false);
 
   // Get planInfo from summary
-  const planInfo = summary?.planInfo;
+  const planInfo = summary?.planInfo ? toPlanNodeData(summary.planInfo) : undefined;
 
   // 布局配置
   const LAYOUT_CONFIG = {

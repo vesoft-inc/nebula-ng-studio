@@ -6,7 +6,8 @@
     "noEmit": false,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "declarationMap": false
+    "declarationMap": false,
+    "customConditions": []
   },
   "include": ["src", "global.d.ts"],
   "exclude": ["src/**/*.test.*", "node_modules", "dist"]

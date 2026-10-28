@@ -1,10 +1,8 @@
+import { EdgeDirectionType, MultiEdgeKeyMode, PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import {
-  EdgeDirectionType,
-  MultiEdgeKeyMode,
-  PropertyDataType,
   resolveDecimalParameters,
   parsePropertyDataType as parseSharedPropertyDataType,
-} from '@vesoft-inc/utils';
+} from '@vesoft-inc/studio-core/graph';
 import { IEdgeTypeItem, INodeTypeItem, IProperty } from '../../../schema/types';
 import { RawEntityType } from '../../../graph/types/console';
 import { isEqualIgnoringFields } from '../../../shared/utilities';

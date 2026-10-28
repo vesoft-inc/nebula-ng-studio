@@ -1,5 +1,6 @@
 import { Box, Grid, Tooltip, Typography, useTheme } from '@mui/material';
-import { GraphEntityType, VectorTypePattern } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
+import { VectorTypePattern } from '@vesoft-inc/studio-core/graph';
 import { useTranslation } from 'react-i18next';
 import {
   AutocompleteElement,

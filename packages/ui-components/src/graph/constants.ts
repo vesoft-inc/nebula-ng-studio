@@ -1,16 +1,8 @@
 import dayjs from 'dayjs';
 
-export enum OperatorType {
-  Equal = '=',
-  GreaterThan = '>',
-  LessThan = '<',
-  LessThanOrEqual = '<=',
-  GreaterThanOrEqual = '>=',
-  NotEqual = '!=',
-  Contains = 'CONTAINS',
-  StartsWith = 'STARTS WITH',
-  EndsWith = 'ENDS WITH',
-}
+import { OperatorType } from '../contracts/filter';
+export { OperatorType } from '../contracts/filter';
+export { IconGroupType } from '../contracts/icons';
 
 export const ConditionFactories: {
   operator: OperatorType;
@@ -56,11 +48,6 @@ export const ConditionFactories: {
     invoke: ({ fieldValue, value }) => typeof fieldValue === 'string' && fieldValue.endsWith(value as string),
   },
 ];
-
-export enum IconGroupType {
-  SVG = 'svg',
-  Img = 'img',
-}
 
 export enum PathType {
   All = 'All',

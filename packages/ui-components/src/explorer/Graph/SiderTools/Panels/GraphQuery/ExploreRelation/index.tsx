@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CloseFilled } from '@vesoft-inc/icons';
 import { observer } from 'mobx-react-lite';
 import { FormContainer, RadioButtonGroup, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
-import { DescEdgeTypeResult, EdgeDirectionType } from '@vesoft-inc/utils';
+import { DescEdgeTypeResult, EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 
 import { useExplorerStore } from '../../../../../context';
 import { SiderPanel } from '../../../../../../graph/types/index';

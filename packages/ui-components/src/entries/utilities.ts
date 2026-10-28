@@ -11,3 +11,4 @@ export { UndirectedEdgePattern } from '../shared/constants';
 export { useResizable } from '../shared/useResizable';
 export { default as SegmentButton } from '../shared/SegmentButton/index';
 export * from '../shared/utilities';
+export { downloadCSVFiles } from '../shared/download';

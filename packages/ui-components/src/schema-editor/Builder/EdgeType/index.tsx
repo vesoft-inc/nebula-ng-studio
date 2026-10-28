@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Table } from '../../../shared/index';
 import { observer } from 'mobx-react-lite';
 import { type MRT_ColumnDef } from 'material-react-table';
-import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/utils';
+import { EdgeDirectionType, MultiEdgeKeyMode } from '@vesoft-inc/studio-core/contracts';
 
 import { ActionContainer } from './styles';
 import { useGraphTypeStore } from '../../context';

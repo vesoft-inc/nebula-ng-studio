@@ -1,6 +1,6 @@
 import { makeAutoObservable, observable, runInAction } from 'mobx';
-import { GraphEntityType } from '@vesoft-inc/utils';
-import type { DescGraphTypeResult, GQLResult } from '@vesoft-inc/utils';
+import { GraphEntityType } from '@vesoft-inc/studio-core/contracts';
+import type { DescGraphTypeResult, GQLResult } from '@vesoft-inc/studio-core/contracts';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 
 import { RawEntityType } from '../types/gql';

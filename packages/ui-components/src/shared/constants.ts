@@ -1,3 +1,10 @@
+export {
+  DecimalTypePattern,
+  ListTypePattern,
+  ForwardEdgePattern,
+  BackwardEdgePattern,
+  UndirectedEdgePattern,
+} from '@vesoft-inc/studio-core/graph';
 export enum VisualEditorType {
   Tag = 'tag',
   Edge = 'edge',
@@ -20,11 +27,22 @@ export enum SchemaItemType {
 
 export const EmptyResultId = 'empty-result';
 
-export const DecimalTypePattern = /^DECIMAL\((\d+),\s*(\d+)\)$/;
-export const ListTypePattern = /^LIST<(.+)>$/;
-
 export const DEFAULT_SCHEMA_PATH = '/default_schema';
 
-export const ForwardEdgePattern = /\((.*?)\)-\[(.*?)\]->\((.*?)\)/;
-export const BackwardEdgePattern = /\((.*?)\)<-\[(.*?)\]-\((.*?)\)/;
-export const UndirectedEdgePattern = /\((.*?)\)~\[(.*?)\]~\((.*?)\)/;
+export const GREY_SCALE_ALPHA = 0.2;
+
+export const NODE_SIZE = 18;
+
+export const DateTimeFormat = 'YYYY-MM-DD HH:mm:ss';
+
+export const DateTimeFormat2 = 'YYYY-MM-DD';
+
+export const DateTimeFormat3 = 'YYYY-MM-DD HH:mm';
+
+export const DateTimeFormat4 = 'HH:mm';
+
+export const DateTimeFormat5 = 'MM/DD HH:mm';
+
+export const DateTimeFormat6 = 'HH:mm:ss';
+
+export const DateTimeFormat7 = 'MM/DD';

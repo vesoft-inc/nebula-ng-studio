@@ -1,5 +1,5 @@
 import type { NodeObject } from '@vesoft-inc/force-graph';
-import { EdgeDirectionType } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 
 export const MIN_SCALE = 0.2;
 export const MAX_SCALE = 2.5;

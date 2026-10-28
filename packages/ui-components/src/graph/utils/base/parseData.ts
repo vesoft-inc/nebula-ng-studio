@@ -1,6 +1,6 @@
 import { EdgeValue, GraphEdgeValue, GraphNodeValue, PathValue, VertexValue } from '../../types/gql';
 import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
-import { getGraphEdgeId } from '@vesoft-inc/utils';
+import { getGraphEdgeId } from '@vesoft-inc/studio-core/graph';
 
 export const parseVertexValueToNodeObject = (
   vertex: VertexValue | PathValue<GraphNodeValue>,

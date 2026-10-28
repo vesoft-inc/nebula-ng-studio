@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import List from '@mui/material/List';
 import Collapse from '@mui/material/Collapse';
 import { TransitionGroup } from 'react-transition-group';
-import { ConsoleResult } from '@vesoft-inc/utils';
+import { ConsoleResult } from '../types';
 import OutputBox from '../QueryResultCard/index';
 import { GraphDataTable } from '../../graph/types/console';
 import introLogoLight from '../../assets/intro_logo_light.svg';

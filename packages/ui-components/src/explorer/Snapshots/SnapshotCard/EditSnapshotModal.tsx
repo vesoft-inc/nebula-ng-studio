@@ -1,7 +1,7 @@
 import { Modal } from '../../../shared/index';
 import { useTranslation } from 'react-i18next';
 import { FormContainer, TextFieldElement, useForm } from 'react-hook-form-mui';
-import { Snapshot } from '../../../graph/types/index';
+import type { SnapshotMetadata } from '../../../contracts/snapshot';
 import { Box } from '@mui/material';
 import { useEffect, useState } from 'react';
 
@@ -10,7 +10,7 @@ type EditSnapshotForm = {
 };
 
 interface EditSnapshotModalProps {
-  data?: Snapshot;
+  data?: SnapshotMetadata;
   open: boolean;
   onCancel: () => void;
   onOk: (values: EditSnapshotForm, cb: () => void) => void;

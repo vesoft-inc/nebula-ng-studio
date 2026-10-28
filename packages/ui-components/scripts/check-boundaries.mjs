@@ -2,6 +2,7 @@ import { readFile, readdir, access } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { checkContracts } from './check-contracts.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const workspace = resolve(root, '../..');
@@ -54,6 +55,24 @@ async function checkSources(directory, library) {
       else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) specifier = node.argument.literal;
       if (specifier && ts.isStringLiteral(specifier)) {
         const name = specifier.text;
+        if (
+          library &&
+          production &&
+          name.startsWith('@vesoft-inc/studio-core') &&
+          ts.isImportDeclaration(node) &&
+          node.importClause?.namedBindings &&
+          ts.isNamedImports(node.importClause.namedBindings)
+        ) {
+          for (const binding of node.importClause.namedBindings.elements) {
+            if (
+              name === '@vesoft-inc/studio-core' &&
+              !['createUuid', 'safeArray', 'groupArray', 'hexToRgba'].includes(
+                (binding.propertyName ?? binding.name).text
+              )
+            )
+              report(node, 'Use the domain or platform subpath entry.');
+          }
+        }
         if (business && production && name === 'react-router-dom')
           report(node, 'Business components accept semantic navigation callbacks; routers belong in the host.');
         if (
@@ -93,6 +112,7 @@ async function checkSources(directory, library) {
 
 await checkSources(resolve(root, 'src'), true);
 await checkSources(resolve(workspace, 'apps/gui/src'), false);
+errors.push(...checkContracts(root, process.argv.includes('--dist')));
 
 for (const [name, entry] of Object.entries(pkg.exports)) {
   const targets = process.argv.includes('--dist') ? Object.values(entry) : [entry.source];

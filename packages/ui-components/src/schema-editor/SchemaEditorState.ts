@@ -1,5 +1,6 @@
 import { computed, makeAutoObservable, observable, runInAction } from 'mobx';
-import { GQLResult, GraphEntityType, MultiEdgeKeyMode, parsePropertyDataType } from '@vesoft-inc/utils';
+import { GQLResult, GraphEntityType, MultiEdgeKeyMode } from '@vesoft-inc/studio-core/contracts';
+import { parsePropertyDataType } from '@vesoft-inc/studio-core/graph';
 
 import { cloneDeep } from 'lodash';
 import groupBy from 'lodash/groupBy';

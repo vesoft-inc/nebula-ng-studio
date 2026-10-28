@@ -467,6 +467,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.1
         version: 5.2.1(react-hook-form@7.55.0(react@19.1.0))
+      '@json2csv/plainjs':
+        specifier: ^7.0.6
+        version: 7.0.6
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -482,9 +485,9 @@ importers:
       '@vesoft-inc/icons':
         specifier: ^2.3.0
         version: 2.3.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@emotion/styled@11.14.0(@emotion/react@11.14.0(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react@19.1.0))(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@vesoft-inc/utils':
+      '@vesoft-inc/studio-core':
         specifier: workspace:*
-        version: link:../utils
+        version: link:../studio-core
       '@xyflow/react':
         specifier: ^12.6.4
         version: 12.7.0(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -515,9 +518,6 @@ importers:
       i18next:
         specifier: ^23.7.19
         version: 23.16.8
-      json-bigint:
-        specifier: ^1.0.0
-        version: 1.0.0
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -606,9 +606,6 @@ importers:
       '@types/dom-to-image':
         specifier: ^2.6.7
         version: 2.6.7
-      '@types/json-bigint':
-        specifier: ^1.0.4
-        version: 1.0.4
       '@types/lodash':
         specifier: ^4.17.10
         version: 4.17.17

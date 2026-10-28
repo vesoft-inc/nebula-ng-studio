@@ -7,7 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '../../theme/index';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
-import { PropertyDataType } from '@vesoft-inc/utils';
+import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { StrictMode } from 'react';
 import { generateCreateGraphTypeGQL } from './VisualBuilder/util';
 import GraphTypeBuilder from './index';

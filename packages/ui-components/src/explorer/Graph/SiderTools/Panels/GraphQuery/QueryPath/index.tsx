@@ -8,7 +8,7 @@ import { CloseFilled } from '@vesoft-inc/icons';
 import { DirectionSelector, NodeItemBar, PathFilterTypeSelector, QueryTitle, StepType } from '../styles';
 import { observer } from 'mobx-react-lite';
 import { FormContainer, RadioButtonGroup, SelectElement, TextFieldElement, useForm } from 'react-hook-form-mui';
-import { EdgeDirectionType } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 import { ALL_EDGE_TYPE_KEY, PathFilterType, PathType } from '../../../../../../graph/constants';
 import { SelectProps } from '../../../../../../graph/utils/helpers';
 

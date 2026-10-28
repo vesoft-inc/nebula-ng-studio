@@ -7,7 +7,7 @@ import { Node, Edge } from '@xyflow/react';
 
 import { GraphContainer, TagItem, fullScreenCls } from './styles';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem } from '../../../schema/types';
-import { ToolNodeColor } from '@vesoft-inc/utils';
+import { ToolNodeColor } from '../../../shared/styles';
 import { VisualEditorType } from '../../../shared/constants';
 import { GraphCanvas } from './GraphCanvas';
 import { ReactFlowEdgeData, ReactFlowNodeData } from './store';

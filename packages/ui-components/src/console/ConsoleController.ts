@@ -1,6 +1,7 @@
 import { action, makeObservable, observable } from 'mobx';
 import { v4 as uuid } from 'uuid';
-import { ConsoleResult, GQLResult, type GQLResultSummary } from '@vesoft-inc/utils';
+import { ConsoleResult } from './types';
+import { GQLResult, type GQLResultSummary } from '@vesoft-inc/studio-core/contracts';
 import type { ConsoleServices, QueryOptions } from '../shared/query';
 import type { editor } from 'monaco-editor';
 import { GraphItem, GraphTypeElement } from '../schema/types';
@@ -310,7 +311,9 @@ export default class ConsoleController {
       config?: QueryOptions;
       shouldRecordResult: boolean;
       originalGql?: string;
-      onAfterExecute?: (result: import('@vesoft-inc/utils').ServerResponse<GQLResult>) => void | Promise<void>;
+      onAfterExecute?: (
+        result: import('@vesoft-inc/studio-core/contracts').ServerResponse<GQLResult>
+      ) => void | Promise<void>;
       interceptConsoleResult?: (result: ConsoleResult) => ConsoleResult;
     }
   ): Promise<boolean> {

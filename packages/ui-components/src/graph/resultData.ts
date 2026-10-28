@@ -1,6 +1,6 @@
 import { GraphDataTable } from './types/console';
 import { NodeObject } from '@vesoft-inc/force-graph';
-import { GQLResult } from '@vesoft-inc/utils';
+import { GQLResult } from '@vesoft-inc/studio-core/contracts';
 export const LINE_LENGTH = 150;
 export const FONT_SIZE = 10;
 export const NODE_SIZE = 22;

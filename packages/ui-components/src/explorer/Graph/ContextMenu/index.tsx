@@ -6,7 +6,7 @@ import { IContextMenuItem } from '../../../graph/types/index';
 import { useTranslation } from 'react-i18next';
 import NodeStylesSetBtn from '../../../graph/components/NodeStylesSetBtn/index';
 import { TooltipContainer } from '../../../graph/components/GraphTooltip/styles';
-import { EdgeDirectionType } from '@vesoft-inc/utils';
+import { EdgeDirectionType } from '@vesoft-inc/studio-core/contracts';
 import EdgeStyleSetBtn from '../../../graph/components/EdgeStyleSetBtn/index';
 import { ALL_EDGE_TYPE_KEY } from '../../../graph/constants';
 import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
