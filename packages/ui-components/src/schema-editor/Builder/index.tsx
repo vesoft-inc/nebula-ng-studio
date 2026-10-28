@@ -501,7 +501,7 @@ function GraphTypeBuilder(props: SchemaEditorProps) {
     }
     // Builder initialization and StrictMode replay reset selection; select after both finish.
     const timeout = window.setTimeout(() => {
-      graphtypeStore.canvasStore?.setActiveItem(pendingInvalidItem);
+      graphtypeStore.canvasStore?.selectItem(pendingInvalidItem);
       setPendingInvalidItem(null);
     }, 0);
     return () => window.clearTimeout(timeout);

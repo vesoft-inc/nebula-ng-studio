@@ -29,7 +29,7 @@ function NodeTypeConfigModal(props: NodeTypeModalProps) {
   useEffect(() => {
     if (open) {
       // Do not leave a second editor mounted with stale values for this node.
-      canvasStore?.setActiveItem(null);
+      canvasStore?.selectItem(null);
       form.reset(getNodeTypeFormValues(new INodeTypeItem(nodeTypeItem)));
     }
   }, [open, nodeTypeItem]);
@@ -42,7 +42,7 @@ function NodeTypeConfigModal(props: NodeTypeModalProps) {
     if (values.properties.some(getPropertyDecimalError)) return;
     const node = new INodeTypeItem({ ...values, id: values.id, properties: values.properties.map(getPropertyModel) });
     if (nodeTypeItem) {
-      schemaStore?.updateNodeType(nodeTypeItem.id, node);
+      schemaStore?.commitNodeChanges(nodeTypeItem.id, node);
     } else {
       schemaStore?.addNodeType(node);
     }

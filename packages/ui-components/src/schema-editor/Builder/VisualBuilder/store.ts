@@ -184,10 +184,13 @@ export class CanvasStore {
     this.edges.replace(applyEdgeChanges(changes, this.edges.slice()) as ReactFlowEdge[]);
   };
 
-  setActiveItem = (item: ActiveItemInfo | null) => {
+  selectItem = (item: ActiveItemInfo | null) => {
     this.activeItem = item;
     this.syncActiveState();
   };
+
+  /** Compatibility selection entry. */
+  setActiveItem = (item: ActiveItemInfo | null) => this.selectItem(item);
 
   getPositionFromCanvas = (id: string): { x: number; y: number } | null => {
     const instanceNodes = (this.instance?.getNodes?.() as ReactFlowNode[]) || [];

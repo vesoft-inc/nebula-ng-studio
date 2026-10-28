@@ -37,7 +37,7 @@ function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
 
   useEffect(() => {
     if (open) {
-      canvasStore?.setActiveItem(null);
+      canvasStore?.selectItem(null);
       if (edgeTypeItem) {
         form.reset(getEdgeTypeFormValues(edgeTypeItem));
       } else {
@@ -53,7 +53,7 @@ function EdgeTypeConfigModal(props: EdgeTypeModalProps) {
       properties: values.properties.map(getPropertyModel),
     });
     if (edgeTypeItem) {
-      schemaStore?.updateEdgeType(edgeTypeItem.id, edge);
+      schemaStore?.commitEdgeChanges(edgeTypeItem.id, edge);
     } else {
       schemaStore?.addEdgeType(edge);
     }

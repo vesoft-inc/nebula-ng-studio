@@ -64,7 +64,7 @@ class GraphTypeStore {
   };
 
   destroySchemaStore = () => {
-    this.schemaStore?.disposeReaction();
+    this.schemaStore?.dispose();
     this.canvasStore?.dispose();
     this.schemaStore = undefined;
     this.canvasStore = undefined;

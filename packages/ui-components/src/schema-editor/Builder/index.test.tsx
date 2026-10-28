@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   createSketch: vi.fn(),
   toPng: vi.fn(),
   migrate: vi.fn(),
-  setActiveItem: vi.fn(),
+  selectItem: vi.fn(),
   message: { success: vi.fn(), error: vi.fn() },
   schema: {
     graphtypeName: 'people',
@@ -36,7 +36,7 @@ vi.mock('../context', () => {
     services: { execute: mocks.execGql, layouts: { migrate: mocks.migrate }, sketches: { create: mocks.createSketch } },
     schemaStore: mocks.schema,
     canvasStore: {
-      setActiveItem: mocks.setActiveItem,
+      selectItem: mocks.selectItem,
       getCanvasLayout: () => ({ Person: { x: 10, y: 20 } }),
       instance: { getNodes: () => [{ id: 'n', position: { x: 10, y: 20 } }], getEdges: () => [] },
     },
@@ -70,8 +70,8 @@ vi.mock('./VisualBuilder/index', async () => {
     default: function MockVisualBuilder() {
       // The real builder resets its selection when it mounts.
       useEffect(() => {
-        mocks.setActiveItem(null);
-        return () => mocks.setActiveItem(null);
+        mocks.selectItem(null);
+        return () => mocks.selectItem(null);
       }, []);
       return <div className="react-flow__viewport">Draft canvas</div>;
     },
@@ -142,7 +142,7 @@ describe('graph type validation and submission', () => {
       mocks.schema.edgeTypeList = [edge];
       const { user } = renderBuilder(mode);
       await user.click(screen.getByRole('button', { name: 'preview' }));
-      await waitFor(() => expect(mocks.setActiveItem).toHaveBeenCalledWith({ type: 'edge', value: edge }));
+      await waitFor(() => expect(mocks.selectItem).toHaveBeenCalledWith({ type: 'edge', value: edge }));
       expect(screen.queryByTestId('preview')).toBeNull();
       expect(mocks.execGql).not.toHaveBeenCalled();
     }
@@ -157,7 +157,7 @@ describe('graph type validation and submission', () => {
     await preview(user);
     node.properties[1].decimalScale = 129;
     await user.click(screen.getByRole('button', { name: 'createGraphType' }));
-    await waitFor(() => expect(mocks.setActiveItem).toHaveBeenCalledWith({ type: 'tag', value: node }));
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenCalledWith({ type: 'tag', value: node }));
     expect(mocks.execGql).not.toHaveBeenCalled();
   });
 
@@ -177,9 +177,7 @@ describe('graph type validation and submission', () => {
       mocks.schema.nodeTypeList = [node];
       const { user } = renderBuilder(mode);
       await user.click(screen.getByRole('button', { name: 'preview' }));
-      await waitFor(() =>
-        expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node }))
-      );
+      await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
       expect(screen.queryByRole('alert')).toBeNull();
       expect(screen.queryByTestId('preview')).toBeNull();
       expect(mocks.execGql).not.toHaveBeenCalled();
@@ -193,9 +191,7 @@ describe('graph type validation and submission', () => {
     mocks.schema.nodeTypeList = [existing, added];
     const { user } = renderBuilder(GraphTypeBuildMode.Edit);
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: added }))
-    );
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: added })));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByTestId('preview')).toBeNull();
     expect(mocks.execGql).not.toHaveBeenCalled();
@@ -208,7 +204,7 @@ describe('graph type validation and submission', () => {
     await user.click(screen.getByRole('button', { name: tab }));
     expect(screen.queryByRole('button', { name: 'saveAsSketch' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() => expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
     expect(screen.getByRole('button', { name: 'saveAsSketch' })).toBeDefined();
     expect(screen.queryByText('Node table')).toBeNull();
     expect(screen.queryByText('Edge table')).toBeNull();
@@ -224,19 +220,13 @@ describe('graph type validation and submission', () => {
     mocks.schema.nodeTypeList = [first, second];
     const { user } = renderBuilder();
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: first }))
-    );
-    mocks.setActiveItem(null);
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: first })));
+    mocks.selectItem(null);
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: first }))
-    );
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: first })));
     first.properties[0].isPrimaryKey = true;
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: second }))
-    );
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: second })));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByTestId('preview')).toBeNull();
     second.properties[0].nullable = false;
@@ -253,9 +243,7 @@ describe('graph type validation and submission', () => {
       const { user } = renderBuilder(GraphTypeBuildMode.Create, strictMode);
       expect(screen.getByText('Heavy graph confirmation')).toBeDefined();
       await user.click(screen.getByRole('button', { name: 'preview' }));
-      await waitFor(() =>
-        expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node }))
-      );
+      await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
       expect(screen.queryByText('Heavy graph confirmation')).toBeNull();
       expect(screen.getByText('Draft canvas')).toBeDefined();
       expect(screen.queryByRole('alert')).toBeNull();
@@ -286,9 +274,7 @@ describe('graph type validation and submission', () => {
     mocks.schema.nodeTypeList = [current];
     const { user } = renderBuilder(GraphTypeBuildMode.Edit);
     await user.click(screen.getByRole('button', { name: 'preview' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: current }))
-    );
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: current })));
     expect(screen.queryByTestId('preview')).toBeNull();
     expect(mocks.execGql).not.toHaveBeenCalled();
   });
@@ -304,9 +290,7 @@ describe('graph type validation and submission', () => {
     expect(screen.getByTestId('preview').textContent).toContain('ADD PROPERTIES {`email` STRING}');
     current.properties[0].isPrimaryKey = false;
     await user.click(screen.getByRole('button', { name: 'commitEdit' }));
-    await waitFor(() =>
-      expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: current }))
-    );
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: current })));
     expect(screen.queryByTestId('preview')).toBeNull();
     expect(mocks.execGql).not.toHaveBeenCalled();
   });
@@ -386,7 +370,7 @@ describe('graph type validation and submission', () => {
     const node = person(false);
     mocks.schema.nodeTypeList = [node];
     await user.click(screen.getByRole('button', { name: 'createGraphType' }));
-    await waitFor(() => expect(mocks.setActiveItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
+    await waitFor(() => expect(mocks.selectItem).toHaveBeenLastCalledWith(expect.objectContaining({ value: node })));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByTestId('preview')).toBeNull();
     expect(screen.getByRole('button', { name: 'preview' })).toBeDefined();

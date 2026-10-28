@@ -1,4 +1,4 @@
-import { type IReactionDisposer, computed, makeAutoObservable, observable, reaction, runInAction } from 'mobx';
+import { computed, makeAutoObservable, observable, runInAction } from 'mobx';
 import { GQLResult, GraphEntityType, MultiEdgeKeyMode, parsePropertyDataType } from '@vesoft-inc/utils';
 
 import { cloneDeep } from 'lodash';
@@ -47,9 +47,6 @@ class SchemaStore {
   containerWidth = 800;
   containerHeight = 600;
 
-  reactionDisposer?: IReactionDisposer;
-  activeItemDisposer?: IReactionDisposer;
-
   graphtypeName?: string;
 
   constructor(public readonly services: SchemaEditorServices) {
@@ -61,7 +58,6 @@ class SchemaStore {
       nodeTypeLabeMap: computed,
       edgeTypeLabelMap: computed,
     });
-    this.initReactions();
   }
 
   attachCanvas = (canvas: CanvasSync) => {
@@ -309,22 +305,6 @@ class SchemaStore {
     this.canvasRevision += 1;
   };
 
-  initReactions = () => {
-    this.activeItemDisposer = reaction(
-      () => this.activeItem,
-      () => {
-        if (this.activeItem?.type === VisualEditorType.Tag) {
-          const item = this.nodeTypeList.find((node) => node.id === this.activeItem?.value.id);
-          item?.updateValues(this.activeItem?.value as INodeTypeItem);
-        }
-        if (this.activeItem?.type === VisualEditorType.Edge) {
-          const item = this.edgeTypeList.find((edge) => edge.id === this.activeItem?.value.id);
-          item?.updateValues(this.activeItem?.value as IEdgeTypeItem);
-        }
-      }
-    );
-  };
-
   #getInitNodePosition = (index: number, total = 0): VisualInfo => {
     const midIndex = total / 2;
     const style = this.getNodeStyle(index);
@@ -351,21 +331,35 @@ class SchemaStore {
     return { fill, strokeColor, shadow };
   };
 
-  updateNodeType = (id: string, node: INodeTypeItem) => {
+  commitNodeChanges = (id: string, node: INodeTypeItem) => {
     const current = this.nodeTypeList.find((item) => item.id === id);
     current?.updateValues(node);
     if (current) this.canvasRevision += 1;
   };
 
-  setActiveItem = (info?: ActiveItemInfo) => {
+  /** Selection does not commit an edit. Forms call an explicit commit method. */
+  selectItem = (info?: ActiveItemInfo) => {
     this.activeItem = info;
   };
 
-  updateEdgeType = (id: string, edge: Omit<IEdgeTypeItem, 'id'>) => {
+  commitEdgeChanges = (id: string, edge: Omit<IEdgeTypeItem, 'id'>) => {
     const current = this.edgeTypeList.find((item) => item.id === id);
     current?.updateValues(edge);
     if (current) this.canvasRevision += 1;
   };
+
+  /** @deprecated Use selectItem and commitNodeChanges/commitEdgeChanges separately. */
+  setActiveItem = (info?: ActiveItemInfo) => {
+    const changed = this.activeItem !== info;
+    this.selectItem(info);
+    if (!changed || !info) return;
+    if (info.type === VisualEditorType.Tag) this.commitNodeChanges(info.value.id, info.value);
+    else this.commitEdgeChanges(info.value.id, info.value);
+  };
+
+  /** Compatibility names for existing controller consumers. */
+  updateNodeType = (id: string, node: INodeTypeItem) => this.commitNodeChanges(id, node);
+  updateEdgeType = (id: string, edge: Omit<IEdgeTypeItem, 'id'>) => this.commitEdgeChanges(id, edge);
 
   addEdgeType = (edge: IEdgeTypeItem) => {
     this.edgeTypeList.push(edge);
@@ -387,14 +381,13 @@ class SchemaStore {
     this.canvasRevision += 1;
   };
 
-  disposeReaction = () => {
+  dispose = () => {
     this.loadVersion += 1;
     this.abort.abort();
-    this.reactionDisposer?.();
-    this.reactionDisposer = undefined;
-    this.activeItemDisposer?.();
-    this.activeItemDisposer = undefined;
   };
+
+  /** @deprecated Kept for callers using the old lifecycle name. */
+  disposeReaction = () => this.dispose();
 }
 
 export default SchemaStore;

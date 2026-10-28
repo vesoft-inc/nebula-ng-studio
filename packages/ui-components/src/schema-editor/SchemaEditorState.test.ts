@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { INodeTypeItem, IEdgeTypeItem } from '../schema/types';
+import { INodeTypeItem, IEdgeTypeItem, IProperty } from '../schema/types';
+import { VisualEditorType } from '../shared/constants';
 import SchemaEditorState from './SchemaEditorState';
 
 const states: SchemaEditorState[] = [];
@@ -15,6 +16,50 @@ afterEach(() => {
 });
 
 describe('schema editor instances and asynchronous loads', () => {
+  it('selects and cancels a node draft without committing, then applies an explicit commit', () => {
+    const { store } = state();
+    const node = new INodeTypeItem({ name: 'Person', properties: [new IProperty({ name: 'name' })] });
+    store.updateNodeTypeList([node]);
+    const draft = new INodeTypeItem({ id: node.id, name: 'Renamed', properties: node.properties });
+    store.selectItem({ type: VisualEditorType.Tag, value: draft });
+    expect(node.name).toBe('Person');
+    store.selectItem();
+    expect(node.name).toBe('Person');
+
+    const propertyId = node.properties[0].id;
+    store.commitNodeChanges(node.id, draft);
+    expect(node.name).toBe('Renamed');
+    expect(node.properties[0].id).toBe(propertyId);
+  });
+
+  it('keeps edge selection separate from persistence and retains the existing edge identity on commit', () => {
+    const { store } = state();
+    const node = new INodeTypeItem({ name: 'Person' });
+    const edge = new IEdgeTypeItem({ name: 'Knows', srcNode: node, dstNode: node });
+    store.updateEdgeTypeList([edge]);
+    const draft = new IEdgeTypeItem({ id: edge.id, name: 'Follows', srcNode: node, dstNode: node });
+    store.selectItem({ type: VisualEditorType.Edge, value: draft });
+    store.selectItem();
+    expect(edge.name).toBe('Knows');
+    const id = edge.id;
+    store.commitEdgeChanges(id, draft);
+    expect(edge.name).toBe('Follows');
+    expect(edge.id).toBe(id);
+    expect(edge.srcNode).toBe(node);
+  });
+
+  it('keeps the legacy setter commit behavior without a background reaction', () => {
+    const { store } = state();
+    const node = new INodeTypeItem({ name: 'Person' });
+    store.updateNodeTypeList([node]);
+    const draft = new INodeTypeItem({ id: node.id, name: 'Renamed' });
+    store.activeItem = { type: VisualEditorType.Tag, value: draft };
+    expect(node.name).toBe('Person');
+    store.selectItem();
+    store.setActiveItem({ type: VisualEditorType.Tag, value: draft });
+    expect(node.name).toBe('Renamed');
+  });
+
   it('ignores a late response after disposal and aborts query requests', async () => {
     const { store, execute } = state();
     let complete!: (value: unknown) => void;

@@ -84,7 +84,7 @@ function VisualBuilder() {
   }, [mode]);
 
   useEffect(() => {
-    canvas?.setActiveItem(schemaStore?.activeItem || null);
+    canvas?.selectItem(schemaStore?.activeItem || null);
   }, [canvas, schemaStore?.activeItem]);
 
   if (!canvas) {
@@ -104,25 +104,25 @@ function VisualBuilder() {
           const newNode = new INodeTypeItem({ style: { position } });
           canvas.addNodeAtPosition(newNode, position);
           schemaStore?.addNodeType(newNode);
-          canvas.setActiveItem({ type: VisualEditorType.Tag, value: newNode });
+          canvas.selectItem({ type: VisualEditorType.Tag, value: newNode });
         }}
         onEdgeAdd={(edge) => {
-          canvas.setActiveItem({ type: VisualEditorType.Edge, value: edge });
+          canvas.selectItem({ type: VisualEditorType.Edge, value: edge });
         }}
         onNodeClick={(_, node: Node<ReactFlowNodeData> | Node) => {
           if (!node.data) {
             return;
           }
-          canvas.setActiveItem({ type: VisualEditorType.Tag, value: node.data?.nodeTypeItem as INodeTypeItem });
+          canvas.selectItem({ type: VisualEditorType.Tag, value: node.data?.nodeTypeItem as INodeTypeItem });
         }}
         onEdgeClick={(_, edge: Edge<ReactFlowEdgeData> | Edge) => {
           if (!edge.data) {
             return;
           }
-          canvas.setActiveItem({ type: VisualEditorType.Edge, value: edge.data?.edgeTypeItem as IEdgeTypeItem });
+          canvas.selectItem({ type: VisualEditorType.Edge, value: edge.data?.edgeTypeItem as IEdgeTypeItem });
         }}
         onPaneClick={() => {
-          canvas.setActiveItem(null);
+          canvas.selectItem(null);
         }}
       />
 
@@ -167,7 +167,7 @@ function VisualBuilder() {
             closeWidth={0}
             variant="permanent"
             open={isActiveConfigDrawer}
-            onClose={() => canvas.setActiveItem(null)}
+            onClose={() => canvas.selectItem(null)}
             sx={{
               mt: 0,
               height: '100%',
@@ -215,7 +215,7 @@ function VisualBuilder() {
                 } else if (type === VisualEditorType.Edge) {
                   schemaStore?.deleteEdgeType(value);
                 }
-                canvas.setActiveItem(null);
+                canvas.selectItem(null);
               }}
               onChange={(type, formValues) => {
                 const targetItem = canvas.activeItem;
@@ -224,10 +224,10 @@ function VisualBuilder() {
                 }
                 const activeItemId = targetItem.value.id;
                 if (type === VisualEditorType.Tag) {
-                  schemaStore?.updateNodeType(activeItemId, formValues as INodeTypeItem);
+                  schemaStore?.commitNodeChanges(activeItemId, formValues as INodeTypeItem);
                   targetItem.value.updateValues(formValues);
                 } else if (type === VisualEditorType.Edge) {
-                  schemaStore?.updateEdgeType(activeItemId, formValues as IEdgeTypeItem);
+                  schemaStore?.commitEdgeChanges(activeItemId, formValues as IEdgeTypeItem);
                   targetItem.value.updateValues(formValues);
                 }
               }}
