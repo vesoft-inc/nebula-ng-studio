@@ -1,5 +1,5 @@
 import { matchPath } from 'react-router-dom';
-import type { SchemaView } from '@vesoft-inc/ui-components/schema';
+import type { SchemaView } from '@vesoft-inc/studio-ui-internal/schema';
 
 export const schemaRoutePaths = {
   schemas: '/schema-list',

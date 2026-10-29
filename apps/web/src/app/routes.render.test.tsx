@@ -16,7 +16,7 @@ vi.mock('./session', () => ({
   schemaStore: { currentSchema: { path: '/a' }, services: {} },
 }));
 vi.mock('@studio/components/PageHeader', () => ({ default: () => <header>Studio navigation</header> }));
-vi.mock('@vesoft-inc/ui-components', () => ({ PageLoading: () => <div>loading page</div> }));
+vi.mock('@vesoft-inc/studio-ui-internal', () => ({ PageLoading: () => <div>loading page</div> }));
 vi.mock('@studio/pages/Login', () => ({ default: () => <div>login page</div> }));
 vi.mock('@studio/pages/Console', () => ({
   default: () => {
@@ -26,11 +26,11 @@ vi.mock('@studio/pages/Console', () => ({
   },
 }));
 vi.mock('@studio/services/schemaEditor', () => ({ createSchemaEditorServices: () => ({}) }));
-vi.mock('@vesoft-inc/ui-components/schema', () => ({
+vi.mock('@vesoft-inc/studio-ui-internal/schema', () => ({
   SchemaWorkbench: ({ view }: { view: unknown }) => <output>{JSON.stringify(view)}</output>,
 }));
-vi.mock('@vesoft-inc/ui-components/modal', () => ({ GlobalModal: () => <aside>global overlays</aside> }));
-vi.mock('@vesoft-inc/ui-components/shell', () => ({
+vi.mock('@vesoft-inc/studio-ui-internal/modal', () => ({ GlobalModal: () => <aside>global overlays</aside> }));
+vi.mock('@vesoft-inc/studio-ui-internal/shell', () => ({
   StudioShell: ({ header, children }: { header: ReactNode; children: ReactNode }) => (
     <>
       {header}

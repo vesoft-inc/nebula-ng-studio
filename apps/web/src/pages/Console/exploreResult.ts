@@ -1,7 +1,7 @@
 import {
   ensureExplorerSnapshot,
   type ConsoleExplorerOptions,
-} from '@vesoft-inc/ui-components/integrations/console-explorer';
+} from '@vesoft-inc/studio-ui-internal/integrations/console-explorer';
 import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 
 type ExploreResultArgs = Omit<ConsoleExplorerOptions, 'snapshots' | 'snapshotVersion'> & {

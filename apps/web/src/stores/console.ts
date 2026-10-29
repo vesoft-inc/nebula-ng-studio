@@ -1,4 +1,4 @@
-import { ConsoleController, type ConsoleServices } from '@vesoft-inc/ui-components/console/model';
+import { ConsoleController, type ConsoleServices } from '@vesoft-inc/studio-ui-internal/console/model';
 import { execConsoleGql, execGql } from '@studio/services';
 
 export const studioConsoleServices: ConsoleServices = { execute: execConsoleGql, query: execGql };

@@ -2,7 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios';
 import { parseResponseBody, mergeAbortSignals } from '@vesoft-inc/studio-core/request';
 import { HttpResCode, HTTP_CANCEL_CODE } from '@vesoft-inc/studio-core/contracts';
 export { HTTP_CANCEL_CODE } from '@vesoft-inc/studio-core/contracts';
-import { modalStore } from '@vesoft-inc/ui-components/modal';
+import { modalStore } from '@vesoft-inc/studio-ui-internal/modal';
 import { clearSessionUser } from '../stores/authBridge';
 import { getToken } from '../utils/auth';
 

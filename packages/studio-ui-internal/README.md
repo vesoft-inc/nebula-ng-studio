@@ -47,7 +47,7 @@ import {
   decodeSnapshotPayload,
   encodeSnapshotPayload,
   type SnapshotRecord,
-} from '@vesoft-inc/ui-components/contracts';
+} from '@vesoft-inc/studio-ui-internal/contracts';
 
 function encodeAgain(record: SnapshotRecord): string | undefined {
   const payload = decodeSnapshotPayload(record.data);
@@ -70,14 +70,14 @@ function encodeAgain(record: SnapshotRecord): string | undefined {
 应用入口引入一次样式：
 
 ```ts
-import '@vesoft-inc/ui-components/styles.css';
+import '@vesoft-inc/studio-ui-internal/styles.css';
 ```
 
 完整 Console 的最小组合：
 
 ```tsx
-import { UiProvider } from '@vesoft-inc/ui-components/provider';
-import { ConsoleWorkbench, type ConsoleServices } from '@vesoft-inc/ui-components/console';
+import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
+import { ConsoleWorkbench, type ConsoleServices } from '@vesoft-inc/studio-ui-internal/console';
 
 function QueryPage({ services }: { services: ConsoleServices }) {
   return (
@@ -90,7 +90,7 @@ function QueryPage({ services }: { services: ConsoleServices }) {
 }
 ```
 
-React 组件和自定义 Hook 通过 `@vesoft-inc/ui-components/modal` 的 `useModal()` 获取当前 `UiProvider` 提供的 `ModalStore`。HTTP 拦截器、会话等非 React 模块使用宿主统一的 `modalStore`，宿主将同一实例传入 `UiProvider`。
+React 组件和自定义 Hook 通过 `@vesoft-inc/studio-ui-internal/modal` 的 `useModal()` 获取当前 `UiProvider` 提供的 `ModalStore`。HTTP 拦截器、会话等非 React 模块使用宿主统一的 `modalStore`，宿主将同一实例传入 `UiProvider`。
 
 宿主负责实现 `ConsoleServices`：`execute` 用于用户查询和警告查询，`query` 用于图元数据查询。返回值使用 `@vesoft-inc/studio-core/contracts` 的 `ServerResponse<T>`。适配器应传递 `AbortSignal`；`queryTimeout` 单位是毫秒。GUI 的 HTTP header、token、服务地址和 Web 的 Server API 路径都在各自应用中处理。
 
@@ -107,7 +107,7 @@ React 组件和自定义 Hook 通过 `@vesoft-inc/ui-components/modal` 的 `useM
 ## Schema 与 Schema Editor
 
 ```tsx
-import { SchemaWorkbench } from '@vesoft-inc/ui-components/schema';
+import { SchemaWorkbench } from '@vesoft-inc/studio-ui-internal/schema';
 
 <SchemaWorkbench services={schemaServices} editorServices={editorServices} />;
 ```
@@ -127,7 +127,7 @@ import { SchemaWorkbench } from '@vesoft-inc/ui-components/schema';
 `useSchemaTreeBindings` 复用树节点加载、Schema 切换与创建后的列表刷新。它显式接收 `SchemaController`，在 `UiProvider` 内使用；不要求 `SchemaProvider`，也不读取应用全局 store。在 `observer` 组件内调用，以响应 controller 的状态变化：
 
 ```tsx
-import { SchemaTree, useSchemaTreeBindings } from '@vesoft-inc/ui-components/schema';
+import { SchemaTree, useSchemaTreeBindings } from '@vesoft-inc/studio-ui-internal/schema';
 
 const bindings = useSchemaTreeBindings({
   controller: schemaController,
@@ -147,7 +147,7 @@ hook 不主动初始化数据，宿主可通过 `onReady` 懒加载；`SchemaWor
 ## Explorer
 
 ```tsx
-import { ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
+import { ExplorerWorkbench } from '@vesoft-inc/studio-ui-internal/explorer';
 
 <ExplorerWorkbench
   services={explorerServices}
@@ -172,7 +172,7 @@ import { ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
 ## Console 与 Explorer 集成
 
 ```ts
-import { ensureExplorerSnapshot } from '@vesoft-inc/ui-components/integrations/console-explorer';
+import { ensureExplorerSnapshot } from '@vesoft-inc/studio-ui-internal/integrations/console-explorer';
 
 const snapshot = await ensureExplorerSnapshot({
   result,
@@ -204,11 +204,11 @@ if (snapshot) openSnapshot(snapshot.snapshotId);
 ```sh
 pnpm --filter @vesoft-inc/studio-core build
 pnpm --filter @vesoft-inc/studio-core check:boundaries --dist
-pnpm --filter @vesoft-inc/ui-components build
-pnpm --filter @vesoft-inc/ui-components test
-pnpm --filter @vesoft-inc/ui-components check:boundaries --dist
-UI_COMPONENTS_DIST=1 pnpm --filter nebula-studio exec vite build
-UI_COMPONENTS_DIST=1 pnpm --filter nebula-gui exec vite build
+pnpm --filter @vesoft-inc/studio-ui-internal build
+pnpm --filter @vesoft-inc/studio-ui-internal test
+pnpm --filter @vesoft-inc/studio-ui-internal check:boundaries --dist
+STUDIO_UI_INTERNAL_DIST=1 pnpm --filter nebula-studio exec vite build
+STUDIO_UI_INTERNAL_DIST=1 pnpm --filter nebula-gui exec vite build
 ```
 
 开发时 Web/GUI 使用 `source` 条件解析源码；默认包入口使用 `dist`，包含声明、样式、图片、图标和 Monaco worker。打包器需支持 ES modules、CSS、`new URL(..., import.meta.url)` 和 Monaco 的 ESM 依赖。组件包依赖同一工作区的 `@vesoft-inc/studio-core`、`@vesoft-inc/force-graph`，跨仓库接入时也需提供这两个包及声明的 peer dependencies。

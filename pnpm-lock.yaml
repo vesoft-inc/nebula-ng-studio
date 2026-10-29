@@ -91,9 +91,9 @@ importers:
       '@vesoft-inc/studio-core':
         specifier: workspace:*
         version: link:../../packages/studio-core
-      '@vesoft-inc/ui-components':
+      '@vesoft-inc/studio-ui-internal':
         specifier: workspace:*
-        version: link:../../packages/ui-components
+        version: link:../../packages/studio-ui-internal
       axios:
         specifier: ^1.6.7
         version: 1.9.0
@@ -200,9 +200,9 @@ importers:
       '@vesoft-inc/studio-core':
         specifier: workspace:*
         version: link:../../packages/studio-core
-      '@vesoft-inc/ui-components':
+      '@vesoft-inc/studio-ui-internal':
         specifier: workspace:*
-        version: link:../../packages/ui-components
+        version: link:../../packages/studio-ui-internal
       '@xyflow/react':
         specifier: ^12.6.4
         version: 12.7.0(@types/react@19.2.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -459,7 +459,7 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.20.4)(jsdom@25.0.1)
 
-  packages/ui-components:
+  packages/studio-ui-internal:
     dependencies:
       '@antv/graphlib':
         specifier: ^2.0.3

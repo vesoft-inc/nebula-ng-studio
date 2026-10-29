@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     resolve: {
-      conditions: process.env.UI_COMPONENTS_DIST ? [] : ['source'],
+      conditions: process.env.STUDIO_UI_INTERNAL_DIST ? [] : ['source'],
       alias: {
         '@gui': path.join(__dirname, './src'),
         '@public': path.join(__dirname, './public/'),

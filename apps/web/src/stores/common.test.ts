@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommonStore } from './common';
 import { connect, disconnect, fetchUserInfo } from '@studio/services';
 import { sessionRequests } from '@studio/services/sessionRequests';
-import type { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import type { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 
 vi.mock('@studio/services', () => ({
   connect: vi.fn(),

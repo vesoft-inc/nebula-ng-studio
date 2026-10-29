@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { ConsoleController } from '@vesoft-inc/ui-components/console/model';
+import { ConsoleController } from '@vesoft-inc/studio-ui-internal/console/model';
 import { HttpResCode, HTTP_CANCEL_CODE } from '@vesoft-inc/studio-core/contracts';
-import { modalStore } from '@vesoft-inc/ui-components/modal';
+import { modalStore } from '@vesoft-inc/studio-ui-internal/modal';
 import { fetcher } from './fetcher';
 import { execConsoleGql } from './nebula';
 
-vi.mock('@vesoft-inc/ui-components/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
+vi.mock('@vesoft-inc/studio-ui-internal/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
 
 const originalAdapter = fetcher.defaults.adapter;
 let controller: ConsoleController | undefined;

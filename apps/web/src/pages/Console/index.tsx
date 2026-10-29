@@ -1,14 +1,14 @@
 import { observer } from 'mobx-react-lite';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ConsoleWorkbench } from '@vesoft-inc/ui-components/console';
-import { SchemaTree } from '@vesoft-inc/ui-components/schema';
-import { useModal } from '@vesoft-inc/ui-components/modal';
+import { ConsoleWorkbench } from '@vesoft-inc/studio-ui-internal/console';
+import { SchemaTree } from '@vesoft-inc/studio-ui-internal/schema';
+import { useModal } from '@vesoft-inc/studio-ui-internal/modal';
 import {
   CONSOLE_DEFAULT_LOCAL_SETTINGS,
   useStorageSettings,
   type ConsoleSettingsForm,
-} from '@vesoft-inc/ui-components/settings';
+} from '@vesoft-inc/studio-ui-internal/settings';
 import { CONSOLE_SETTINGS_ID_PREFIX } from '@studio/app/settings';
 import { commonStore, consoleStore, schemaStore } from '@studio/app/session';
 import { studioConsoleServices } from '@studio/stores/console';

@@ -34,7 +34,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json ta
 COPY apps/gui/package.json ./apps/gui/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/force-graph/package.json ./packages/force-graph/package.json
-COPY packages/ui-components/package.json ./packages/ui-components/package.json
+COPY packages/studio-ui-internal/package.json ./packages/studio-ui-internal/package.json
 COPY packages/studio-core/package.json ./packages/studio-core/package.json
 
 RUN studio_version="${STUDIO_VERSION:-$(node -p "require('./apps/web/package.json').version")}" \

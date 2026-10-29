@@ -1,4 +1,4 @@
-import type { NodeLayoutMap, NodePosition } from '@vesoft-inc/ui-components/schema/types';
+import type { NodeLayoutMap, NodePosition } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { safeParse } from '@studio/utils/function';
 import {
   deleteGlobalConfig,

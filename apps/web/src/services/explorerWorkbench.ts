@@ -1,5 +1,5 @@
-import type { ExplorerServices } from '@vesoft-inc/ui-components/explorer/model';
-import { EXPLORER_DEFAULT_SETTINGS, type ExplorerSettings } from '@vesoft-inc/ui-components/settings';
+import type { ExplorerServices } from '@vesoft-inc/studio-ui-internal/explorer/model';
+import { EXPLORER_DEFAULT_SETTINGS, type ExplorerSettings } from '@vesoft-inc/studio-ui-internal/settings';
 import { execGql } from './nebula';
 import { addSnapshot, deleteSnapshot, fetchSnapshots, getSnapshotDetail, updateSnapShot } from './explorer';
 import { fetchGlobalConfig, upsertGlobalConfig } from './globalConfig';

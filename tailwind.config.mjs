@@ -7,7 +7,7 @@ export default {
       './apps/web/src/**/*.{js,jsx,ts,tsx}',
       './apps/gui/index.html',
       './apps/gui/src/**/*.{js,jsx,ts,tsx}',
-      './packages/ui-components/src/**/*.{js,jsx,ts,tsx}',
+      './packages/studio-ui-internal/src/**/*.{js,jsx,ts,tsx}',
     ],
   },
   corePlugins: {

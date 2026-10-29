@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { ensureExplorerSnapshot } from '@vesoft-inc/ui-components/integrations/console-explorer';
+import { ensureExplorerSnapshot } from '@vesoft-inc/studio-ui-internal/integrations/console-explorer';
 import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
 import { exploreConsoleResult } from './exploreResult';
 
-vi.mock('@vesoft-inc/ui-components/integrations/console-explorer', () => ({ ensureExplorerSnapshot: vi.fn() }));
+vi.mock('@vesoft-inc/studio-ui-internal/integrations/console-explorer', () => ({ ensureExplorerSnapshot: vi.fn() }));
 vi.mock('@studio/services/explorer', () => ({ addSnapshot: vi.fn(), getSnapshotDetail: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 

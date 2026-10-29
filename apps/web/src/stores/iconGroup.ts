@@ -1,4 +1,4 @@
-import { IconCatalog } from '@vesoft-inc/ui-components/graph/resources';
+import { IconCatalog } from '@vesoft-inc/studio-ui-internal/graph/resources';
 import {
   addIconGroup,
   addIconGroupItem,

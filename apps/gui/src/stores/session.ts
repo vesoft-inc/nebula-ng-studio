@@ -1,5 +1,5 @@
-import { modalStore } from '@vesoft-inc/ui-components/modal';
-import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { modalStore } from '@vesoft-inc/studio-ui-internal/modal';
+import { themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { CommonStore } from './common';
 import { registerCommonStore } from './authBridge';
 

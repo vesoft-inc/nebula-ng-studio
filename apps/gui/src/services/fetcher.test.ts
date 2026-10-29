@@ -5,7 +5,7 @@ import { fetcher } from './fetcher';
 import { guiConsoleServices } from './console';
 import { fetchCoreInfo } from './nebula';
 
-vi.mock('@vesoft-inc/ui-components/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
+vi.mock('@vesoft-inc/studio-ui-internal/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
 
 const originalAdapter = fetcher.defaults.adapter;
 afterEach(() => {

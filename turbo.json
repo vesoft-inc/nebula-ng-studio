@@ -23,7 +23,7 @@
       "env": ["STUDIO_BRAND_*", "STUDIO_DEFAULT_LANGUAGE", "STUDIO_VERSION"],
       "outputs": ["dist/**"]
     },
-    "@vesoft-inc/ui-components#dev": {
+    "@vesoft-inc/studio-ui-internal#dev": {
       "dependsOn": [],
       "persistent": true
     },
@@ -40,7 +40,7 @@
     "@vesoft-inc/studio-core#build": {
       "outputs": ["dist/**"]
     },
-    "@vesoft-inc/ui-components#build": {
+    "@vesoft-inc/studio-ui-internal#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     }

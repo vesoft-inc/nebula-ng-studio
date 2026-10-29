@@ -1,5 +1,5 @@
 import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
-import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { ConfigType, fetcher } from './fetcher';
 export const connect = async (payload: { address: string }, config: { headers: { Authorization: string } }) => {
   const res = await fetcher.post<ServerResponse>('/db/connect', payload, config);

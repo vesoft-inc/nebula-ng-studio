@@ -23,7 +23,7 @@ import {
   updateIconGroup,
   updateSnapShot,
 } from './explorer';
-import { IconGroupType } from '@vesoft-inc/ui-components/graph/utils';
+import { IconGroupType } from '@vesoft-inc/studio-ui-internal/graph/utils';
 
 const snapshotPayload = {
   id: 'snapshot-1',

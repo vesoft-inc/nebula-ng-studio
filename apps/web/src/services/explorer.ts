@@ -5,7 +5,7 @@ import type {
   IconGroupRecord,
   IconItemRecord,
   SnapshotRecord,
-} from '@vesoft-inc/ui-components/contracts';
+} from '@vesoft-inc/studio-ui-internal/contracts';
 
 type SnapshotPage = { total: number; page: number; pageSize: number; items: SnapshotRecord[] };
 export const fetchSnapshots = async (

@@ -1,6 +1,6 @@
 import type { GQLResult, ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
-import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { ConfigType, fetcher } from './fetcher';
 import { parseGqlResult, RestGqlResultParams } from '../utils/gql';
 

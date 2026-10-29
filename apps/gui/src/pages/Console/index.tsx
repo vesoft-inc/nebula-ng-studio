@@ -1,9 +1,9 @@
-import { ConsoleWorkbench } from '@vesoft-inc/ui-components/console';
+import { ConsoleWorkbench } from '@vesoft-inc/studio-ui-internal/console';
 import {
   useStorageSettings,
   CONSOLE_DEFAULT_LOCAL_SETTINGS,
   type ConsoleSettingsForm,
-} from '@vesoft-inc/ui-components/settings';
+} from '@vesoft-inc/studio-ui-internal/settings';
 import { CONSOLE_SETTINGS_ID } from '../../utils/preferences';
 import { consoleStore } from '../../stores/console';
 import { guiConsoleServices } from '../../services/console';

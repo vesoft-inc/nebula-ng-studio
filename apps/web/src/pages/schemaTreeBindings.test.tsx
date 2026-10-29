@@ -2,7 +2,7 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { UiProvider } from '@vesoft-inc/ui-components/provider';
+import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import { useSchemaTreeBindings } from './schemaTreeBindings';
 import { commonStore, schemaStore } from '@studio/app/session';
 

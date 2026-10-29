@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NodeLayoutMap } from '@vesoft-inc/ui-components/schema/types';
+import type { NodeLayoutMap } from '@vesoft-inc/studio-ui-internal/schema/types';
 
 const globalConfig = vi.hoisted(() => ({
   fetchGlobalConfig: vi.fn(async (_key: string, _config?: unknown): Promise<unknown> => null),
@@ -10,10 +10,10 @@ const globalConfig = vi.hoisted(() => ({
 vi.mock('@studio/services/globalConfig', () => globalConfig);
 vi.mock('./nebula', () => ({ execGql: vi.fn() }));
 
-import { INodeTypeItem, IEdgeTypeItem } from '@vesoft-inc/ui-components/schema/types';
+import { INodeTypeItem, IEdgeTypeItem } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { execGql } from './nebula';
 import { readGraphTypeLayout, SCHEMA_LAYOUT_READ_TIMEOUT_MS } from './schemaLayout';
-import { SchemaEditorState } from '@vesoft-inc/ui-components/schema-editor/model';
+import { SchemaEditorState } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
 
 const identity = {
   address: '127.0.0.1:9669',

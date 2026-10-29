@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { UiProvider } from '@vesoft-inc/ui-components/provider';
+import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import PageHeader from './index';
 
 vi.mock('@studio/app/session', () => ({

@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
-import { ExplorerController, ExplorerWorkbench } from '@vesoft-inc/ui-components/explorer';
-import { EXPLORER_DEFAULT_SETTINGS } from '@vesoft-inc/ui-components/settings';
+import { ExplorerController, ExplorerWorkbench } from '@vesoft-inc/studio-ui-internal/explorer';
+import { EXPLORER_DEFAULT_SETTINGS } from '@vesoft-inc/studio-ui-internal/settings';
 import { commonStore, consoleStore, schemaStore } from '@studio/app/session';
 import { createExplorerServices } from '@studio/services/explorerWorkbench';
 

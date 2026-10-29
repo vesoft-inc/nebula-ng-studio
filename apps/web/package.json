@@ -29,7 +29,7 @@
     "@mui/x-date-pickers": "^7.17.0",
     "@vesoft-inc/force-graph": "workspace:*",
     "@vesoft-inc/icons": "^2.3.0",
-    "@vesoft-inc/ui-components": "workspace:*",
+    "@vesoft-inc/studio-ui-internal": "workspace:*",
     "@vesoft-inc/studio-core": "workspace:*",
     "@xyflow/react": "^12.6.4",
     "bezier-js": "^6.1.4",

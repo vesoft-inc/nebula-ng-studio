@@ -1,5 +1,5 @@
 import type { GQLResult } from '@vesoft-inc/studio-core/contracts';
-import type { ConsoleServices, QueryExecutor } from '@vesoft-inc/ui-components/console/model';
+import type { ConsoleServices, QueryExecutor } from '@vesoft-inc/studio-ui-internal/console/model';
 import { execGql, killQueriesBySessionId } from './nebula';
 
 const query: QueryExecutor = async <T extends object>(gql: string, options?: Parameters<QueryExecutor>[1]) => {

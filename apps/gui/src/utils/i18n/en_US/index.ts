@@ -1,4 +1,4 @@
-import { en_US } from '@vesoft-inc/ui-components/locales';
+import { en_US } from '@vesoft-inc/studio-ui-internal/locales';
 import gui from './gui';
 
 const resource = { ...en_US, gui };

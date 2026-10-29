@@ -1,5 +1,5 @@
 import { Theme as MuiTheme } from '@mui/material/styles';
-import { VesoftPalette } from '@vesoft-inc/ui-components/theme';
+import { VesoftPalette } from '@vesoft-inc/studio-ui-internal/theme';
 
 declare module 'd3-force-3d';
 declare module '@mui/material/styles' {

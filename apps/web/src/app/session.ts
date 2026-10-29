@@ -1,9 +1,9 @@
-import { modalStore } from '@vesoft-inc/ui-components/modal';
-import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { modalStore } from '@vesoft-inc/studio-ui-internal/modal';
+import { themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { CommonStore } from '@studio/stores/common';
 import ConsoleStore from '@studio/stores/console';
 import { IconGroupStore } from '@studio/stores/iconGroup';
-import { SchemaController } from '@vesoft-inc/ui-components/schema/model';
+import { SchemaController } from '@vesoft-inc/studio-ui-internal/schema/model';
 import { createSchemaServices } from '@studio/services/schemaCatalog';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { loginPath, toAppPath, toBrowserPath } from './paths';

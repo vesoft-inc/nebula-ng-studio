@@ -1,4 +1,4 @@
-import type { SchemaServices } from '@vesoft-inc/ui-components/schema/model';
+import type { SchemaServices } from '@vesoft-inc/studio-ui-internal/schema/model';
 import { changeSchema, execGql, importDataParams } from './nebula';
 import { sweepStaleGraphTypeLayouts } from './schemaLayout';
 

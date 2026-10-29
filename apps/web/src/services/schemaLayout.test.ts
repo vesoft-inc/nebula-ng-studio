@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { serializeNodePositions } from '@vesoft-inc/ui-components/schema-editor/model';
+import { serializeNodePositions } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
 // Static import for fixtures: the key builder is pure, so it does not need the
 // per-test module isolation that the stateful functions under test rely on.
 import { schemaLayoutConfigKey, type SchemaLayoutIdentity } from './schemaLayout';

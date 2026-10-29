@@ -1,7 +1,7 @@
 import { consoleStore } from './console';
 import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '../utils/i18n';
-import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { LANG_KEY } from '@gui/utils/preferences';
 import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 import { clearToken, setToken } from '../utils/auth';

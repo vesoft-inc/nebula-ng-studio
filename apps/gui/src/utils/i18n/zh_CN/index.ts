@@ -1,4 +1,4 @@
-import { zh_CN } from '@vesoft-inc/ui-components/locales';
+import { zh_CN } from '@vesoft-inc/studio-ui-internal/locales';
 import gui from './gui';
 
 const resource = { ...zh_CN, gui };

@@ -1,7 +1,7 @@
 import { computed, makeAutoObservable, observable } from 'mobx';
 import i18n, { Language } from '@studio/utils/i18n';
 import { connect, disconnect, fetchUserInfo, oauth2Connect } from '@studio/services';
-import { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { LANG_KEY } from '@studio/utils/constant';
 import { LocalStorageUtil } from '@vesoft-inc/studio-core/browser';
 import { brandConfig } from '@studio/utils';

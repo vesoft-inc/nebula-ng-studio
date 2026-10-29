@@ -1,5 +1,5 @@
 import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
-import { SketchListItem, ISketchItem } from '@vesoft-inc/ui-components/schema/types';
+import { SketchListItem, ISketchItem } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { fetcher } from './fetcher';
 
 export const createSketch = async (payload: ISketchItem) => {

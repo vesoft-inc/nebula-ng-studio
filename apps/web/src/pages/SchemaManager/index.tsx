@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { SchemaWorkbench } from '@vesoft-inc/ui-components/schema';
+import { SchemaWorkbench } from '@vesoft-inc/studio-ui-internal/schema';
 import { commonStore, schemaStore } from '@studio/app/session';
 import { createSchemaEditorServices } from '@studio/services/schemaEditor';
 import { resolveSchemaPath } from '@studio/services/schemaLayout';

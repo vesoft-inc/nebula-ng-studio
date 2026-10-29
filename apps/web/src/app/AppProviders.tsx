@@ -1,12 +1,12 @@
 import { useEffect, type ReactNode } from 'react';
 import { autorun } from 'mobx';
 import { I18nextProvider } from 'react-i18next';
-import { GraphResourcesProvider } from '@vesoft-inc/ui-components/graph/resources';
-import { UiProvider } from '@vesoft-inc/ui-components/provider';
-import { ThemeWrapper, themeStore } from '@vesoft-inc/ui-components/theme';
+import { GraphResourcesProvider } from '@vesoft-inc/studio-ui-internal/graph/resources';
+import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
+import { ThemeWrapper, themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { modalStore, iconGroupStore } from './session';
 import i18n from '@studio/utils/i18n';
-import { injectCssVariable } from '@vesoft-inc/ui-components/utilities';
+import { injectCssVariable } from '@vesoft-inc/studio-ui-internal/utilities';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => autorun(() => injectCssVariable(themeStore.theme)), []);

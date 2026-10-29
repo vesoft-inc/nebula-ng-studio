@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useSchemaTreeBindings as useSharedSchemaTreeBindings } from '@vesoft-inc/ui-components/schema';
+import { useSchemaTreeBindings as useSharedSchemaTreeBindings } from '@vesoft-inc/studio-ui-internal/schema';
 import { commonStore, schemaStore } from '@studio/app/session';
 import { isGuiTarget } from '@studio/utils';
 

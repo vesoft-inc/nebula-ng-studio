@@ -4,16 +4,16 @@ import { Fragment, StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { UiProvider } from '@vesoft-inc/ui-components/provider';
+import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
-import type { SchemaServices } from '@vesoft-inc/ui-components/schema/model';
+import type { SchemaServices } from '@vesoft-inc/studio-ui-internal/schema/model';
 import { schemaStore } from '@studio/app/session';
 import { useSchemaTreeBindings } from './schemaTreeBindings';
 
 const execute = vi.hoisted(() => vi.fn<SchemaServices['execute']>());
 vi.mock('@studio/utils', () => ({ isGuiTarget: false }));
 vi.mock('@studio/app/session', async () => {
-  const { SchemaController } = await import('@vesoft-inc/ui-components/schema/model');
+  const { SchemaController } = await import('@vesoft-inc/studio-ui-internal/schema/model');
   return {
     commonStore: { userInfo: { curSchemaPath: '/initial' }, setSchemaPath: vi.fn() },
     schemaStore: new SchemaController({ execute: execute as SchemaServices['execute'] }),

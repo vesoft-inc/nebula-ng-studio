@@ -1,5 +1,5 @@
 {
-  "name": "@vesoft-inc/ui-components",
+  "name": "@vesoft-inc/studio-ui-internal",
   "version": "0.0.12",
   "private": true,
   "main": "./dist/shared/index.js",

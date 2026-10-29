@@ -9,12 +9,12 @@ import { fetcher } from '@studio/services/fetcher';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { loginReturnPath } from './paths';
 import { App } from './App';
-import type { IUserInfo } from '@vesoft-inc/ui-components/schema/types';
+import type { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import type { ReactNode } from 'react';
 
 vi.mock('./routes', () => ({ default: [{ path: '*', element: <div>page</div> }] }));
 vi.mock('./AppProviders', () => ({ AppProviders: ({ children }: { children: ReactNode }) => children }));
-vi.mock('@vesoft-inc/ui-components/modal', async (original) => ({
+vi.mock('@vesoft-inc/studio-ui-internal/modal', async (original) => ({
   ...(await original<object>()),
   GlobalModal: () => null,
 }));

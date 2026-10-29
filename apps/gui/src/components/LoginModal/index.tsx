@@ -1,7 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { ConnectionDialog } from '@vesoft-inc/ui-components/shell';
-import { themeStore } from '@vesoft-inc/ui-components/theme';
+import { ConnectionDialog } from '@vesoft-inc/studio-ui-internal/shell';
+import { themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { commonStore, modalStore } from '@gui/stores/session';
 import { consoleStore } from '@gui/stores/console';
 import lightConnectionBoard from '/images/connect-light.svg?url';

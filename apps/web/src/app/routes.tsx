@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, type RouteObject } from 'react-router-dom';
 import Login from '@studio/pages/Login';
 import PageLayout from '@studio/components/PageLayout';
-import { PageLoading } from '@vesoft-inc/ui-components';
+import { PageLoading } from '@vesoft-inc/studio-ui-internal';
 import { SessionGate } from './SessionGate';
 import { PageError } from './PageError';
 import { schemaRoutePaths, type SchemaRoute } from './schemaRoutes';

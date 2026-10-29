@@ -1,4 +1,4 @@
-import type { SchemaEditorServices } from '@vesoft-inc/ui-components/schema-editor/model';
+import type { SchemaEditorServices } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
 import { execGql } from './nebula';
 import { createSketch, deleteSketch, getSketchById, getSketchList } from './sketch';
 import {
