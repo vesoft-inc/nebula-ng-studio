@@ -1,3 +1,4 @@
+import { toJS } from 'mobx';
 import type {
   ConsoleServices,
   QueryExecutor,
@@ -15,8 +16,8 @@ export function bindQuery(execute: QueryExecutor, life: Lifetime): QueryExecutor
 }
 export function bindConsole(services: ConsoleServices, life: Lifetime): ConsoleServices {
   return {
-    execute: bindQuery(services.execute, life),
-    query: bindQuery(services.query, life),
+    execute: bindQuery(services.execute.bind(services), life),
+    query: bindQuery(services.query.bind(services), life),
     cancelQuery: services.cancelQuery
       ? (id, options) => life.request((request) => services.cancelQuery!(id, request), options)
       : undefined,
@@ -27,7 +28,7 @@ export function bindConsole(services: ConsoleServices, life: Lifetime): ConsoleS
 }
 export function bindSchema(services: SchemaServices, life: Lifetime): SchemaServices {
   return {
-    execute: bindQuery(services.execute, life),
+    execute: bindQuery(services.execute.bind(services), life),
     switchSchema: services.switchSchema
       ? (path, options) => life.request((request) => services.switchSchema!(path, request), options)
       : undefined,
@@ -42,7 +43,7 @@ export function bindSchema(services: SchemaServices, life: Lifetime): SchemaServ
 export function bindEditor(services: SchemaEditorServices, life: Lifetime): SchemaEditorServices {
   const { layouts, sketches } = services;
   return {
-    execute: bindQuery(services.execute, life),
+    execute: bindQuery(services.execute.bind(services), life),
     layouts: layouts
       ? {
           read: (name, options) => life.request((request) => layouts.read(name, request), options),
@@ -66,7 +67,7 @@ export function bindEditor(services: SchemaEditorServices, life: Lifetime): Sche
 export function bindExplorer(services: ExplorerServices, life: Lifetime): ExplorerServices {
   const { snapshots, settings } = services;
   return {
-    execute: bindQuery(services.execute, life),
+    execute: bindQuery(services.execute.bind(services), life),
     snapshotVersion: services.snapshotVersion,
     snapshots: {
       list: (filter, options) => life.request((request) => snapshots.list(filter, request), options),
@@ -78,7 +79,18 @@ export function bindExplorer(services: ExplorerServices, life: Lifetime): Explor
     settings: settings
       ? {
           load: (options) => life.request((request) => settings.load(request), options),
-          save: (value, options) => life.request((request) => settings.save(value, request), options),
+          save: (value, options) =>
+            life.request(
+              (request) =>
+                settings.save(
+                  {
+                    appConfigForm: { ...toJS(value.appConfigForm) },
+                    personalConfigForm: { ...toJS(value.personalConfigForm) },
+                  },
+                  request
+                ),
+              options
+            ),
         }
       : undefined,
   };

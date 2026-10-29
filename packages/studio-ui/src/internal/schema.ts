@@ -20,7 +20,8 @@ export function acquireSchema(scope: StudioScope, services: StudioServices) {
 export function acquireEditor(scope: StudioScope, services: StudioServices, allowSchemaFallback = false) {
   const own = services.schemaEditor;
   const fallback = allowSchemaFallback && services.schema;
-  const source = own ?? (fallback ? { execute: fallback.execute } : requireService(services, 'schemaEditor'));
+  const source =
+    own ?? (fallback ? { execute: fallback.execute.bind(fallback) } : requireService(services, 'schemaEditor'));
   return scope.acquire(
     'schemaEditor',
     own ? { schemaEditor: own } : { schemaEditor: undefined, schema: services.schema },
