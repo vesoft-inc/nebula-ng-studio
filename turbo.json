@@ -43,6 +43,10 @@
     "@vesoft-inc/studio-ui-internal#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
+    },
+    "@vesoft-inc/studio-ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
     }
   }
 }

@@ -75,6 +75,7 @@ jobs:
         run: |
           pnpm --filter @vesoft-inc/studio-core check:boundaries
           pnpm --filter @vesoft-inc/studio-ui-internal check:boundaries
+          pnpm --filter @vesoft-inc/studio-ui check:boundaries
 
       - name: Typecheck workspaces
         run: pnpm -r --if-present lint:types
@@ -109,11 +110,14 @@ jobs:
         run: |
           pnpm build
           pnpm build:gui
+          pnpm build:studio-ui
 
       - name: Check built shared package exports
         run: |
           pnpm --filter @vesoft-inc/studio-core check:boundaries --dist
           pnpm --filter @vesoft-inc/studio-ui-internal check:boundaries --dist
+          pnpm --filter @vesoft-inc/studio-ui check:boundaries --dist
+          pnpm --filter @vesoft-inc/studio-ui check:api
 
       - name: Smoke test the workspace apps
         run: |

@@ -55,6 +55,8 @@ async function checkSources(directory, library) {
       else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) specifier = node.argument.literal;
       if (specifier && ts.isStringLiteral(specifier)) {
         const name = specifier.text;
+        if (library && (name === '@vesoft-inc/studio-ui' || name.startsWith('@vesoft-inc/studio-ui/')))
+          report(node, 'Internal implementations must not depend on the external facade.');
         if (
           library &&
           production &&

@@ -76,6 +76,8 @@ See the [troubleshooting guide](deploy/troubleshooting.md).
 
 See the [contributing guide](CONTRIBUTING.md).
 
+Shared UI code is organized into [Studio UI](packages/studio-ui/README.md) for controlled public APIs and [Studio UI Internal](packages/studio-ui-internal/README.md) for the implementation used by Web/GUI. [Studio Core](packages/studio-core/README.md) supplies shared protocols and utilities.
+
 ## 📄 License
 
 This repository is licensed under the [Apache License 2.0](LICENSE). Third-party components and assets may retain their own compatible license terms in their respective directories.

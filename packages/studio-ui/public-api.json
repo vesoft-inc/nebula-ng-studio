@@ -1,0 +1,109 @@
+{
+  ".": {
+    "source": "./src/index.ts",
+    "exports": [
+      "IconServices",
+      "QueryExecutor",
+      "QueryOptions",
+      "StudioProvider",
+      "StudioProviderProps",
+      "StudioServices",
+      "UiProvider",
+      "UiProviderProps"
+    ]
+  },
+  "./console": {
+    "source": "./src/console.tsx",
+    "exports": [
+      "ConsoleServices",
+      "ConsoleSettings",
+      "ConsoleWorkbench",
+      "ConsoleWorkbenchProps",
+      "DEFAULT_CONSOLE_SETTINGS",
+      "QueryExecutor",
+      "QueryOptions",
+      "SnapshotReference"
+    ]
+  },
+  "./schema": {
+    "source": "./src/schema.tsx",
+    "exports": [
+      "QueryExecutor",
+      "QueryOptions",
+      "SchemaItemType",
+      "SchemaSelectorOptions",
+      "SchemaServices",
+      "SchemaTree",
+      "SchemaTreeItem",
+      "SchemaTreeNode",
+      "SchemaTreeProps",
+      "SchemaView",
+      "SchemaWorkbench",
+      "SchemaWorkbenchProps"
+    ]
+  },
+  "./schema-editor": {
+    "source": "./src/schema-editor.tsx",
+    "exports": [
+      "NodeLayoutMap",
+      "NodePosition",
+      "SchemaEditorMode",
+      "SchemaEditorServices",
+      "SchemaEditorWorkbench",
+      "SchemaEditorWorkbenchProps",
+      "SchemaLayoutServices",
+      "SketchPage",
+      "SketchRecord",
+      "SketchServices"
+    ]
+  },
+  "./explorer": {
+    "source": "./src/explorer.tsx",
+    "exports": [
+      "DEFAULT_EXPLORER_SETTINGS",
+      "ExplorerInitialSettings",
+      "ExplorerNavigationBlocker",
+      "ExplorerServices",
+      "ExplorerSettings",
+      "ExplorerWorkbench",
+      "ExplorerWorkbenchProps",
+      "QueryExecutor",
+      "QueryOptions",
+      "SnapshotCreateInput",
+      "SnapshotPage",
+      "SnapshotServices"
+    ]
+  },
+  "./editor": {
+    "source": "./src/editor.tsx",
+    "exports": ["GqlEditor", "GqlEditorHandle", "GqlEditorProps", "GqlViewer", "GqlViewerProps"]
+  },
+  "./contracts": {
+    "source": "./src/contracts.ts",
+    "exports": [
+      "DisplayedPropertyItem",
+      "FilterDefinition",
+      "IconGroupData",
+      "IconGroupRecord",
+      "IconGroupType",
+      "IconItemData",
+      "IconItemRecord",
+      "OperatorType",
+      "SerializedGraphEntity",
+      "SnapshotMetadata",
+      "SnapshotPayload",
+      "SnapshotRecord",
+      "VertexFilterDisplay",
+      "decodeSnapshotPayload",
+      "encodeSnapshotPayload"
+    ]
+  },
+  "./locales/zh_CN": {
+    "source": "./src/locales/zh_CN.ts",
+    "exports": ["zh_CN"]
+  },
+  "./locales/en_US": {
+    "source": "./src/locales/en_US.ts",
+    "exports": ["en_US"]
+  }
+}

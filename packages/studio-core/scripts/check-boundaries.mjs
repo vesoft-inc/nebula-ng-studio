@@ -36,6 +36,8 @@ for (const file of await files(sourceRoot)) {
       specifier = node.arguments[0];
     if (specifier && ts.isStringLiteral(specifier)) {
       const name = specifier.text;
+      if (/^@vesoft-inc\/studio-ui(?:-internal)?(?:\/|$)/.test(name))
+        report(node, 'UI packages must not be dependencies of core.');
       if (name.startsWith('.')) {
         if (relative(sourceRoot, resolve(dirname(file), name)).startsWith('..'))
           report(node, 'Imports must stay within core sources.');

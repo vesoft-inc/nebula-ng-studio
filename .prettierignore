@@ -5,4 +5,6 @@ apps/web/index.html
 **/*.mdx
 docs/local/**
 **/dist/**
+**/.temp/**
+**/.types/**
 apps/server/assets/public/**

@@ -7,7 +7,13 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['**/dist/**', 'apps/server/assets/public/**', 'packages/force-graph/src/**'],
+    ignores: [
+      '**/dist/**',
+      '**/.temp/**',
+      '**/.types/**',
+      'apps/server/assets/public/**',
+      'packages/force-graph/src/**',
+    ],
   },
   {
     files: ['**/*.{js,cjs,mjs,jsx,ts,tsx,mts,cts}'],

@@ -21,7 +21,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write . --ignore-path .prettierignore",
     "format:check": "prettier --check . --ignore-path .prettierignore",
-    "prepare": "husky"
+    "prepare": "husky",
+    "build:studio-ui": "turbo run build --filter=@vesoft-inc/studio-ui..."
   },
   "pnpm": {
     "packageExtensions": {

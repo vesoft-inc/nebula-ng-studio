@@ -1,6 +1,8 @@
-# UI Components
+# Studio UI Internal
 
-Studio 的基础 UI 和业务组件。`apps/web`、`apps/gui` 是实际接入方，本仓库不另建示例应用。
+`@vesoft-inc/studio-ui-internal` 是 Studio 的私有 UI 实现包。`apps/web`、`apps/gui` 直接使用本包并随仓库同步升级；这些细粒度入口不承诺外部兼容。
+
+Cloud 等外部系统使用 [`@vesoft-inc/studio-ui`](../studio-ui/README.md)。对外包在构建时纳入本包的必要实现，单独维护组件白名单和公开类型。不要在同一个应用树中混用两个包的组件与 Provider，也不要从内部包反向依赖对外包。
 
 跨业务复用的基础组件、hooks、查询契约和工具统一放在 `src/shared`；业务组件按 `console`、`schema`、`explorer` 等领域组织。
 
