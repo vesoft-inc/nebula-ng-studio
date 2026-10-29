@@ -55,9 +55,9 @@ const services = {
     Object.fromEntries(entries.filter((entry) => entry.name).map((entry) => [entry.name, { x: entry.x, y: entry.y }])),
 };
 vi.mock('../../shared/index', () => ({
-  BreadCrumbs: () => null,
   Drawer: () => null,
 }));
+vi.mock('../../shared/BreadCrumbs/Trail', () => ({ default: () => null }));
 vi.mock('../../shared/TitleEllipsis', () => ({ default: () => null }));
 vi.mock('./NodeType/index', () => ({ default: () => <div>Node table</div> }));
 vi.mock('./EdgeType/index', () => ({ default: () => null }));

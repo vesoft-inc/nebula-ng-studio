@@ -14,6 +14,8 @@ export interface ConsoleExplorerOptions {
   snapshots: Pick<SnapshotServices, 'read' | 'create'>;
   snapshotVersion?: string;
   schemaPathFallback?: string;
+  /** Stops late handoffs from mutating a disposed host session. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -29,12 +31,18 @@ export async function ensureExplorerSnapshot({
   snapshots,
   snapshotVersion,
   schemaPathFallback,
+  signal,
 }: ConsoleExplorerOptions): Promise<{ snapshotId: string } | null> {
+  const assertActive = () => {
+    if (signal?.aborted) throw new DOMException('Snapshot handoff cancelled', 'AbortError');
+  };
+  assertActive();
   const existing = consoleController.getResultSnapshot(result.id);
   let targetGraph = graph;
 
   if (existing) {
     const detail = await snapshots.read(existing.snapshotId);
+    assertActive();
     if (detail?.code === 0 && detail.data) return { snapshotId: existing.snapshotId };
     if (detail?.code !== HttpResCode.ErrNotFound) {
       throw new Error(detail?.message?.replace(/^\w+::/, '') || '');
@@ -69,6 +77,7 @@ export async function ensureExplorerSnapshot({
   let graphType = payload.graph_type;
   if (!graphType) {
     await consoleController.updateGraphTypeMap([graphName]);
+    assertActive();
     graphType = resolveGraphType() ?? '';
   }
   if (!graphType) throw new Error();
@@ -78,8 +87,10 @@ export async function ensureExplorerSnapshot({
     refresh: () => schemaController.refreshCurrentSchema(),
     fallback: () => schemaPathFallback,
   });
+  assertActive();
 
   const response = await snapshots.create({ ...payload, graph_type: graphType, schema_path: schemaPath });
+  assertActive();
   if (response?.code !== 0 || !response.data?.id) {
     throw new Error(response?.message?.replace(/^\w+::/, '') || '');
   }

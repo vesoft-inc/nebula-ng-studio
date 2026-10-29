@@ -1,5 +1,5 @@
 import { Alert, Box, Button, ButtonGroup, Container, Tooltip, useTheme } from '@mui/material';
-import { BreadCrumbs } from '../../shared/index';
+import BreadCrumbs from '../../shared/BreadCrumbs/Trail';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';

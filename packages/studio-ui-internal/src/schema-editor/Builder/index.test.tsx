@@ -57,7 +57,7 @@ vi.mock('../../shared/utilities', () => ({
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@vesoft-inc/icons', () => ({ CloseFilled: () => null, EditFilled: () => null }));
 vi.mock('dom-to-image', () => ({ default: { toPng: mocks.toPng } }));
-vi.mock('../../shared/index', () => ({ BreadCrumbs: () => null }));
+vi.mock('../../shared/BreadCrumbs/Trail', () => ({ default: () => null }));
 vi.mock('../../shared/TitleEllipsis', () => ({ default: () => null }));
 vi.mock('../../shared/SegmentButton/index', () => ({
   default: ({ children, onClick }: { children: React.ReactNode; onClick: () => void }) => (

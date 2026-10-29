@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { observer } from 'mobx-react-lite';
 import { ExplorerStore } from './ExplorerController';
@@ -20,6 +20,7 @@ export interface ExplorerWorkbenchProps {
   /** null selects the snapshot list; omit to use internal navigation. */
   snapshotId?: string | null;
   onSnapshotChange?: (id: string | null) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   blocker?: ExplorerNavigationBlocker;
   allowRemoteIconManagement?: boolean;
 }
@@ -38,13 +39,24 @@ const ExplorerContent = observer(function ExplorerContent({
   controller,
   snapshotId: controlledId,
   onSnapshotChange,
+  onDirtyChange,
   blocker,
   allowRemoteIconManagement,
-}: Pick<ExplorerWorkbenchProps, 'snapshotId' | 'onSnapshotChange' | 'blocker' | 'allowRemoteIconManagement'> & {
+}: Pick<
+  ExplorerWorkbenchProps,
+  'snapshotId' | 'onSnapshotChange' | 'onDirtyChange' | 'blocker' | 'allowRemoteIconManagement'
+> & {
   controller: ExplorerStore;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<{ id: string | null } | null>(null);
+  const dirty = !!controller.graphWorkspace?.graph.shouldBlockRouter;
+  const dirtyCallback = useRef(onDirtyChange);
+  dirtyCallback.current = onDirtyChange;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => dirtyCallback.current?.(false), []);
   const open = (id: string | null) => {
     setSelected(id);
     onSnapshotChange?.(id);

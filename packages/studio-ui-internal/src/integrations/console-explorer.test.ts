@@ -67,6 +67,24 @@ function setup() {
 }
 
 describe('Console to Explorer integration without a browser or application stores', () => {
+  it('does not restore a snapshot association after the host cancels a pending creation', async () => {
+    const { options, snapshots, consoleController } = setup();
+    const abort = new AbortController();
+    let finish!: (response: ServerResponse<{ id: string }>) => void;
+    snapshots.create.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const pending = ensureExplorerSnapshot({ ...options, signal: abort.signal });
+    await vi.waitFor(() => expect(snapshots.create).toHaveBeenCalledOnce());
+    abort.abort();
+    consoleController.clearConsole();
+    finish({ code: 0, message: '', data: { id: 'late-snapshot' } });
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(consoleController.getResultSnapshot('result-1')).toBeUndefined();
+  });
   it('creates a snapshot with serialized data and records the result association', async () => {
     const { options, snapshots, consoleController, query } = setup();
     await expect(ensureExplorerSnapshot(options)).resolves.toEqual({ snapshotId: 'new-snapshot' });
