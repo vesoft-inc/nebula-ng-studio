@@ -54,8 +54,8 @@ const ExplorerContent = observer(function ExplorerContent({
   const dirtyCallback = useRef(onDirtyChange);
   dirtyCallback.current = onDirtyChange;
   useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
+    dirtyCallback.current?.(dirty);
+  }, [dirty]);
   useEffect(() => () => dirtyCallback.current?.(false), []);
   const open = (id: string | null) => {
     setSelected(id);

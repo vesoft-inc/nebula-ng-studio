@@ -1,4 +1,4 @@
-import { createRef, useEffect, useRef } from 'react';
+import { createRef, useCallback, useEffect, useRef, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StudioProvider, UiProvider } from './provider';
@@ -100,6 +100,32 @@ describe('Host-independent workbenches', () => {
     view.rerender(renderHost({ ...services, console: { execute: vi.fn(), query: vi.fn() } }));
     await act(async () => {});
     expect(list).toHaveBeenCalledOnce();
+  });
+
+  it.each([true, false])('does not repeat unchanged dirty notifications with stableListener=%s', async (stable) => {
+    const { services } = fixture();
+    const changed = vi.fn();
+    function Host() {
+      const [state, setState] = useState({ dirty: false, updates: 0 });
+      const listener = useCallback((dirty: boolean) => {
+        changed(dirty);
+        // Bound the regression so an update loop produces an assertion failure.
+        if (changed.mock.calls.length < 4) setState((previous) => ({ ...previous, dirty }));
+      }, []);
+      return (
+        <StudioProvider scopeKey="session" schemaPath="/one" services={services} locale="en_US">
+          <button onClick={() => setState((previous) => ({ ...previous, updates: previous.updates + 1 }))}>
+            Update {state.updates}
+          </button>
+          <ExplorerWorkbench onDirtyChange={stable ? listener : (dirty) => listener(dirty)} />
+        </StudioProvider>
+      );
+    }
+    render(<Host />);
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(false));
+    expect(changed).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Update 0' }));
+    expect(changed).toHaveBeenCalledOnce();
   });
 
   it('rebinds the Schema editor after a schema change cancels its previous services', async () => {

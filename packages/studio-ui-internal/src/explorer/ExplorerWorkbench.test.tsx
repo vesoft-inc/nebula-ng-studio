@@ -30,13 +30,14 @@ it('reports actual dirty changes without clearing dirty state when the callback 
   await waitFor(() => expect(first).toHaveBeenCalledWith(true));
   view.rerender(host(second));
   expect(first).not.toHaveBeenCalledWith(false);
-  expect(second).toHaveBeenCalledWith(true);
+  expect(second).not.toHaveBeenCalled();
   act(() =>
     runInAction(() => {
       graph.shouldBlockRouter = false;
     })
   );
   expect(second).toHaveBeenLastCalledWith(false);
+  expect(second).toHaveBeenCalledOnce();
   act(() =>
     runInAction(() => {
       graph.shouldBlockRouter = true;
