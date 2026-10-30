@@ -17,9 +17,19 @@ export function UiProvider({ cssBaseline = false, ...props }: UiProviderProps): 
   return <InternalUiProvider {...props} cssBaseline={cssBaseline} />;
 }
 export interface StudioProviderProps extends UiProviderProps {
+  /**
+   * Opaque user, database and connection-session identity. Change it when that identity changes,
+   * not for ordinary route or theme updates; a change disposes the previous scope.
+   */
   scopeKey: string;
+  /** Host adapters bound to this identity. Keep individual domain objects stable to retain their state. */
   services: StudioServices;
+  /**
+   * Schema already selected in the host's remote session. Updating this prop synchronizes UI state;
+   * it does not perform a remote schema switch on the host's behalf.
+   */
   schemaPath?: string;
+  /** Reflect a schema switch successfully completed inside a workbench in the host's schemaPath state. */
   onSchemaChange?: (path: string) => void;
 }
 interface ScopeContextValue {

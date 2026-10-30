@@ -25,7 +25,6 @@ import { VertexValue } from '@vesoft-inc/studio-core/contracts';
 
 // @public (undocumented)
 export interface ConsoleServices {
-    // (undocumented)
     cancelQuery?: (sessionId: string, options?: QueryOptions) => Promise<void>;
     // (undocumented)
     execute: QueryExecutor;
@@ -361,13 +360,12 @@ export enum OperatorType {
     StartsWith = "STARTS WITH"
 }
 
-// @public (undocumented)
+// @public
 export type QueryExecutor = <T extends object>(gql: string, options?: QueryOptions) => Promise<ServerResponse<T>>;
 
 // @public
 export interface QueryOptions {
     queryTimeout?: number;
-    // (undocumented)
     signal?: AbortSignal;
 }
 
@@ -461,7 +459,6 @@ export interface SchemaServices {
     importDataset?: (dataset: string, options?: QueryOptions) => Promise<ServerResponse<object>>;
     // (undocumented)
     sweepLayouts?: (schemaPath: string, graphTypeNames: string[], options?: QueryOptions) => Promise<void>;
-    // (undocumented)
     switchSchema?: (path: string, options?: QueryOptions) => Promise<ServerResponse<object>>;
 }
 
@@ -618,7 +615,6 @@ export interface SnapshotCreateInput {
     graph_type: string;
     // (undocumented)
     name: string;
-    // (undocumented)
     schema_path: string;
     // (undocumented)
     thumbnail?: string;
@@ -704,13 +700,11 @@ export interface SnapshotServices {
     }>>;
     // (undocumented)
     delete: (id: string, options?: QueryOptions) => Promise<ServerResponse<object>>;
-    // (undocumented)
     list: (filter: {
         page: number;
         pageSize: number;
         filter?: string;
     }, options?: QueryOptions) => Promise<ServerResponse<SnapshotPage>>;
-    // (undocumented)
     read: (id: string, options?: QueryOptions) => Promise<ServerResponse<SnapshotRecord>>;
     // (undocumented)
     update: (snapshot: SnapshotRecord, options?: QueryOptions) => Promise<ServerResponse<object>>;
@@ -721,13 +715,9 @@ export function StudioProvider(input: StudioProviderProps): ReactElement;
 
 // @public (undocumented)
 export interface StudioProviderProps extends UiProviderProps {
-    // (undocumented)
     onSchemaChange?: (path: string) => void;
-    // (undocumented)
     schemaPath?: string;
-    // (undocumented)
     scopeKey: string;
-    // (undocumented)
     services: StudioServices;
 }
 
