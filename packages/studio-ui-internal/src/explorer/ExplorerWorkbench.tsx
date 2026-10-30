@@ -62,7 +62,9 @@ const ExplorerContent = observer(function ExplorerContent({
     onSnapshotChange?.(id);
   };
   const navigate = (id: string | null) => {
-    if (!blocker && controller.graphWorkspace?.graph.shouldBlockRouter) setPending({ id });
+    // A host blocker intercepts snapshot changes only when the host controls navigation.
+    const hostHandlesNavigation = controlledId !== undefined && !!blocker;
+    if (!hostHandlesNavigation && controller.graphWorkspace?.graph.shouldBlockRouter) setPending({ id });
     else open(id);
   };
   const localBlocker = useMemo<ExplorerNavigationBlocker>(
@@ -85,7 +87,7 @@ const ExplorerContent = observer(function ExplorerContent({
             key={snapshotId}
             snapshotId={snapshotId}
             onBack={() => navigate(null)}
-            blocker={blocker ?? localBlocker}
+            blocker={pending ? localBlocker : (blocker ?? localBlocker)}
             allowRemoteIconManagement={allowRemoteIconManagement}
           />
         ) : (

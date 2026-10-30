@@ -36,6 +36,7 @@
 - 每个 Provider 内每种工作台只保留一个活动实例，不新增 SchemaEditor 或 Explorer 的跨页面自动草稿。
 - 公共事件传普通数据；查询选项仅包含取消信号和超时，不暴露内部错误展示控制参数。
 - Console 到 Explorer 的快照关联在作用域内管理；删除快照时清理对应关联。
+- Explorer 内部管理快照导航时，未保存内容由组件本地确认保护；受控 `snapshotId` 配合 `blocker` 时，由宿主处理导航拦截。宿主提供的 `blocker` 也用于离开 Explorer 的外部导航。
 - `UiProvider` 默认关闭全局 CSS baseline，弹窗状态归实例所有；Monaco 主题仍为页面级。
 
 ## 开发检查
