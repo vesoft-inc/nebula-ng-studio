@@ -1,3 +1,23 @@
+import { mergeAbortSignals } from '@vesoft-inc/studio-core/request';
+import type { QueryOptions } from '@vesoft-inc/studio-ui-internal/console/model';
+
+/** Capture the session before asynchronous work queues or waits for another operation. */
+export async function inSession<T>(
+  signal: AbortSignal,
+  options: QueryOptions | undefined,
+  call: (request: QueryOptions) => Promise<T>
+): Promise<T> {
+  const combined = mergeAbortSignals(signal, options?.signal);
+  try {
+    if (combined.signal.aborted) throw new DOMException('Session expired', 'AbortError');
+    const result = await call({ ...options, signal: combined.signal });
+    if (combined.signal.aborted) throw new DOMException('Session expired', 'AbortError');
+    return result;
+  } finally {
+    combined.dispose();
+  }
+}
+
 /** Request lifetime is independent of stores, so the transport never imports application state. */
 class SessionRequests {
   private controller = new AbortController();

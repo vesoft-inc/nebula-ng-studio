@@ -6,12 +6,14 @@ import { IconGroupStore } from '@studio/stores/iconGroup';
 import { SchemaController } from '@vesoft-inc/studio-ui-internal/schema/model';
 import { createSchemaServices } from '@studio/services/schemaCatalog';
 import { sessionRequests } from '@studio/services/sessionRequests';
+import { StudioServerAdapters } from '@studio/services/studioServer';
 import { loginPath, toAppPath, toBrowserPath } from './paths';
 
 export { modalStore, themeStore };
 
 export const commonStore = new CommonStore();
-export const schemaStore = new SchemaController(createSchemaServices(() => commonStore.userInfo));
+export const studioServerAdapters = new StudioServerAdapters();
+export const schemaStore = new SchemaController(createSchemaServices(() => commonStore.userInfo, studioServerAdapters));
 export const consoleStore = new ConsoleStore();
 export const iconGroupStore = new IconGroupStore();
 
@@ -35,6 +37,7 @@ const sessionDependencies: NonNullable<CommonStore['deps']> = {
   iconGroupStore,
   consoleStore,
   schemaStore,
+  resetServiceAdapters: studioServerAdapters.reset,
   clearOverlays: () => {
     modalStore.hide();
     modalStore.message.clear();

@@ -58,10 +58,18 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       conditions: process.env.STUDIO_UI_INTERNAL_DIST ? [] : ['source'],
-      alias: {
-        '@studio': path.join(__dirname, './src/'),
-        '@public': path.join(__dirname, './public/'),
-      },
+      alias: [
+        ...(!process.env.STUDIO_UI_INTERNAL_DIST
+          ? [
+              {
+                find: /^@vesoft-inc\/studio-ui\/adapters\/studio-server$/,
+                replacement: path.resolve(__dirname, '../../packages/studio-ui/src/adapters/studio-server/index.ts'),
+              },
+            ]
+          : []),
+        { find: '@studio', replacement: path.join(__dirname, './src/') },
+        { find: '@public', replacement: path.join(__dirname, './public/') },
+      ],
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
     },
     css: {

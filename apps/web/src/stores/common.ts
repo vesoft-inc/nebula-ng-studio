@@ -18,6 +18,7 @@ export class CommonStore {
     consoleStore: { clearConsole: () => void };
     schemaStore: { reset: () => void };
     clearOverlays?: () => void;
+    resetServiceAdapters?: () => void;
     onLogout: (redirectUrl?: string) => void;
   };
   sessionStatus: 'idle' | 'checking' | 'authenticated' | 'anonymous' = 'idle';
@@ -132,6 +133,7 @@ export class CommonStore {
     this.sessionRevision += 1;
     this.initialization = undefined;
     sessionRequests.reset();
+    this.deps?.resetServiceAdapters?.();
     this.userInfo = undefined;
     this.sessionStatus = 'anonymous';
     this.explorerDestroy?.();

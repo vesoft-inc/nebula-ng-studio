@@ -1,10 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ensureExplorerSnapshot } from '@vesoft-inc/studio-ui-internal/integrations/console-explorer';
-import { addSnapshot, getSnapshotDetail } from '@studio/services/explorer';
+import { backgroundSnapshotServices } from '@studio/services/explorer';
 import { exploreConsoleResult } from './-exploreResult';
+import { sessionRequests } from '@studio/services/sessionRequests';
 
 vi.mock('@vesoft-inc/studio-ui-internal/integrations/console-explorer', () => ({ ensureExplorerSnapshot: vi.fn() }));
-vi.mock('@studio/services/explorer', () => ({ addSnapshot: vi.fn(), getSnapshotDetail: vi.fn() }));
+vi.mock('@studio/services/explorer', () => ({ backgroundSnapshotServices: { create: vi.fn(), read: vi.fn() } }));
 beforeEach(() => vi.resetAllMocks());
 
 function options() {
@@ -42,8 +43,14 @@ it('injects Studio snapshot services and navigates with an encoded snapshot ID',
   });
 
   await exploreConsoleResult(args);
-  expect(getSnapshotDetail).toHaveBeenCalledWith('previous', { errTip: false });
-  expect(addSnapshot).toHaveBeenCalledWith(expect.objectContaining({ graph: 'people' }), { errTip: false });
+  expect(backgroundSnapshotServices.read).toHaveBeenCalledWith(
+    'previous',
+    expect.objectContaining({ signal: expect.any(AbortSignal) })
+  );
+  expect(backgroundSnapshotServices.create).toHaveBeenCalledWith(
+    expect.objectContaining({ graph: 'people' }),
+    expect.objectContaining({ signal: expect.any(AbortSignal) })
+  );
   expect(args.navigate).toHaveBeenCalledOnce();
   expect(args.navigate).toHaveBeenCalledWith('/explorer/snapshots/snapshot%2Fwith%20space');
   expect(args.notifyError).not.toHaveBeenCalled();
@@ -53,6 +60,26 @@ it('keeps the current page when no result can be explored', async () => {
   const args = options();
   vi.mocked(ensureExplorerSnapshot).mockResolvedValueOnce(null);
   await exploreConsoleResult(args);
+  expect(args.navigate).not.toHaveBeenCalled();
+  expect(args.notifyError).not.toHaveBeenCalled();
+});
+
+it('cancels the whole handoff on session expiry and suppresses its late navigation and error', async () => {
+  const args = options();
+  let complete!: (value: { snapshotId: string }) => void;
+  let signal: AbortSignal | undefined;
+  vi.mocked(ensureExplorerSnapshot).mockImplementationOnce((input) => {
+    signal = input.signal;
+    return new Promise((resolve) => {
+      complete = resolve;
+    });
+  });
+  const opening = exploreConsoleResult(args);
+  expect(signal?.aborted).toBe(false);
+  sessionRequests.reset();
+  expect(signal?.aborted).toBe(true);
+  complete({ snapshotId: 'late' });
+  await opening;
   expect(args.navigate).not.toHaveBeenCalled();
   expect(args.notifyError).not.toHaveBeenCalled();
 });

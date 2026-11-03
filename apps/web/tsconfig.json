@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@studio/*": ["src/*"],
-      "@public/*": ["public/*"]
+      "@public/*": ["public/*"],
+      "@vesoft-inc/studio-ui/adapters/studio-server": ["../../packages/studio-ui/src/adapters/studio-server/index.ts"]
     },
     "customConditions": ["source"]
   }

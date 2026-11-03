@@ -24,6 +24,7 @@ vi.mock('./SessionGate', () => ({ SessionGate: ({ children }: { children: ReactN
 vi.mock('./session', () => ({
   modalStore: {},
   bindSessionLifecycle: () => () => {},
+  studioServerAdapters: { editor: () => ({}) },
   commonStore: { userInfo: { address: 'db', username: 'a', curSchemaPath: '/a' }, setSchemaPath: vi.fn() },
   schemaStore: {
     currentSchema: { path: '/a' },
@@ -46,7 +47,6 @@ vi.mock('@studio/routes/_app/console/-Page', () => ({
     return <div>console page</div>;
   },
 }));
-vi.mock('@studio/services/schemaEditor', () => ({ createSchemaEditorServices: () => ({}) }));
 vi.mock('@vesoft-inc/studio-ui-internal/schema-editor/model', () => ({
   SchemaEditorController: class {
     constructor() {

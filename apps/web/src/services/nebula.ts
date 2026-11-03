@@ -44,17 +44,7 @@ export const execConsoleGql = async <T extends object>(
   return res.data;
 };
 
-export const importDataParams = async <T>(dataSet: string) => {
-  const res = await fetcher.post<ServerResponse<T>>('/nebula/import-data', { dataSet });
-  return res.data;
-};
-
 export const fetchUserInfo = async () => {
   const res = await fetcher.get<ServerResponse<IUserInfo>>('/nebula/userInfo');
-  return res.data;
-};
-
-export const changeSchema = async (schemaPath: string) => {
-  const res = await fetcher.post<ServerResponse>('/nebula/changeSchema', { schemaPath });
   return res.data;
 };

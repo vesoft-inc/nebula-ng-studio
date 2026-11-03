@@ -1,19 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NodeLayoutMap } from '@vesoft-inc/studio-ui-internal/schema/types';
 
-const globalConfig = vi.hoisted(() => ({
-  fetchGlobalConfig: vi.fn(async (_key: string, _config?: unknown): Promise<unknown> => null),
-  upsertGlobalConfig: vi.fn(),
-  listAllGlobalConfigs: vi.fn(),
-  deleteGlobalConfig: vi.fn(),
-}));
-vi.mock('@studio/services/globalConfig', () => globalConfig);
 vi.mock('./nebula', () => ({ execGql: vi.fn() }));
+vi.mock('@vesoft-inc/studio-ui-internal/modal', () => ({ modalStore: { message: { error: vi.fn() } } }));
 
 import { INodeTypeItem, IEdgeTypeItem } from '@vesoft-inc/studio-ui-internal/schema/types';
 import { execGql } from './nebula';
-import { readGraphTypeLayout, SCHEMA_LAYOUT_READ_TIMEOUT_MS } from './schemaLayout';
-import { SchemaEditorState } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
+import { backgroundFetcher } from './fetcher';
+import { StudioServerAdapters } from './studioServer';
+import { sessionRequests } from './sessionRequests';
+import { AxiosHeaders, type AxiosResponse } from 'axios';
+const SCHEMA_LAYOUT_READ_TIMEOUT_MS = 2000;
+const configResponse = (value: unknown): AxiosResponse => ({
+  data: { code: 0, data: { value: JSON.stringify(value) } },
+  status: 200,
+  statusText: 'OK',
+  headers: {},
+  config: { headers: new AxiosHeaders() },
+});
+import { SchemaEditorState, serializeNodePositions } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
 
 const identity = {
   address: '127.0.0.1:9669',
@@ -23,16 +28,24 @@ const identity = {
 };
 const saved: NodeLayoutMap = { A: { x: 10, y: 20 } };
 
+it('serializes canvas positions by entity name and omits unusable coordinates', () => {
+  expect(
+    serializeNodePositions([
+      { name: 'A', x: 1, y: 2 },
+      { name: '', x: 1, y: 2 },
+      { name: 'B', x: NaN, y: 2 },
+      { name: 'C', x: 3, y: 4 },
+    ])
+  ).toEqual({ A: { x: 1, y: 2 }, C: { x: 3, y: 4 } });
+});
+
 describe('graph type layout restoration', () => {
   let store: SchemaEditorState;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    store = new SchemaEditorState({
-      execute: execGql,
-      layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
-    });
+    store = new SchemaEditorState(new StudioServerAdapters().editor(identity));
     store.transformGrapTypeByDDL = vi.fn(
       async (): Promise<[INodeTypeItem[], IEdgeTypeItem[]]> => [[new INodeTypeItem({ name: 'A' })], []]
     );
@@ -42,11 +55,12 @@ describe('graph type layout restoration', () => {
     store.disposeReaction();
     vi.restoreAllMocks();
     vi.useRealTimers();
+    sessionRequests.reset();
   });
 
   it('opens with DDL after the optional config read reaches its deadline', async () => {
-    let completeRead!: (value: unknown) => void;
-    globalConfig.fetchGlobalConfig.mockReturnValueOnce(new Promise((resolve) => (completeRead = resolve)));
+    let completeRead!: (value: AxiosResponse) => void;
+    vi.spyOn(backgroundFetcher, 'get').mockReturnValueOnce(new Promise((resolve) => (completeRead = resolve)));
 
     const loaded = store.transformGraphTypeToEditorFromDDL(identity.graphTypeName);
     await vi.advanceTimersByTimeAsync(SCHEMA_LAYOUT_READ_TIMEOUT_MS);
@@ -54,13 +68,13 @@ describe('graph type layout restoration', () => {
 
     expect(store.nodeTypeList.map((node) => node.name)).toEqual(['A']);
     expect(store.savedLayout).toBeNull();
-    completeRead({ version: 1, ...identity, nodes: saved });
+    completeRead(configResponse({ version: 1, ...identity, nodes: saved }));
     await Promise.resolve();
     expect(store.savedLayout).toBeNull();
   });
 
   it('loads the saved arrangement with the DDL when the config responds promptly', async () => {
-    globalConfig.fetchGlobalConfig.mockResolvedValueOnce({ version: 1, ...identity, nodes: saved });
+    vi.spyOn(backgroundFetcher, 'get').mockResolvedValueOnce(configResponse({ version: 1, ...identity, nodes: saved }));
 
     await store.transformGraphTypeToEditorFromDDL(identity.graphTypeName);
 
@@ -76,7 +90,7 @@ describe('DECIMAL describe metadata', () => {
     async (data_type) => {
       const store = new SchemaEditorState({
         execute: execGql,
-        layouts: { read: (name) => readGraphTypeLayout({ ...identity, graphTypeName: name }), write: async () => true },
+        layouts: new StudioServerAdapters().editor(identity).layouts,
       });
       store.updateGraphTypeName('payments');
       const node = new INodeTypeItem({ name: 'Payment' });

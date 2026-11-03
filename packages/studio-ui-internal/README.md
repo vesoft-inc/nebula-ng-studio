@@ -94,7 +94,7 @@ function QueryPage({ services }: { services: ConsoleServices }) {
 
 React 组件和自定义 Hook 通过 `@vesoft-inc/studio-ui-internal/modal` 的 `useModal()` 获取当前 `UiProvider` 提供的 `ModalStore`。HTTP 拦截器、会话等非 React 模块使用宿主统一的 `modalStore`，宿主将同一实例传入 `UiProvider`。
 
-宿主负责实现 `ConsoleServices`：`execute` 用于用户查询和警告查询，`query` 用于图元数据查询。返回值使用 `@vesoft-inc/studio-core/contracts` 的 `ServerResponse<T>`。适配器应传递 `AbortSignal`；`queryTimeout` 单位是毫秒。GUI 的 HTTP header、token、服务地址和 Web 的 Server API 路径都在各自应用中处理。
+宿主负责实现 `ConsoleServices`：`execute` 用于用户查询和警告查询，`query` 用于图元数据查询。返回值使用 `@vesoft-inc/studio-core/contracts` 的 `ServerResponse<T>`。适配器应传递 `AbortSignal`；`queryTimeout` 单位是毫秒。GUI 的 HTTP header、token、服务地址留在应用。Web 可复用 `studio-ui/adapters/studio-server` 的协议适配，同时保留自己的查询错误策略；该入口不加载公共 UI 或 Provider。
 
 可选的 `getSessionId`、`cancelQuery` 提供服务端取消；没有服务端取消能力时，停止操作仍会中止客户端请求并忽略迟到响应。
 
@@ -120,7 +120,7 @@ import { SchemaProvider, GraphTypeList } from '@vesoft-inc/studio-ui-internal/sc
 
 Schema 页面由应用组合：目录、图类型、图、详情、草稿、编辑器分别挂载，不提供库内视图分发和侧栏导航。Web 的 TanStack 文件路由位于 `apps/web/src/routes`，Schema 布局和服务装配放在 `routes/_app/_schema` 的对应目录。创建图按钮通过 `onCreate` 通知宿主显示 `CreateGraphDialog`，未提供回调时隐藏。
 
-仅使用编辑器时导入 `SchemaEditorWorkbench`，传入 `services`、`mode`、`graphTypeName` 或 `sketchId`，通过 `onSaved`、`onBack`、`onEdit`、`onView` 处理后续行为。`SchemaEditorServices` 包含 `execute`，以及可选的 `layouts` 和 `sketches`。布局服务接收图类型名称和节点坐标；账号、数据库地址、Schema 路径和存储 key 由宿主适配器绑定。切换这些身份时必须提供新的服务实例，避免旧编辑器的清理写入落到新身份。Web 的 `services/schemaEditor.ts` 展示了这种绑定方式。
+仅使用编辑器时导入 `SchemaEditorWorkbench`，传入 `services`、`mode`、`graphTypeName` 或 `sketchId`，通过 `onSaved`、`onBack`、`onEdit`、`onView` 处理后续行为。`SchemaEditorServices` 包含 `execute`，以及可选的 `layouts` 和 `sketches`。布局服务接收图类型名称和节点坐标；账号、数据库地址、Schema 路径和存储 key 由宿主适配器绑定。切换这些身份时必须提供新的服务实例，避免旧编辑器的清理写入落到新身份。Web 的 `services/studioServer.ts` 展示了这种绑定方式。
 
 高级编辑状态通过 `selectItem()` 更新选中项，通过 `commitNodeChanges()`、`commitEdgeChanges()` 提交修改；不再通过选中项的 reaction 隐式写回。现有实时编辑面板在 `onChange` 中显式提交，弹窗在确认时提交、取消时不提交。`updateNodeType()`、`updateEdgeType()` 和旧 `setActiveItem()` 保留为兼容入口；旧 setter 的选择并写回行为由方法内显式完成。新代码应分开调用选择和提交方法。
 
@@ -164,7 +164,7 @@ import { ExplorerSession, SnapshotList } from '@vesoft-inc/studio-ui-internal/ex
 
 画布同步与选择高亮的 reaction 由画布实例管理，过滤订阅由 GraphStore 管理，目录同步由 SchemaController 管理；布局自动保存由 `useLayoutPersistence` 的 effect 管理订阅、计时器及卸载时的提交。这些剩余订阅的计算逻辑保持原样。
 
-`ExplorerServices` 注入 `execute` 和快照的 `list/create/read/update/delete`；可选 `settings.load/save` 接入远端或本地存储，`snapshotVersion` 标记导出文件版本。`onSnapshotDeleted` 用于清理宿主的 Console 结果映射，`onSchemaChanged` 用于同步宿主会话。Web 的 `services/explorerWorkbench.ts` 负责服务端路径、用户名和配置 key。
+`ExplorerServices` 注入 `execute` 和快照的 `list/create/read/update/delete`；可选 `settings.load/save` 接入远端或本地存储，`snapshotVersion` 标记导出文件版本。`onSnapshotDeleted` 用于清理宿主的 Console 结果映射，`onSchemaChanged` 用于同步宿主会话。Web 的 `services/explorerWorkbench.ts` 绑定会话、用户名和配置 key，HTTP 路径及持久化实现复用可选的 Studio Server 适配入口。
 
 `ExplorerSession` 只初始化资源、提供上下文和释放自有实例，不选择页面。应用共享布局可以将 `Outlet` 作为 children；列表路由渲染 `SnapshotList`，详情路由渲染 `ExplorerGraph`。`SnapshotList.onOpen(id)` 和 `ExplorerGraph.onBack()` 仅通知宿主。宿主根据 `onDirtyChange` 拦截路由和浏览器关闭，并传入 `blocker`（`state/proceed/reset`）。Web 在 `routes/_app/explorer/snapshots/-Snapshot.tsx` 适配 TanStack `useBlocker`。
 
@@ -230,4 +230,4 @@ Web / GUI 各自创建 Axios 客户端，并使用 core 的共享响应解析、
 
 CSV 下载由组件库的 `shared/download.ts` 实现，供探索页整图导出与选中实体导出共用，并从 `/utilities` 导出 `downloadCSVFiles`。CSV 转换、BOM、文件名、浏览器下载及错误提示由该工具处理。凭据加解密协议继续由 `studio-core/crypto` 提供。
 
-HTTP 客户端始终返回 `AxiosResponse`。Web services 按接口声明 `ServerResponse<T>` 并取出响应体；GUI services 按 REST 协议声明响应，规范化查询结果后交给组件查询契约。错误提示选项和 Axios 配置扩展属于各自宿主。
+HTTP 客户端始终返回 `AxiosResponse`。Studio Server 适配器按接口声明 `ServerResponse<T>` 并取出响应体；Web 的 GQL 薄包装保留逐请求提示策略。GUI services 按 REST 协议声明响应，规范化查询结果后交给组件查询契约。错误提示选项和 Axios 配置扩展属于各自宿主。

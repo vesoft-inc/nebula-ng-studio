@@ -5,18 +5,16 @@ import { Outlet, useNavigate } from '@tanstack/react-router';
 import { CreateGraphDialog, SchemaProvider } from '@vesoft-inc/studio-ui-internal/schema';
 import { SchemaEditorProvider } from '@vesoft-inc/studio-ui-internal/schema-editor';
 import { SchemaEditorController } from '@vesoft-inc/studio-ui-internal/schema-editor/model';
-import { commonStore, schemaStore } from '@studio/app/session';
+import { commonStore, schemaStore, studioServerAdapters } from '@studio/app/session';
 import { routePaths } from '@studio/app/paths';
-import { createSchemaEditorServices } from '@studio/services/schemaEditor';
-import { resolveSchemaPath } from '@studio/services/schemaLayout';
 import { SchemaEditorServicesContext } from './-context';
 
 export const SchemaSession = observer(function SchemaSession() {
   const navigate = useNavigate();
   const { address, username, curSchemaPath } = commonStore.userInfo ?? {};
-  const schemaPath = resolveSchemaPath(curSchemaPath, schemaStore.currentSchema.path);
+  const schemaPath = curSchemaPath || schemaStore.currentSchema.path || '';
   const services = useMemo(
-    () => createSchemaEditorServices({ address, username, schemaPath }),
+    () => studioServerAdapters.editor({ address, username, schemaPath }),
     [address, username, schemaPath]
   );
   const editor = useMemo(() => new SchemaEditorController(services), [services, schemaStore.currentSchema.path]);
