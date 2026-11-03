@@ -10,12 +10,11 @@ import {
   Typography,
   type TypographyProps,
 } from '@mui/material';
-import { Link as RouterLink, LinkProps as RouterLinkProps, To } from 'react-router-dom';
 import { BackIcon } from './styles';
 
 export interface BreadCrumbItem extends Omit<LinkProps, 'title'> {
   key?: string;
-  to?: To | number;
+  href?: string;
   title: ReactNode;
   slotProps?: Partial<{
     commonTitle: TypographyProps;
@@ -47,13 +46,12 @@ function BreadCurmbs(props: BreadCrumbsProps) {
           if (itemRender) {
             return itemRender(item, items);
           }
-          const { key, title, to, ...rest } = item as LinkProps & RouterLinkProps;
-          return to ? (
+          const { key, title, href, ...rest } = item;
+          return href ? (
             <Link
-              component={RouterLink}
               underline="hover"
               color="inherit"
-              to={to}
+              href={href}
               key={key || index}
               sx={{
                 ':hover': {
@@ -63,15 +61,16 @@ function BreadCurmbs(props: BreadCrumbsProps) {
               }}
               {...rest}
             >
-              {item.title}
+              {title}
             </Link>
           ) : (
             <Typography
+              component="div"
               key={index}
               sx={{ color: index === items.length - 1 ? (theme) => theme.palette.vesoft.v2.text1 : undefined }}
               {...slotProps?.breadCrumbsCommonTitle}
             >
-              {item.title}
+              {title}
             </Typography>
           );
         })}

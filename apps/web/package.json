@@ -6,12 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development vite",
-    "build": "NODE_ENV=production tsc && NODE_ENV=production vite build && pnpm copy:server",
+    "build": "pnpm routes:generate && NODE_ENV=production tsc && NODE_ENV=production vite build && pnpm copy:server",
     "copy:server": "node -e \"const fs=require('node:fs');if(!fs.existsSync('dist/index.html'))throw new Error('Studio dist is missing');fs.rmSync('../server/assets/public',{recursive:true,force:true});fs.cpSync('dist','../server/assets/public',{recursive:true})\"",
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\"",
-    "lint:types": "tsc -b --noEmit"
+    "lint:types": "pnpm routes:generate && tsc -b --noEmit",
+    "routes:generate": "node scripts/generate-routes.mjs"
   },
   "dependencies": {
     "@antv/graphlib": "^2.0.3",
@@ -55,13 +56,13 @@
     "react-hook-form": "7.55.0",
     "react-hook-form-mui": "^7.6.1",
     "react-i18next": "^14.0.5",
-    "react-router-dom": "6.28.1",
     "react-syntax-highlighter": "^15.6.1",
     "react-transition-group": "^4.4.5",
     "react-window": "^1.8.10",
     "uuid": "^8.3.2",
     "zod": "^4.0.14",
-    "axios": "^1.6.7"
+    "axios": "^1.6.7",
+    "@tanstack/react-router": "1.170.46"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -86,6 +87,8 @@
     "jsdom": "^25.0.1",
     "vite": "^5.2.6",
     "vite-plugin-ejs": "^1.7.0",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "@tanstack/router-plugin": "1.168.48",
+    "@tanstack/router-generator": "1.167.46"
   }
 }

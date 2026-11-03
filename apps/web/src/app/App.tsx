@@ -1,12 +1,12 @@
-import { RouterProvider, type RouterProviderProps } from 'react-router-dom';
+import { RouterProvider, type AnyRouter } from '@tanstack/react-router';
 import { GlobalModal } from '@vesoft-inc/studio-ui-internal/modal';
 import { AppProviders } from './AppProviders';
 import { modalStore } from './session';
 
-export function App({ router }: Pick<RouterProviderProps, 'router'>) {
+export function App({ router }: { router: AnyRouter }) {
   return (
     <AppProviders>
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+      <RouterProvider router={router} />
       <GlobalModal store={modalStore} />
     </AppProviders>
   );

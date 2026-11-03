@@ -1,5 +1,5 @@
 export * from './explorer-model';
-export { ExplorerWorkbench, ExplorerLayout, type ExplorerWorkbenchProps } from '../explorer/ExplorerWorkbench';
+export { ExplorerSession, type ExplorerSessionProps } from '../explorer/ExplorerSession';
 export { ExplorerStoreProvider as ExplorerProvider, useExplorerStore as useExplorer } from '../explorer/context';
 export { default as ExplorerGraph, type ExplorerGraphProps } from '../explorer/Graph';
 export { default as ExplorerHeader } from '../explorer/Graph/Header';

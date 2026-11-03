@@ -75,7 +75,11 @@ async function checkSources(directory, library) {
               report(node, 'Use the domain or platform subpath entry.');
           }
         }
-        if (business && production && name === 'react-router-dom')
+        if (
+          library &&
+          production &&
+          /^(?:react-router(?:-dom)?|@tanstack\/(?:react-router|router-core))(?:\/|$)/.test(name)
+        )
           report(node, 'Business components accept semantic navigation callbacks; routers belong in the host.');
         if (
           business &&

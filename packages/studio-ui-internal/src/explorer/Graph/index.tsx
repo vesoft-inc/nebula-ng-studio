@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import Box from '@mui/material/Box';
 import { Drawer } from '../../shared/index';
@@ -20,14 +20,29 @@ const RIGHT_SIDE_DRAWER_COLLAPSED_WIDTH = 28;
 
 export interface ExplorerGraphProps {
   snapshotId: string;
+  onDirtyChange?: (dirty: boolean) => void;
   onBack?: () => void;
   blocker?: ExplorerNavigationBlocker;
   allowRemoteIconManagement?: boolean;
 }
-function ExplorerGraph({ snapshotId, onBack, blocker, allowRemoteIconManagement = false }: ExplorerGraphProps) {
+function SnapshotGraph({
+  snapshotId,
+  onBack,
+  blocker,
+  onDirtyChange,
+  allowRemoteIconManagement = false,
+}: ExplorerGraphProps) {
   const modalStore = useModal();
   const explorerStore = useExplorerStore();
   const { loading } = explorerStore;
+  const dirty = !!explorerStore.graphWorkspace?.graph.shouldBlockRouter;
+  const dirtyCallback = useRef(onDirtyChange);
+  dirtyCallback.current = onDirtyChange;
+  useEffect(() => {
+    dirtyCallback.current?.(dirty);
+  }, [dirty]);
+  useEffect(() => () => dirtyCallback.current?.(false), []);
+
   const [graphWorkspace, setGraphWorkspace] = useState<GraphWorkspaceStore>();
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
 
@@ -65,7 +80,7 @@ function ExplorerGraph({ snapshotId, onBack, blocker, allowRemoteIconManagement 
     loading || graphWorkspace.loading || graphWorkspace.graph.loading || graphWorkspace.restoreState === 'restoring';
 
   return (
-    <Box display="flex" flexDirection="column" height="100%">
+    <Box display="flex" flexDirection="column" height="100%" position="relative">
       {shouldShowLoading && (
         <Box
           display="flex"
@@ -129,6 +144,9 @@ function ExplorerGraph({ snapshotId, onBack, blocker, allowRemoteIconManagement 
   );
 }
 
-const observedExplorerGraph = observer(ExplorerGraph);
+const ObservedSnapshotGraph = observer(SnapshotGraph);
 
-export default observedExplorerGraph;
+export default function ExplorerGraph(props: ExplorerGraphProps) {
+  // Canvas controls capture their workspace; a different snapshot owns a fresh subtree.
+  return <ObservedSnapshotGraph key={props.snapshotId} {...props} />;
+}

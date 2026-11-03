@@ -12,13 +12,6 @@ export { default as TreeCollapseItem } from '../shared/CollapseItem/index';
 export { default as CreateSchemaDialog } from '../schema/CreateSchemaDialog/index';
 export * from './schema-model';
 export { SchemaProvider, useSchema } from '../schema/context';
-export {
-  SchemaWorkbench,
-  SchemaWorkbenchLayout,
-  type SchemaWorkbenchProps,
-  type SchemaView,
-} from '../schema/SchemaWorkbench';
-export { SchemaSidebar, type SchemaSidebarProps } from '../schema/SchemaSidebar';
 export { default as SchemaList, type SchemaListProps } from '../schema/SchemaList';
 export { default as GraphTypeList, type GraphTypeListProps } from '../schema/GraphTypeList';
 export { default as GraphList, type GraphListProps } from '../schema/GraphList';

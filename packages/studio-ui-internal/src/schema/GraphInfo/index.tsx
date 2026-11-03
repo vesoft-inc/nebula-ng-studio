@@ -2,7 +2,7 @@ import { Box, ButtonGroup, Container } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import BreadCrumbs from '../../shared/BreadCrumbs/Trail';
+import BreadCrumbs from '../../shared/BreadCrumbs';
 import GraphIndex from './GraphIndex';
 import StatsInfo from './StatsInfo';
 import GroupButton from '../../shared/SegmentButton/index';

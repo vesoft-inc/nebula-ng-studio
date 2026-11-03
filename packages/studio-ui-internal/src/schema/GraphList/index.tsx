@@ -18,9 +18,10 @@ import DeleteGraphModal from '../DeleteGraphDialog/index';
 
 export interface GraphListProps {
   onView?: (name: string) => void;
+  onCreate?: () => void;
 }
 
-function GraphList({ onView }: GraphListProps) {
+function GraphList({ onView, onCreate }: GraphListProps) {
   const schemaStore = useSchema();
   const theme = useTheme();
   const { currentSchema } = schemaStore;
@@ -52,15 +53,10 @@ function GraphList({ onView }: GraphListProps) {
       .then(([graphTypes, _]) => {
         setGraphTypes(graphTypes);
       })
+      .catch(() => {})
       .finally(() => {
         setDataLoaded(true);
       });
-  };
-
-  const handleCreateGraph = () => {
-    schemaStore.updateCreateGraphModalInfo({
-      visible: true,
-    });
   };
 
   const handleDeleteGraph = async () => {
@@ -95,10 +91,14 @@ function GraphList({ onView }: GraphListProps) {
         slotProps={{
           emptyImgSrc: isDarkMode ? emptyGraphDarkImg : emptyGraphImg,
         }}
-        buttonProps={{
-          okText: t('create', { ns: 'common' }),
-          handleOk: handleCreateGraph,
-        }}
+        buttonProps={
+          onCreate
+            ? {
+                okText: t('create', { ns: 'common' }),
+                handleOk: onCreate,
+              }
+            : undefined
+        }
       />
     );
   }
@@ -119,9 +119,11 @@ function GraphList({ onView }: GraphListProps) {
           {/* <Button onClick={goToSketchList} variant="outlined" color="primary" sx={{ marginRight: 2 }}>
             {t('sketchBtn', { ns: 'graphtype', number: sketchNum })}
           </Button> */}
-          <Button onClick={handleCreateGraph} startIcon={<AddFilled />} variant="contained" color="primary">
-            {t('createGraph')}
-          </Button>
+          {onCreate && (
+            <Button onClick={onCreate} startIcon={<AddFilled />} variant="contained" color="primary">
+              {t('createGraph')}
+            </Button>
+          )}
         </Box>
       </Box>
       <Box mt={2}>

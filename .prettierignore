@@ -8,3 +8,5 @@ docs/local/**
 **/.temp/**
 **/.types/**
 apps/server/assets/public/**
+
+**/routeTree.gen.ts

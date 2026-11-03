@@ -4,8 +4,6 @@ import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
 import { ExplorerController } from '@vesoft-inc/studio-ui-internal/explorer/model';
 import { bindConsole, bindEditor, bindExplorer, bindSchema } from './adapters';
 import { Lifetime } from './lifetime';
-import { acquireEditor } from './schema';
-import { StudioScope } from './scope';
 import type { ConsoleServices, ExplorerServices, QueryExecutor, QueryOptions, SnapshotServices } from '../services';
 
 function snapshots(): SnapshotServices {
@@ -46,18 +44,6 @@ describe('Public service adapters', () => {
       expect(service.lastOptions?.signal?.aborted).toBe(false);
     } finally {
       lifetime.dispose();
-    }
-  });
-
-  it('preserves the schema service receiver when it supplies the editor fallback', async () => {
-    const service = new QueryService('schema');
-    const services = { schema: service };
-    const scope = new StudioScope(services, '/one');
-    try {
-      const editor = acquireEditor(scope, services, true);
-      await expect(editor.value.execute('RETURN 1')).resolves.toMatchObject({ message: 'schema:execute' });
-    } finally {
-      scope.dispose();
     }
   });
 

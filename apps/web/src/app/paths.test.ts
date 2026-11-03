@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { createMemoryRouter } from 'react-router-dom';
 import { loginPath, loginReturnPath, toAppPath, toBrowserPath } from './paths';
 
 describe('login return location', () => {
@@ -7,17 +6,8 @@ describe('login return location', () => {
     const prefix = basename.replace(/\/$/, '');
     const returnTo = `${prefix}/explorer/snapshots/example?mode=test#node-1`;
     const path = loginPath(toAppPath(returnTo, basename));
-    const router = createMemoryRouter([{ path: '*' }], {
-      basename: basename || '/',
-      initialEntries: [toBrowserPath(path, basename)],
-    });
-    try {
-      await router.navigate(loginReturnPath(router.state.location.search, basename), { replace: true });
-      const { pathname, search, hash } = router.state.location;
-      expect(`${pathname}${search}${hash}`).toBe(returnTo);
-    } finally {
-      router.dispose();
-    }
+    const url = new URL(toBrowserPath(path, basename), 'https://studio.example');
+    expect(toBrowserPath(loginReturnPath(url.search, basename), basename)).toBe(returnTo);
   });
 
   it('accepts old redirects that include the deployment prefix without duplicating it', () => {

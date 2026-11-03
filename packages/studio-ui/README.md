@@ -16,9 +16,9 @@
 | --- | --- |
 | 根入口 | `UiProvider`、`StudioProvider`、配置与服务集合类型 |
 | `/console` | `ConsoleWorkbench`、服务与设置类型 |
-| `/schema` | `SchemaWorkbench`、`SchemaTree`、视图与树数据类型 |
-| `/schema-editor` | `SchemaEditorWorkbench`、布局与草稿服务类型 |
-| `/explorer` | `ExplorerWorkbench`、快照与设置服务、导航阻止契约 |
+| `/schema` | `SchemaList`、`GraphTypeList`、`GraphList`、`GraphInfo`、`CreateGraphDialog`、`SchemaTree` 及各自 Props |
+| `/schema-editor` | `SchemaEditorWorkbench`、`SketchList`、布局与草稿服务类型 |
+| `/explorer` | `SnapshotList`、`ExplorerGraph`、快照与设置服务、导航阻止契约 |
 | `/editor` | `GqlEditor`、`GqlViewer`，只提供 `focus()` 的句柄 |
 | `/contracts` | 快照、过滤、图标等纯 DTO、枚举及快照编解码函数 |
 | `/locales/zh_CN`、`/locales/en_US` | 静态语言资源 |
@@ -36,7 +36,8 @@
 - 每个 Provider 内每种工作台只保留一个活动实例，不新增 SchemaEditor 或 Explorer 的跨页面自动草稿。
 - 公共事件传普通数据；查询选项仅包含取消信号和超时，不暴露内部错误展示控制参数。
 - Console 到 Explorer 的快照关联在作用域内管理；删除快照时清理对应关联。
-- Explorer 内部管理快照导航时，未保存内容由组件本地确认保护；受控 `snapshotId` 配合 `blocker` 时，由宿主处理导航拦截。宿主提供的 `blocker` 也用于离开 Explorer 的外部导航。
+- Schema 与 Explorer 不保存页面选择或执行导航。宿主分别挂载列表、详情或编辑器，并处理 `onOpen`、`onView`、`onEdit`、`onBack` 等事件。
+- `ExplorerGraph` 必须接收 `snapshotId`；通过 `onDirtyChange` 通知宿主。宿主负责拦截返回、切页、浏览器历史和关闭页面，并把 `blocker` 的 `state/proceed/reset` 传给画布中的保存/离开提示。组件没有内部导航或兜底阻止器。
 - `UiProvider` 默认关闭全局 CSS baseline，弹窗状态归实例所有；Monaco 主题仍为页面级。
 
 ## 服务契约

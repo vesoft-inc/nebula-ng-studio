@@ -38,7 +38,7 @@ function SchemaList({ onOpen, onSchemaChange }: SchemaListProps) {
   const modalStore = useModal();
   const message = useModal().message;
   useEffect(() => {
-    schemaStore.getSchemas();
+    void schemaStore.getSchemas().catch(() => {});
   }, []);
 
   const handleDropSchema = async (path: string) => {

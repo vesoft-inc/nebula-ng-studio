@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { RouterProvider, useLocation } from '@tanstack/react-router';
+import { createTestRouter } from '@studio/test-support/router';
+import { routePaths } from '@studio/app/paths';
 import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import PageHeader from './index';
 
@@ -10,23 +12,41 @@ vi.mock('@studio/app/session', () => ({
 }));
 vi.mock('@studio/utils', () => ({ brandConfig: { consoleName: 'NebulaGraph' } }));
 
-afterEach(cleanup);
+let router: ReturnType<typeof createTestRouter> | undefined;
+afterEach(() => {
+  cleanup();
+});
 
-it.each(['', '/studio', '/studio/'])('keeps native links and router navigation under basename %j', (basename) => {
+function renderHeader(basename: string, pathname = '/console') {
   const prefix = basename.replace(/\/$/, '');
-  function Location() {
-    return <output>{useLocation().pathname}</output>;
-  }
-  render(
-    <MemoryRouter basename={basename || '/'} initialEntries={[`${prefix}/console`]}>
+  function Layout() {
+    const { pathname } = useLocation();
+    return (
       <UiProvider locale="en_US">
         <PageHeader />
-        <Location />
+        <output>{pathname}</output>
       </UiProvider>
-    </MemoryRouter>
+    );
+  }
+  router = createTestRouter(
+    [
+      { path: routePaths.console, element: null, staticData: { section: 'console' } },
+      { path: routePaths.schema.schemas, element: null, staticData: { section: 'schema-manager' } },
+      { path: routePaths.schema.graphTypes, element: null, staticData: { section: 'schema-manager' } },
+      { path: '/schema-manager/graphs/$graphName', element: null, staticData: { section: 'schema-manager' } },
+      { path: routePaths.explorer.snapshots, element: null, staticData: { section: 'explorer' } },
+      { path: '/explorer/snapshots/$snapshotId', element: null, staticData: { section: 'explorer' } },
+    ],
+    { basepath: basename || '/', initialEntries: [`${prefix}${pathname}`], layout: Layout }
   );
+  render(<RouterProvider router={router} />);
+}
 
-  const schema = screen.getByRole('tab', { name: 'Schema' });
+it.each(['', '/studio', '/studio/'])('keeps native links and router navigation under basename %j', async (basename) => {
+  const prefix = basename.replace(/\/$/, '');
+  renderHeader(basename);
+
+  const schema = await screen.findByRole('tab', { name: 'Schema' });
   expect(schema.getAttribute('href')).toBe(`${prefix}/schema-manager/graphtype`);
   expect(screen.getByRole('tab', { name: 'Console' }).getAttribute('href')).toBe(`${prefix}/console`);
   expect(screen.getByRole('tab', { name: 'Explorer' }).getAttribute('href')).toBe(`${prefix}/explorer/snapshots`);
@@ -46,6 +66,19 @@ it.each(['', '/studio', '/studio/'])('keeps native links and router navigation u
   expect(interceptedByRouter).toBe(false);
   expect(screen.getByRole('status').textContent).toBe('/console');
 
-  fireEvent.click(schema);
+  await act(async () => {
+    fireEvent.click(schema);
+  });
   expect(screen.getByRole('status').textContent).toBe('/schema-manager/graphtype');
+  expect(schema.getAttribute('aria-selected')).toBe('true');
+});
+
+it.each([
+  ['/console', 'Console'],
+  ['/schema-list', 'Schema'],
+  ['/schema-manager/graphs/books', 'Schema'],
+  ['/explorer/snapshots/example', 'Explorer'],
+])('selects the navigation section of the matched route: %s', async (pathname, label) => {
+  renderHeader('/studio', pathname);
+  await waitFor(() => expect(screen.getByRole('tab', { name: label }).getAttribute('aria-selected')).toBe('true'));
 });

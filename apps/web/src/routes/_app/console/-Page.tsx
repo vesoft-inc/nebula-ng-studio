@@ -1,0 +1,55 @@
+import { observer } from 'mobx-react-lite';
+import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
+import { ConsoleWorkbench } from '@vesoft-inc/studio-ui-internal/console';
+import { SchemaTree } from '@vesoft-inc/studio-ui-internal/schema';
+import { useModal } from '@vesoft-inc/studio-ui-internal/modal';
+import {
+  CONSOLE_DEFAULT_LOCAL_SETTINGS,
+  useStorageSettings,
+  type ConsoleSettingsForm,
+} from '@vesoft-inc/studio-ui-internal/settings';
+import { CONSOLE_SETTINGS_ID_PREFIX } from '@studio/app/settings';
+import { commonStore, consoleStore, schemaStore } from '@studio/app/session';
+import { studioConsoleServices } from '@studio/stores/console';
+import { useSchemaTreeBindings } from './-schemaTreeBindings';
+import { brandConfig } from '@studio/utils';
+import { exploreConsoleResult } from './-exploreResult';
+
+export default observer(function ConsolePage() {
+  const navigate = useNavigate();
+  const modalStore = useModal();
+  const { t } = useTranslation('console');
+  const schemaTree = useSchemaTreeBindings(true);
+  const { settings, upsertSettings, isPending } = useStorageSettings<ConsoleSettingsForm>({
+    settingId: `${CONSOLE_SETTINGS_ID_PREFIX}${commonStore.userInfo?.username ?? ''}`,
+    defaultSettings: CONSOLE_DEFAULT_LOCAL_SETTINGS,
+    storageInstance: sessionStorage,
+  });
+  return (
+    <ConsoleWorkbench
+      key={commonStore.userInfo?.curSchemaPath}
+      services={studioConsoleServices}
+      controller={consoleStore}
+      appearance={{ prompt: brandConfig.consolePrompt, showPrompt: !!commonStore.userInfo }}
+      settings={settings}
+      onSettingsChange={upsertSettings}
+      settingsPending={isPending}
+      sidebar={<SchemaTree {...schemaTree} />}
+      onExplore={(result, graph) =>
+        exploreConsoleResult({
+          result,
+          graph,
+          consoleController: consoleStore,
+          schemaController: schemaStore,
+          schemaPathFallback: commonStore.userInfo?.curSchemaPath,
+          navigate: (path) => {
+            void navigate({ to: path });
+          },
+          notifyError: (text) => modalStore.message.error(text),
+          exploreFailedMessage: t('exploreFailed'),
+        })
+      }
+    />
+  );
+});

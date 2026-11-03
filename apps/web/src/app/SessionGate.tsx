@@ -1,18 +1,21 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from '@tanstack/react-router';
 import { PageLoading } from '@vesoft-inc/studio-ui-internal';
 import { commonStore } from './session';
-import { loginPath } from './paths';
 
 export const SessionGate = observer(function SessionGate({ children }: { children: ReactNode }) {
-  const { pathname, search, hash } = useLocation();
+  const { href, pathname } = useLocation();
   useEffect(() => {
     void commonStore.initializeSession();
   }, []);
 
   if (commonStore.sessionStatus === 'idle' || commonStore.sessionStatus === 'checking') return <PageLoading />;
-  if (!commonStore.isLogin) return <Navigate replace to={loginPath(`${pathname}${search}${hash}`)} />;
+  if (!commonStore.isLogin) {
+    // The previous layout can still render while the login navigation is settling.
+    if (/^\/login\/?$/i.test(pathname)) return null;
+    return <Navigate replace to="/login" search={{ redirect: href }} />;
+  }
   // Changing identity disposes all page-owned controllers, even if the URL stays the same.
   return <Fragment key={commonStore.sessionRevision}>{children}</Fragment>;
 });

@@ -20,9 +20,9 @@ Cloud 等外部系统使用 [`@vesoft-inc/studio-ui`](../studio-ui/README.md)。
 | `/graph/model` | `GraphWorkspaceStore`、编辑状态、过滤状态 |
 | `/graph/data`、`/graph/utils` | 图数据类型、结果转换、DML、快照兼容工具；不初始化画布 |
 | `/graph/resources` | `IconCatalog`、`GraphResourcesProvider`；内置图标可离线使用，远端管理由宿主注入 |
-| `/schema`、`/schema/model` | `SchemaWorkbench`、目录/图类型/图列表、详情、索引、统计、树与创建/删除弹窗；`SchemaController` 和服务契约 |
+| `/schema`、`/schema/model` | 目录/图类型/图列表、详情、索引、统计、树与创建/删除弹窗；`SchemaController` 和服务契约 |
 | `/schema-editor`、`/schema-editor/model` | `SchemaEditorWorkbench`、可视化画布、节点/边/标签表单与表格、DDL 预览、草稿列表；编辑器/画布状态和布局服务契约 |
-| `/explorer`、`/explorer/model` | `ExplorerWorkbench`、快照列表与卡片、探索画布、查询/过滤/属性面板、图编辑、快照弹窗与设置；`ExplorerController` 和快照服务契约 |
+| `/explorer`、`/explorer/model` | `ExplorerSession`、快照列表与卡片、探索画布、查询/过滤/属性面板、图编辑、快照弹窗与设置；`ExplorerController` 和快照服务契约 |
 | `/shell` | `StudioShell`、`StudioHeader`、`StudioNavigation`、`UserMenu`、语言/主题切换、`LoginPage`、`ConnectionForm`、`ConnectionDialog` |
 | `/settings` | 设置面板、默认值、可指定存储空间的 `useStorageSettings` |
 | `/locales`、`/theme`、`/modal` | 中英文资源、主题和弹窗基础能力 |
@@ -109,20 +109,22 @@ React 组件和自定义 Hook 通过 `@vesoft-inc/studio-ui-internal/modal` 的 
 ## Schema 与 Schema Editor
 
 ```tsx
-import { SchemaWorkbench } from '@vesoft-inc/studio-ui-internal/schema';
+import { SchemaProvider, GraphTypeList } from '@vesoft-inc/studio-ui-internal/schema';
 
-<SchemaWorkbench services={schemaServices} editorServices={editorServices} />;
+<SchemaProvider value={schemaController}>
+  <GraphTypeList onView={openGraphType} onEdit={editGraphType} onCreate={createGraphType} />
+</SchemaProvider>;
 ```
 
 `SchemaServices.execute` 提供 GQL 查询。可选 `switchSchema` 处理宿主服务端会话切换，未提供时执行 `SESSION SET SCHEMA`；可选 `importDataset` 和 `sweepLayouts` 提供示例数据导入与过期布局清理。未配置导入或草稿服务时隐藏对应操作。
 
-`SchemaWorkbench` 默认管理页面状态；传入 `view` 和 `onViewChange` 可以对接宿主路由。`SchemaView` 描述目录、图类型、图、图详情、编辑器和草稿视图，包含原始名称，不包含 URL。`onSchemaChange` 用于同步宿主当前会话信息。Web 在 `pages/SchemaManager` 中完成 URL 编解码与导航。
+Schema 页面由应用组合：目录、图类型、图、详情、草稿、编辑器分别挂载，不提供库内视图分发和侧栏导航。Web 的 TanStack 文件路由位于 `apps/web/src/routes`，Schema 布局和服务装配放在 `routes/_app/_schema` 的对应目录。创建图按钮通过 `onCreate` 通知宿主显示 `CreateGraphDialog`，未提供回调时隐藏。
 
 仅使用编辑器时导入 `SchemaEditorWorkbench`，传入 `services`、`mode`、`graphTypeName` 或 `sketchId`，通过 `onSaved`、`onBack`、`onEdit`、`onView` 处理后续行为。`SchemaEditorServices` 包含 `execute`，以及可选的 `layouts` 和 `sketches`。布局服务接收图类型名称和节点坐标；账号、数据库地址、Schema 路径和存储 key 由宿主适配器绑定。切换这些身份时必须提供新的服务实例，避免旧编辑器的清理写入落到新身份。Web 的 `services/schemaEditor.ts` 展示了这种绑定方式。
 
 高级编辑状态通过 `selectItem()` 更新选中项，通过 `commitNodeChanges()`、`commitEdgeChanges()` 提交修改；不再通过选中项的 reaction 隐式写回。现有实时编辑面板在 `onChange` 中显式提交，弹窗在确认时提交、取消时不提交。`updateNodeType()`、`updateEdgeType()` 和旧 `setActiveItem()` 保留为兼容入口；旧 setter 的选择并写回行为由方法内显式完成。新代码应分开调用选择和提交方法。
 
-自定义组合时，`SchemaProvider` 绑定一个 `SchemaController`，可组合 `SchemaSidebar`、`SchemaList`、`GraphTypeList`、`GraphList`、`GraphInfo`、`GraphIndexes` 和 `GraphStatistics`。`SchemaEditorProvider` 绑定一个 `SchemaEditorController`，可组合 `SchemaEditor`、`SchemaVisualEditor`、`NodeTypeTable/Form/Dialog`、`EdgeTypeTable/Form/Dialog`、`LabelTable/Dialog`、`DdlPreview` 和 `SketchList`。手动组合画布与表单前调用 controller 的 `initSchemaStore()`，卸载时调用 `destroy()`。
+自定义组合时，`SchemaProvider` 绑定一个 `SchemaController`，可组合 `SchemaTree`、`SchemaList`、`GraphTypeList`、`GraphList`、`GraphInfo`、`GraphIndexes` 和 `GraphStatistics`。`SchemaEditorProvider` 绑定一个 `SchemaEditorController`，可组合 `SchemaEditor`、`SchemaVisualEditor`、`NodeTypeTable/Form/Dialog`、`EdgeTypeTable/Form/Dialog`、`LabelTable/Dialog`、`DdlPreview` 和 `SketchList`。手动组合画布与表单前调用 controller 的 `initSchemaStore()`，卸载时调用 `destroy()`。
 
 创建图与五类索引表单、DDL 弹窗、删除确认弹窗也从 `/schema` 导出；索引表单在 `IndexQueryProvider` 中共享查询依赖。
 
@@ -144,17 +146,16 @@ const bindings = useSchemaTreeBindings({
 <SchemaTree {...bindings} onReady={() => void schemaController.getSchemas()} />;
 ```
 
-hook 不主动初始化数据，宿主可通过 `onReady` 懒加载；`SchemaWorkbench` 已负责初始化，因此其 `SchemaSidebar` 不重复加载。切换成功后才通知 `onSchemaChange` 并显示成功消息。创建成功后尝试刷新列表，再通知 `onSchemaCreated`；刷新异常不会将创建判为失败。组件卸载或 controller 更换后，旧创建流程不会再发起列表刷新或触发完成回调。导航由回调决定：Console 切换 Schema 后留在当前页，Schema 管理页返回图类型列表。
+hook 不主动初始化数据，宿主可通过 `onReady` 懒加载，也可在共享布局初始化目录。切换成功后才通知 `onSchemaChange` 并显示成功消息。创建成功后尝试刷新列表，再通知 `onSchemaCreated`；刷新异常不会将创建判为失败。组件卸载或 controller 更换后，旧创建流程不会再发起列表刷新或触发完成回调。导航由回调决定：Console 切换 Schema 后留在当前页，Schema 管理页返回图类型列表。
 
 ## Explorer
 
 ```tsx
-import { ExplorerWorkbench } from '@vesoft-inc/studio-ui-internal/explorer';
+import { ExplorerSession, SnapshotList } from '@vesoft-inc/studio-ui-internal/explorer';
 
-<ExplorerWorkbench
-  services={explorerServices}
-  schemaServices={schemaServices}
-/>;
+<ExplorerSession services={explorerServices} schemaServices={schemaServices}>
+  <SnapshotList onOpen={openSnapshot} />
+</ExplorerSession>;
 ```
 
 旧版快照接口未返回 `schemaPath` 时，列表项使用此次 `schema_path` 筛选确定的归属。直接打开快照会先按 `id` 和当前 Schema 查询列表确认归属；无法确认时拒绝恢复，避免在错误的 Schema 下加载或修改图数据。
@@ -165,7 +166,7 @@ import { ExplorerWorkbench } from '@vesoft-inc/studio-ui-internal/explorer';
 
 `ExplorerServices` 注入 `execute` 和快照的 `list/create/read/update/delete`；可选 `settings.load/save` 接入远端或本地存储，`snapshotVersion` 标记导出文件版本。`onSnapshotDeleted` 用于清理宿主的 Console 结果映射，`onSchemaChanged` 用于同步宿主会话。Web 的 `services/explorerWorkbench.ts` 负责服务端路径、用户名和配置 key。
 
-默认使用内部页面状态；`snapshotId={null}` 表示快照列表，字符串表示打开指定快照。搭配 `onSnapshotChange` 即可接入路由。宿主路由有离开保护时传入 `blocker`（`state/proceed/reset`）；内部导航自动提供未保存提示和保存后离开操作。Web 的适配器把 React Router 的 blocker 接到此契约。
+`ExplorerSession` 只初始化资源、提供上下文和释放自有实例，不选择页面。应用共享布局可以将 `Outlet` 作为 children；列表路由渲染 `SnapshotList`，详情路由渲染 `ExplorerGraph`。`SnapshotList.onOpen(id)` 和 `ExplorerGraph.onBack()` 仅通知宿主。宿主根据 `onDirtyChange` 拦截路由和浏览器关闭，并传入 `blocker`（`state/proceed/reset`）。Web 在 `routes/_app/explorer/snapshots/-Snapshot.tsx` 适配 TanStack `useBlocker`。
 
 自定义布局时使用 `ExplorerProvider`，组合 `SnapshotList`、`SnapshotCard`、`ExplorerGraph` 或更细的 `ExplorerHeader`、`ExplorerCanvas`、`ExplorerSidePanels`、查询/过滤/属性面板及图编辑弹窗。传入 controller 时由宿主管理其 `destroy()`；默认创建的 controller 会随工作台卸载清理。独立快照、请求、画布和设置状态属于对应实例。外部传入的 SchemaController 生命周期由宿主管理。
 
@@ -191,7 +192,7 @@ if (snapshot) openSnapshot(snapshot.snapshotId);
 
 `snapshots` 只需实现现有 `SnapshotServices` 的 `read/create`。函数复用有效快照，仅在服务明确返回 `HttpResCode.ErrNotFound` 时重建；新快照会补齐图类型和 Schema，并记录 Console 结果与快照的关联。图数据在等待元数据前同步序列化。普通 Console 使用者无需配置此能力。
 
-没有可探索数据时返回 `null`；服务失败则抛出错误，缺少错误详情时 `Error.message` 为空，供宿主使用本地化兜底文案。宿主统一处理 HTTP 错误展示、版本来源、controller 生命周期和快照打开方式。Web 的 `pages/Console/exploreResult.ts` 仅做这些适配。
+没有可探索数据时返回 `null`；服务失败则抛出错误，缺少错误详情时 `Error.message` 为空，供宿主使用本地化兜底文案。宿主统一处理 HTTP 错误展示、版本来源、controller 生命周期和快照打开方式。Web 的 `routes/_app/console/-exploreResult.ts` 仅做这些适配。
 
 集成入口复用 Console 工具和独立的快照序列化函数，不加载 Explorer controller；业务模块不反向依赖集成入口。既有的 `exportSnapshotTransfer` 导出和 controller 实例方法继续可用。
 

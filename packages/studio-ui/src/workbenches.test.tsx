@@ -1,10 +1,10 @@
-import { createRef, useCallback, useEffect, useRef, useState } from 'react';
+import { createRef, useEffect, useRef } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StudioProvider, UiProvider } from './provider';
-import { SchemaWorkbench, SchemaTree, SchemaItemType } from './schema';
-import { SchemaEditorWorkbench } from './schema-editor';
-import { ExplorerWorkbench } from './explorer';
+import { SchemaList, GraphTypeList, GraphList, GraphInfo, SchemaTree, SchemaItemType } from './schema';
+import { SchemaEditorWorkbench, SketchList } from './schema-editor';
+import { SnapshotList } from './explorer';
 import { GqlEditor, GqlViewer, type GqlEditorHandle } from './editor';
 import type { GqlEditorProps } from '@vesoft-inc/studio-ui-internal/editor';
 import type { QueryExecutor, StudioServices } from './services';
@@ -61,38 +61,58 @@ function fixture() {
 }
 
 describe('Host-independent workbenches', () => {
-  it.each(['schema', 'schema-editor', 'explorer'])(
+  it.each(['schemas', 'graph-types', 'graphs', 'graph', 'sketches', 'schema-editor', 'explorer'])(
     'mounts %s without a router or optional persistence services',
     async (kind) => {
       const { services, list } = fixture();
-      const dirty = vi.fn();
       const view = render(
         <StudioProvider scopeKey="session" schemaPath="/one" services={services} locale="en_US">
-          {kind === 'schema' ? (
-            <SchemaWorkbench sidebar={null} />
+          {kind === 'schemas' ? (
+            <SchemaList />
+          ) : kind === 'graph-types' ? (
+            <GraphTypeList onCreate={vi.fn()} />
+          ) : kind === 'graphs' ? (
+            <GraphList onCreate={vi.fn()} />
+          ) : kind === 'graph' ? (
+            <GraphInfo graphName="People" />
+          ) : kind === 'sketches' ? (
+            <SketchList />
           ) : kind === 'schema-editor' ? (
             <SchemaEditorWorkbench mode="create" />
           ) : (
-            <ExplorerWorkbench onDirtyChange={dirty} />
+            <SnapshotList />
           )}
         </StudioProvider>
       );
       if (kind === 'explorer') {
         await waitFor(() => expect(list).toHaveBeenCalled());
         expect(await screen.findByRole('button', { name: 'New Exploration' })).toBeTruthy();
-        expect(dirty).toHaveBeenCalledWith(false);
+      } else if (kind === 'graph-types') {
+        expect(await screen.findByRole('button', { name: 'Create' })).toBeTruthy();
+        expect(list).not.toHaveBeenCalled();
       } else {
-        await waitFor(() => expect(view.container.querySelector('button')).not.toBeNull());
+        await waitFor(() => expect(view.container.querySelector('.MuiContainer-root')).not.toBeNull());
         expect(list).not.toHaveBeenCalled();
       }
     }
   );
 
+  it('keeps a standalone list usable when initial schema metadata fails', async () => {
+    const { services, execute } = fixture();
+    execute.mockRejectedValueOnce(new Error('metadata unavailable'));
+    render(
+      <StudioProvider scopeKey="session" services={services} locale="en_US">
+        <GraphTypeList onCreate={vi.fn()} />
+      </StudioProvider>
+    );
+    expect(await screen.findByRole('button', { name: 'Create' })).toBeTruthy();
+  });
+
   it('retains the Explorer instance when an unrelated adapter changes', async () => {
     const { services, list } = fixture();
     const renderHost = (value: StudioServices) => (
       <StudioProvider scopeKey="session" schemaPath="/one" services={value} locale="en_US">
-        <ExplorerWorkbench />
+        <SnapshotList />
       </StudioProvider>
     );
     const view = render(renderHost(services));
@@ -102,39 +122,13 @@ describe('Host-independent workbenches', () => {
     expect(list).toHaveBeenCalledOnce();
   });
 
-  it.each([true, false])('does not repeat unchanged dirty notifications with stableListener=%s', async (stable) => {
-    const { services } = fixture();
-    const changed = vi.fn();
-    function Host() {
-      const [state, setState] = useState({ dirty: false, updates: 0 });
-      const listener = useCallback((dirty: boolean) => {
-        changed(dirty);
-        // Bound the regression so an update loop produces an assertion failure.
-        if (changed.mock.calls.length < 4) setState((previous) => ({ ...previous, dirty }));
-      }, []);
-      return (
-        <StudioProvider scopeKey="session" schemaPath="/one" services={services} locale="en_US">
-          <button onClick={() => setState((previous) => ({ ...previous, updates: previous.updates + 1 }))}>
-            Update {state.updates}
-          </button>
-          <ExplorerWorkbench onDirtyChange={stable ? listener : (dirty) => listener(dirty)} />
-        </StudioProvider>
-      );
-    }
-    render(<Host />);
-    await waitFor(() => expect(changed).toHaveBeenCalledWith(false));
-    expect(changed).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: 'Update 0' }));
-    expect(changed).toHaveBeenCalledOnce();
-  });
-
   it('rebinds the Schema editor after a schema change cancels its previous services', async () => {
     const { services } = fixture();
     const editorExecute = vi.fn<QueryExecutor>().mockResolvedValue({ code: 0, message: '', data: { tables: [] } });
     services.schemaEditor = { execute: editorExecute as QueryExecutor };
     const host = (schemaPath: string) => (
       <StudioProvider scopeKey="session" schemaPath={schemaPath} services={services} locale="en_US">
-        <SchemaWorkbench sidebar={null} view={{ type: 'editor', mode: 'readonly', graphTypeName: 'People' }} />
+        <SchemaEditorWorkbench mode="readonly" graphTypeName="People" />
       </StudioProvider>
     );
     const view = render(host('/one'));

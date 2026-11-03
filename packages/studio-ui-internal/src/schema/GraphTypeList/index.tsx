@@ -52,11 +52,13 @@ function GraphTypeList({ onCreate, onView, onEdit, onSketches, sketches }: Graph
   useEffect(() => {
     let mounted = true;
 
-    initGraphTypes().finally(() => {
-      if (mounted) {
-        setInitialLoading(false);
-      }
-    });
+    void initGraphTypes()
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) {
+          setInitialLoading(false);
+        }
+      });
     fetchSketchTotalNum();
 
     return () => {
@@ -65,11 +67,12 @@ function GraphTypeList({ onCreate, onView, onEdit, onSketches, sketches }: Graph
   }, []);
 
   const fetchSketchTotalNum = () => {
-    sketches?.list({ page: 1, pageSize: 1 }).then((res) => {
-      if (res.code === 0) {
-        setSketchNum(res.data!.total);
-      }
-    });
+    void sketches
+      ?.list({ page: 1, pageSize: 1 })
+      .then((res) => {
+        if (res.code === 0) setSketchNum(res.data!.total);
+      })
+      .catch(() => {});
   };
 
   const initGraphTypes = async () => {
@@ -187,7 +190,7 @@ function GraphTypeList({ onCreate, onView, onEdit, onSketches, sketches }: Graph
             emptyImgSrc: isDarkMode ? emptyGraphTypeDarkImg : emptyGraphTypeImg,
           }}
           buttonProps={{
-            okText: t('create', { ns: 'common' }),
+            okText: onCreate ? t('create', { ns: 'common' }) : '',
             handleOk: handleCreateGraphType,
             cancelText: schemaStore.services.importDataset ? t('useDataset', { ns: 'graphtype' }) : undefined,
             handleCancel: handleUseDataset,
@@ -211,14 +214,16 @@ function GraphTypeList({ onCreate, onView, onEdit, onSketches, sketches }: Graph
           {`${t('graphTypeList', { ns: 'graphtype' })} (${currentSchema?.graphTypes?.length || 0})`}
         </Typography>
         <Box>
-          {sketches && (
+          {sketches && onSketches && (
             <Button onClick={goToSketchList} variant="outlined" color="primary" sx={{ marginRight: 2 }}>
               {t('sketchBtn', { ns: 'graphtype', number: sketchNum })}
             </Button>
           )}
-          <Button onClick={handleCreateGraphType} startIcon={<AddFilled />} variant="contained" color="primary">
-            {t('createGraphType', { ns: 'graphtype' })}
-          </Button>
+          {onCreate && (
+            <Button onClick={handleCreateGraphType} startIcon={<AddFilled />} variant="contained" color="primary">
+              {t('createGraphType', { ns: 'graphtype' })}
+            </Button>
+          )}
         </Box>
       </Box>
       <Box width="100%">

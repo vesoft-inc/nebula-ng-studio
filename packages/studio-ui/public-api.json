@@ -37,9 +37,16 @@
       "SchemaTreeItem",
       "SchemaTreeNode",
       "SchemaTreeProps",
-      "SchemaView",
-      "SchemaWorkbench",
-      "SchemaWorkbenchProps"
+      "SchemaList",
+      "SchemaListProps",
+      "GraphList",
+      "GraphListProps",
+      "GraphTypeList",
+      "GraphTypeListProps",
+      "GraphInfo",
+      "GraphInfoProps",
+      "CreateGraphDialog",
+      "CreateGraphDialogProps"
     ]
   },
   "./schema-editor": {
@@ -54,7 +61,9 @@
       "SchemaLayoutServices",
       "SketchPage",
       "SketchRecord",
-      "SketchServices"
+      "SketchServices",
+      "SketchList",
+      "SketchListProps"
     ]
   },
   "./explorer": {
@@ -65,13 +74,15 @@
       "ExplorerNavigationBlocker",
       "ExplorerServices",
       "ExplorerSettings",
-      "ExplorerWorkbench",
-      "ExplorerWorkbenchProps",
       "QueryExecutor",
       "QueryOptions",
       "SnapshotCreateInput",
       "SnapshotPage",
-      "SnapshotServices"
+      "SnapshotServices",
+      "SnapshotList",
+      "SnapshotListProps",
+      "ExplorerGraph",
+      "ExplorerGraphProps"
     ]
   },
   "./editor": {

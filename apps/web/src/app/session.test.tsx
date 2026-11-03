@@ -1,18 +1,25 @@
 // @vitest-environment jsdom
-import '@studio/test-support/routerEnvironment';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { HttpResCode } from '@vesoft-inc/studio-core/contracts';
 import { createStudioRouter } from './router';
 import { commonStore, consoleStore, schemaStore, iconGroupStore, modalStore } from './session';
 import { fetcher } from '@studio/services/fetcher';
 import { sessionRequests } from '@studio/services/sessionRequests';
-import { loginReturnPath } from './paths';
+import { loginReturnPath, toBrowserPath } from './paths';
 import { App } from './App';
 import type { IUserInfo } from '@vesoft-inc/studio-ui-internal/schema/types';
 import type { ReactNode } from 'react';
 
-vi.mock('./routes', () => ({ default: [{ path: '*', element: <div>page</div> }] }));
+vi.mock('../routeTree.gen', async () => {
+  const { createRootRoute, createRoute } = await import('@tanstack/react-router');
+  const root = createRootRoute();
+  return {
+    routeTree: root.addChildren([
+      createRoute({ getParentRoute: () => root, path: '$', component: () => <div>page</div> }),
+    ]),
+  };
+});
 vi.mock('./AppProviders', () => ({ AppProviders: ({ children }: { children: ReactNode }) => children }));
 vi.mock('@vesoft-inc/studio-ui-internal/modal', async (original) => ({
   ...(await original<object>()),
@@ -52,6 +59,10 @@ describe('application session and router lifecycle', () => {
     'cleans up expired sessions (%s) and returns under the basename after re-login',
     async (code) => {
       application = createStudioRouter();
+      render(<App router={application.router} />);
+      await act(async () => {
+        await application!.router.load();
+      });
       const destroyExplorer = vi.fn();
       commonStore.registerExplorerDestroy(destroyExplorer);
       const clearIcons = vi.spyOn(iconGroupStore, 'clear');
@@ -86,18 +97,22 @@ describe('application session and router lifecycle', () => {
       expect(modalStore.open).toBe(false);
       expect(destroyExplorer).toHaveBeenCalledOnce();
       expect(clearIcons).toHaveBeenCalledOnce();
-      expect(application.router.state.location.pathname).toBe('/studio/login');
-      const search = application.router.state.location.search;
+      await waitFor(() => expect(application!.router.state.location.pathname).toBe('/login'));
+      const search = application.router.state.location.searchStr;
       expect(new URLSearchParams(search).get('redirect')).toBe('/explorer/snapshots/example?mode=test#node-1');
 
       const success = await commonStore.login({ address: 'db', port: '9669', username: 'user-b', password: 'secret' });
       expect(success).toBe(true);
-      await application.router.navigate(loginReturnPath(search, window.APP_CONFIG?.basePath));
+      await act(async () => {
+        await application!.router.navigate({
+          href: toBrowserPath(loginReturnPath(search, window.APP_CONFIG?.basePath), window.APP_CONFIG?.basePath),
+        });
+      });
       expect(commonStore.userInfo?.username).toBe('user-b');
       expect(application.router.state.location).toMatchObject({
-        pathname: '/studio/explorer/snapshots/example',
-        search: '?mode=test',
-        hash: '#node-1',
+        pathname: '/explorer/snapshots/example',
+        searchStr: '?mode=test',
+        hash: 'node-1',
       });
     }
   );
@@ -125,14 +140,15 @@ describe('application session and router lifecycle', () => {
     reject();
     expect((await request).data.code).toBe(499);
     expect(commonStore.userInfo?.username).toBe('user-b');
-    expect(application.router.state.location.pathname).toBe('/studio/explorer/snapshots/example');
+    expect(application.router.state.location.pathname).toBe('/explorer/snapshots/example');
   });
 
   it('retains the original return address when authentication fails on Login', async () => {
     application = createStudioRouter();
-    await application.router.navigate('/login?redirect=%2Fconsole');
+    await application.router.navigate({ href: '/studio/login?redirect=%2Fconsole' });
+    await application.router.load();
     sessionRequests.expire(sessionRequests.signal);
-    expect(application.router.state.location.search).toBe('?redirect=%2Fconsole');
+    expect(application.router.state.location.searchStr).toBe('?redirect=%2Fconsole');
   });
 
   it('preserves one router through rerenders and releases session navigation and history on disposal', async () => {
@@ -141,13 +157,13 @@ describe('application session and router lifecycle', () => {
     const { router } = application;
     const view = render(<App router={router} />);
     await act(async () => {
-      await router.navigate('/console');
+      await router.navigate({ to: '/console' });
     });
     view.rerender(<App router={router} />);
     expect(application.router).toBe(router);
-    expect(router.state.location.pathname).toBe('/studio/console');
+    expect(router.state.location.pathname).toBe('/console');
     await act(async () => commonStore.deps?.onLogout());
-    expect(router.state.location.pathname).toBe('/studio/login');
+    expect(router.state.location.pathname).toBe('/login');
     const state = router.state;
     const signal = sessionRequests.signal;
     view.unmount();

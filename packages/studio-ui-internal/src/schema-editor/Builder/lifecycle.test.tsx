@@ -57,7 +57,7 @@ const services = {
 vi.mock('../../shared/index', () => ({
   Drawer: () => null,
 }));
-vi.mock('../../shared/BreadCrumbs/Trail', () => ({ default: () => null }));
+vi.mock('../../shared/BreadCrumbs', () => ({ default: () => null }));
 vi.mock('../../shared/TitleEllipsis', () => ({ default: () => null }));
 vi.mock('./NodeType/index', () => ({ default: () => <div>Node table</div> }));
 vi.mock('./EdgeType/index', () => ({ default: () => null }));

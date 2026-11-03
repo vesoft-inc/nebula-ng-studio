@@ -16,4 +16,4 @@ export { default as LabelTable } from '../schema-editor/Builder/LabelTable';
 export { default as LabelDialog } from '../schema-editor/Builder/LabelTable/LabelModal';
 export { default as DdlPreview } from '../schema-editor/Builder/Preview';
 export { generateAlterGraphTypeGQL, generateCreateGraphTypeGQL } from '../schema-editor/Builder/VisualBuilder/util';
-export { default as SketchList } from '../schema-editor/SketchList';
+export { default as SketchList, type SketchListProps } from '../schema-editor/SketchList';

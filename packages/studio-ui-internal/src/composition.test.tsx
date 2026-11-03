@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { Fragment, StrictMode } from 'react';
-import { observer } from 'mobx-react-lite';
+import { Fragment, StrictMode, useEffect, useMemo } from 'react';
 import { UiProvider } from './provider';
-import { SchemaWorkbench } from './schema/SchemaWorkbench';
-import { useSchema } from './schema/context';
-import { ExplorerWorkbench } from './explorer/ExplorerWorkbench';
+import { SchemaProvider } from './schema/context';
+import SchemaController from './schema/SchemaController';
+import GraphTypeList from './schema/GraphTypeList';
+import { ExplorerSession, type ExplorerSessionProps } from './explorer/ExplorerSession';
+import SnapshotList from './explorer/Snapshots';
 import { StudioShell } from './shell/StudioShell';
 import type { QueryExecutor } from './shared/query';
 import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
@@ -29,6 +30,26 @@ const execute: QueryExecutor = async <T extends object>(gql: string): Promise<Se
   } as unknown as T,
 });
 
+function SnapshotsHost({
+  onOpen,
+  ...props
+}: Omit<ExplorerSessionProps, 'children'> & { onOpen?: (id: string) => void }) {
+  return (
+    <ExplorerSession {...props}>
+      <SnapshotList onOpen={onOpen} />
+    </ExplorerSession>
+  );
+}
+function SchemaHost() {
+  const controller = useMemo(() => new SchemaController({ execute }), []);
+  useEffect(() => () => controller.destroy(), [controller]);
+  return (
+    <SchemaProvider value={controller}>
+      <GraphTypeList />
+    </SchemaProvider>
+  );
+}
+
 afterEach(cleanup);
 
 describe('standalone business workbenches', () => {
@@ -37,7 +58,7 @@ describe('standalone business workbenches', () => {
       <StrictMode>
         <UiProvider locale="en_US">
           <StudioShell headerProps={{ logo: 'Consumer' }}>
-            <SchemaWorkbench services={{ execute }} sidebar={null} />
+            <SchemaHost />
           </StudioShell>
         </UiProvider>
       </StrictMode>
@@ -46,38 +67,13 @@ describe('standalone business workbenches', () => {
     expect(screen.getByText('Consumer')).toBeTruthy();
   });
 
-  it('refreshes current schema metadata in a standalone workbench under StrictMode', async () => {
-    let owner = 'initial-owner';
-    const query: QueryExecutor = async <T extends object>(gql: string) =>
-      gql === 'SHOW SCHEMAS'
-        ? { code: 0, message: '', data: { tables: [{ name: 'demo', path: '/demo', owner }] } as unknown as T }
-        : execute<T>(gql);
-    const Metadata = observer(() => {
-      const controller = useSchema();
-      return <button onClick={() => controller.getSchemas()}>{controller.currentSchema.owner}</button>;
-    });
-    render(
-      <StrictMode>
-        <UiProvider locale="en_US">
-          <SchemaWorkbench services={{ execute: query }} sidebar={<Metadata />} />
-        </UiProvider>
-      </StrictMode>
-    );
-
-    const refresh = await screen.findByRole('button', { name: 'initial-owner' });
-    owner = 'refreshed-owner';
-    fireEvent.click(refresh);
-    expect(await screen.findByRole('button', { name: 'refreshed-owner' })).toBeTruthy();
-  });
-
   it('opens a snapshot through the consumer callback without a router', async () => {
     const onOpen = vi.fn();
     render(
       <StrictMode>
         <UiProvider locale="en_US">
-          <ExplorerWorkbench
-            snapshotId={null}
-            onSnapshotChange={onOpen}
+          <SnapshotsHost
+            onOpen={onOpen}
             services={{
               execute,
               snapshots: {
@@ -150,7 +146,7 @@ describe('standalone business workbenches', () => {
     });
     render(
       <UiProvider locale="en_US">
-        <ExplorerWorkbench
+        <SnapshotsHost
           services={{
             execute,
             snapshots: { list, create: vi.fn(), read: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -225,7 +221,7 @@ describe('standalone business workbenches', () => {
     render(
       <Wrapper>
         <UiProvider locale="en_US">
-          <ExplorerWorkbench
+          <SnapshotsHost
             services={{
               execute: query,
               snapshots: { list, create: vi.fn(), read: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -258,7 +254,7 @@ describe('standalone business workbenches', () => {
   it('shows custom initial settings and preserves them when another setting changes without a settings service', async () => {
     render(
       <UiProvider locale="en_US">
-        <ExplorerWorkbench
+        <SnapshotsHost
           initialSettings={{ queryTimeout: 45, maxRowsLimit: 500, maxNeighborsLimit: 800 }}
           services={{
             execute,

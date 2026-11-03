@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import '@studio/test-support/routerEnvironment';
 import { StrictMode, useEffect } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
+import { RouterProvider, useLocation } from '@tanstack/react-router';
+import { createTestRouter } from '@studio/test-support/router';
 import { SessionGate } from './SessionGate';
 import { commonStore } from './session';
 import { fetchUserInfo } from '@studio/services';
@@ -41,9 +41,9 @@ describe('protected page initialization', () => {
       }, []);
       return <div>protected page</div>;
     }
-    const router = createMemoryRouter([
+    const router = createTestRouter([
       {
-        path: '*',
+        path: '/',
         element: (
           <SessionGate>
             <Page />
@@ -56,7 +56,7 @@ describe('protected page initialization', () => {
         <RouterProvider router={router} />
       </StrictMode>
     );
-    expect(screen.getByText('checking session')).toBeTruthy();
+    expect(await screen.findByText('checking session')).toBeTruthy();
     expect(initializePage).not.toHaveBeenCalled();
     expect(fetchUserInfo).toHaveBeenCalledOnce();
     await act(async () => resolve({ code: 0, message: '', data: user() }));
@@ -67,7 +67,6 @@ describe('protected page initialization', () => {
     expect(destroyPage).toHaveBeenCalled();
     expect(initializePage.mock.calls.length).toBeGreaterThan(mounted);
     view.unmount();
-    router.dispose();
   });
 
   it('unmounts protected pages when invalidated and preserves an application-relative return URL', async () => {
@@ -78,9 +77,9 @@ describe('protected page initialization', () => {
       return <div>protected page</div>;
     }
     function Login() {
-      return <output>{useLocation().search}</output>;
+      return <output>{useLocation().searchStr}</output>;
     }
-    const router = createMemoryRouter(
+    const router = createTestRouter(
       [
         {
           path: '/console',
@@ -92,14 +91,14 @@ describe('protected page initialization', () => {
         },
         { path: '/login', element: <Login /> },
       ],
-      { basename: '/studio', initialEntries: ['/studio/console?q=1#result'] }
+      { basepath: '/studio', initialEntries: ['/studio/console?q=1#result'] }
     );
     render(<RouterProvider router={router} />);
+    await screen.findByText('protected page');
     await act(async () => commonStore.invalidateSession());
     expect(screen.queryByText('protected page')).toBeNull();
     expect(destroyed).toHaveBeenCalledOnce();
-    expect(router.state.location.pathname).toBe('/studio/login');
-    expect(new URLSearchParams(router.state.location.search).get('redirect')).toBe('/console?q=1#result');
-    router.dispose();
+    expect(router.state.location.pathname).toBe('/login');
+    expect(new URLSearchParams(router.state.location.searchStr).get('redirect')).toBe('/console?q=1#result');
   });
 });

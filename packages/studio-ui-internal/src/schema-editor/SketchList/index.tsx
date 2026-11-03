@@ -10,14 +10,18 @@ import { useGraphTypeStore } from '../context';
 import Empty from '../../shared/Empty/index';
 import { SketchItemCard } from './styles';
 
-function SketchList({ onOpen }: { onOpen?: (id: number) => void }) {
+export interface SketchListProps {
+  onOpen?: (id: number) => void;
+}
+
+function SketchList({ onOpen }: SketchListProps) {
   const graphtypeStore = useGraphTypeStore();
 
   const { sketchListItem } = graphtypeStore;
   const { t } = useTranslation(['graphtype']);
   const theme = useTheme();
   useEffect(() => {
-    graphtypeStore.fetchSketchList();
+    void graphtypeStore.fetchSketchList().catch(() => {});
   }, []);
   const { message } = useModal();
 

@@ -74,6 +74,19 @@ export interface ConsoleWorkbenchProps {
     style?: CSSProperties;
 }
 
+// @public (undocumented)
+export function CreateGraphDialog(props: CreateGraphDialogProps): ReactElement | null;
+
+// @public (undocumented)
+export interface CreateGraphDialogProps {
+    // (undocumented)
+    onCancel?: () => void;
+    // (undocumented)
+    onCreated?: () => void;
+    // (undocumented)
+    open: boolean;
+}
+
 // @public
 export function decodeSnapshotPayload(serialized?: string): SnapshotPayload | undefined;
 
@@ -96,6 +109,29 @@ export const en_US: Record<string, Record<string, unknown>>;
 
 // @public (undocumented)
 export function encodeSnapshotPayload(payload: SnapshotPayload): string;
+
+// @public (undocumented)
+export function ExplorerGraph(input: ExplorerGraphProps): ReactElement | null;
+
+// @public (undocumented)
+export interface ExplorerGraphProps {
+    // (undocumented)
+    allowRemoteIconManagement?: boolean;
+    // (undocumented)
+    blocker?: ExplorerNavigationBlocker;
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    initialSettings?: ExplorerInitialSettings;
+    // (undocumented)
+    onBack?: () => void;
+    // (undocumented)
+    onDirtyChange?: (dirty: boolean) => void;
+    // (undocumented)
+    snapshotId: string;
+    // (undocumented)
+    style?: CSSProperties;
+}
 
 // @public (undocumented)
 export type ExplorerInitialSettings = Partial<ExplorerSettings['appConfigForm'] & ExplorerSettings['personalConfigForm']>;
@@ -140,29 +176,6 @@ export interface ExplorerSettings {
         highlightNeighborsOnHover: boolean;
         [key: string]: unknown;
     };
-}
-
-// @public (undocumented)
-export function ExplorerWorkbench(input: ExplorerWorkbenchProps): ReactElement | null;
-
-// @public (undocumented)
-export interface ExplorerWorkbenchProps {
-    // (undocumented)
-    allowRemoteIconManagement?: boolean;
-    // (undocumented)
-    blocker?: ExplorerNavigationBlocker;
-    // (undocumented)
-    className?: string;
-    // (undocumented)
-    initialSettings?: ExplorerInitialSettings;
-    // (undocumented)
-    onDirtyChange?: (dirty: boolean) => void;
-    // (undocumented)
-    onSnapshotChange?: (id: string | null) => void;
-    // (undocumented)
-    snapshotId?: string | null;
-    // (undocumented)
-    style?: CSSProperties;
 }
 
 // @public
@@ -227,6 +240,55 @@ export function GqlViewer(props: GqlViewerProps): ReactElement;
 
 // @public (undocumented)
 export type GqlViewerProps = Omit<GqlEditorProps, 'readOnly' | 'onChange'>;
+
+// @public (undocumented)
+export function GraphInfo(input: GraphInfoProps): ReactElement | null;
+
+// @public (undocumented)
+export interface GraphInfoProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    graphName: string;
+    // (undocumented)
+    onBack?: () => void;
+    // (undocumented)
+    style?: CSSProperties;
+}
+
+// @public (undocumented)
+export function GraphList(input: GraphListProps): ReactElement | null;
+
+// @public (undocumented)
+export interface GraphListProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    onCreate?: () => void;
+    // (undocumented)
+    onView?: (name: string) => void;
+    // (undocumented)
+    style?: CSSProperties;
+}
+
+// @public (undocumented)
+export function GraphTypeList(input: GraphTypeListProps): ReactElement | null;
+
+// @public (undocumented)
+export interface GraphTypeListProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    onCreate?: () => void;
+    // (undocumented)
+    onEdit?: (name: string) => void;
+    // (undocumented)
+    onSketches?: () => void;
+    // (undocumented)
+    onView?: (name: string) => void;
+    // (undocumented)
+    style?: CSSProperties;
+}
 
 // @public (undocumented)
 export interface IconGroupData extends IconGroupRecord {
@@ -434,6 +496,19 @@ export interface SchemaLayoutServices {
 }
 
 // @public (undocumented)
+export function SchemaList(input: SchemaListProps): ReactElement | null;
+
+// @public (undocumented)
+export interface SchemaListProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    onOpen?: (schema: ISchemaItem) => void;
+    // (undocumented)
+    style?: CSSProperties;
+}
+
+// @public (undocumented)
 export interface SchemaSelectorOptions {
     // (undocumented)
     collapsed: boolean;
@@ -509,38 +584,6 @@ export interface SchemaTreeProps {
     showDetail?: boolean;
 }
 
-// @public (undocumented)
-export type SchemaView = {
-    type: 'schemas' | 'graph-types' | 'graphs' | 'sketches';
-} | {
-    type: 'graph';
-    name: string;
-} | {
-    type: 'editor';
-    mode: SchemaEditorMode;
-    graphTypeName?: string;
-    sketchId?: number;
-};
-
-// @public (undocumented)
-export function SchemaWorkbench(input: SchemaWorkbenchProps): ReactElement | null;
-
-// @public (undocumented)
-export interface SchemaWorkbenchProps {
-    // (undocumented)
-    className?: string;
-    // (undocumented)
-    defaultView?: SchemaView;
-    // (undocumented)
-    onViewChange?: (view: SchemaView) => void;
-    // (undocumented)
-    sidebar?: ReactNode;
-    // (undocumented)
-    style?: CSSProperties;
-    // (undocumented)
-    view?: SchemaView;
-}
-
 // @public
 export interface SerializedGraphEntity {
     // (undocumented)
@@ -553,6 +596,19 @@ export interface SerializedGraphEntity {
     source?: string | number;
     // (undocumented)
     target?: string | number;
+}
+
+// @public (undocumented)
+export function SketchList(input: SketchListProps): ReactElement | null;
+
+// @public (undocumented)
+export interface SketchListProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    onOpen?: (id: number) => void;
+    // (undocumented)
+    style?: CSSProperties;
 }
 
 // @public (undocumented)
@@ -618,6 +674,21 @@ export interface SnapshotCreateInput {
     schema_path: string;
     // (undocumented)
     thumbnail?: string;
+}
+
+// @public (undocumented)
+export function SnapshotList(input: SnapshotListProps): ReactElement | null;
+
+// @public (undocumented)
+export interface SnapshotListProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    initialSettings?: ExplorerInitialSettings;
+    // (undocumented)
+    onOpen?: (snapshotId: string) => void;
+    // (undocumented)
+    style?: CSSProperties;
 }
 
 // @public (undocumented)

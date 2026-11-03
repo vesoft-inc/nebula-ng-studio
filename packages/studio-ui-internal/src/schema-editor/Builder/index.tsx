@@ -1,5 +1,5 @@
 import { Alert, Box, Button, ButtonGroup, Container, Tooltip, useTheme } from '@mui/material';
-import BreadCrumbs from '../../shared/BreadCrumbs/Trail';
+import BreadCrumbs from '../../shared/BreadCrumbs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -138,7 +138,6 @@ function GraphTypeBuilder(props: SchemaEditorProps) {
         break;
       case GraphTypeBuildMode.Edit:
       case GraphTypeBuildMode.Readonly: {
-        // const graphTypeName = location.pathname.split('/').pop();
         const { graphTypeName } = params;
         if (graphTypeName) {
           graphtypeStore.initSchemaStore();

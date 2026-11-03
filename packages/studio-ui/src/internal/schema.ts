@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { SchemaController } from '@vesoft-inc/studio-ui-internal/schema/model';
 import type { StudioServices } from '../services';
-import { requireService } from './hooks';
+import { useStudioScope } from '../provider';
+import { requireService, useWorkbench } from './hooks';
 import type { StudioScope } from './scope';
 import { bindEditor, bindSchema } from './adapters';
 
@@ -10,24 +12,58 @@ export function acquireSchema(scope: StudioScope, services: StudioServices) {
     const adapted = bindSchema(service, lifetime);
     const controller = new SchemaController(adapted);
     if (scope.schemaPath !== undefined) controller.updateCurrentSchame({ path: scope.schemaPath });
+    let initialization: Promise<void> | undefined;
+    const initialize = () => {
+      if (controller.currentSchema.path) return Promise.resolve();
+      return (initialization ??= controller.refreshCurrentSchema().finally(() => {
+        initialization = undefined;
+      }));
+    };
     return {
-      value: { controller, services: adapted },
+      value: { controller, services: adapted, initialize },
       dispose: controller.destroy,
       schemaChanged: (path: string) => controller.updateCurrentSchame({ path }),
     };
   });
 }
-export function acquireEditor(scope: StudioScope, services: StudioServices, allowSchemaFallback = false) {
-  const own = services.schemaEditor;
-  const fallback = allowSchemaFallback && services.schema;
-  const source =
-    own ?? (fallback ? { execute: fallback.execute.bind(fallback) } : requireService(services, 'schemaEditor'));
-  return scope.acquire(
-    'schemaEditor',
-    own ? { schemaEditor: own } : { schemaEditor: undefined, schema: services.schema },
-    (lifetime) => ({
-      value: bindEditor(source, lifetime),
-      dispose: () => {},
-    })
+export function acquireEditor(scope: StudioScope, services: StudioServices) {
+  const source = requireService(services, 'schemaEditor');
+  return scope.acquire('schemaEditor', { schemaEditor: source }, (lifetime) => ({
+    value: bindEditor(source, lifetime),
+    dispose: () => {},
+  }));
+}
+
+export function useSchemaComponent(name: string, withSketches = false) {
+  const { services } = useStudioScope();
+  requireService(services, 'schema');
+  const binding = useWorkbench(
+    name,
+    { schema: services.schema, ...(withSketches ? { schemaEditor: services.schemaEditor } : {}) },
+    (scope) => {
+      const catalog = acquireSchema(scope, services);
+      const editor = withSketches && services.schemaEditor ? acquireEditor(scope, services) : undefined;
+      return {
+        ...catalog,
+        isCurrent: () => !editor || editor.lifetime.active,
+        value: { ...catalog.value, sketches: editor?.value.sketches },
+      };
+    }
   );
+  const { resource } = binding;
+  const [ready, setReady] = useState<typeof resource>();
+  useEffect(() => {
+    let active = true;
+    if (resource)
+      void resource.value
+        .initialize()
+        .catch(() => {})
+        .finally(() => {
+          if (active) setReady(resource);
+        });
+    return () => {
+      active = false;
+    };
+  }, [resource]);
+  return { ...binding, ready: !!resource && ready === resource };
 }
