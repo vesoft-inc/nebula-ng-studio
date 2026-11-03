@@ -46,7 +46,10 @@
       "GraphInfo",
       "GraphInfoProps",
       "CreateGraphDialog",
-      "CreateGraphDialogProps"
+      "CreateGraphDialogProps",
+      "SchemaTreePanel",
+      "SchemaTreePanelProps",
+      "SchemaTreeSelection"
     ]
   },
   "./schema-editor": {

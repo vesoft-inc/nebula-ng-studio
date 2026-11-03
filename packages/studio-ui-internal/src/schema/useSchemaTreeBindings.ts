@@ -18,6 +18,10 @@ export interface SchemaTreeBindingsOptions {
   onViewAllSchemas: () => void;
 }
 
+type BoundSchemaTreeProps = SchemaTreeProps & {
+  selector: SchemaTreeProps['selector'] & Pick<SchemaTreeBindingsOptions, 'onViewAllSchemas'>;
+};
+
 /** Shared tree actions. The caller owns initial loading and navigation; UiProvider supplies messages. */
 export function useSchemaTreeBindings({
   controller,
@@ -28,7 +32,7 @@ export function useSchemaTreeBindings({
   onSchemaCreated,
   onCreateGraphType,
   onViewAllSchemas,
-}: SchemaTreeBindingsOptions): SchemaTreeProps {
+}: SchemaTreeBindingsOptions): BoundSchemaTreeProps {
   const { t } = useTranslation('common');
   const { message } = useModal();
   const lifecycle = useRef<{ controller: SchemaController; active: boolean } | null>(null);
@@ -46,23 +50,28 @@ export function useSchemaTreeBindings({
     schema: controller.currentSchema,
     showDetail,
     onLoadNode: async ({ rawData }) => {
-      switch (rawData?.type) {
-        case SchemaItemType.GraphType:
-          await controller.updateGraphTypesBySchema();
-          break;
-        case SchemaItemType.Graph:
-          await controller.updateGraphsBySchema();
-          break;
-        case SchemaItemType.GraphTypeDescItem:
-          if (showDetail && rawData.graphType) {
-            await controller.updateGraphTypeDetailBySchema(rawData.graphType.graph_type);
-          }
-          break;
-        case SchemaItemType.EntityTypeDescItem:
-          if (showDetail && rawData.entity) {
-            await controller.updateEntityTypeDescsBySchema(rawData.entity.graph_type_name, rawData.entity.type_name);
-          }
-          break;
+      try {
+        switch (rawData?.type) {
+          case SchemaItemType.GraphType:
+            await controller.updateGraphTypesBySchema();
+            break;
+          case SchemaItemType.Graph:
+            await controller.updateGraphsBySchema();
+            break;
+          case SchemaItemType.GraphTypeDescItem:
+            if (showDetail && rawData.graphType) {
+              await controller.updateGraphTypeDetailBySchema(rawData.graphType.graph_type);
+            }
+            break;
+          case SchemaItemType.EntityTypeDescItem:
+            if (showDetail && rawData.entity) {
+              await controller.updateEntityTypeDescsBySchema(rawData.entity.graph_type_name, rawData.entity.type_name);
+            }
+            break;
+        }
+      } catch (error) {
+        // An invalidated catalog read still completes the tree's loading interaction.
+        if (!error || typeof error !== 'object' || !('name' in error) || error.name !== 'AbortError') throw error;
       }
     },
     onCreateGraphType,

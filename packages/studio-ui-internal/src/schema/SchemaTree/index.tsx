@@ -4,7 +4,7 @@ import { Box } from '@mui/material';
 import { getVesoftBorder } from '../../shared/utilities';
 import { useEffect, useRef, useState } from 'react';
 import LazyTree, { TreeNode } from '../../shared/LazyTree/index';
-import useConvertSchemaToTree from './useConvertSchemaToTree';
+import useConvertSchemaToTree, { type generateTreeNodeKey } from './useConvertSchemaToTree';
 import SchemaSelector, { type SchemaSelectorProps } from './SchemaSelector';
 import { ISchemaTreeRawData, NebulaSchema } from '../types';
 
@@ -28,6 +28,7 @@ export interface SchemaTreeProps {
   onLoadNode: (node: TreeNode<ISchemaTreeRawData>) => Promise<void>;
   onCreateGraphType?: () => void;
   onCreateGraph?: () => void;
+  getNodeKey?: typeof generateTreeNodeKey;
   selector: Omit<SchemaSelectorProps, 'paperWidth'>;
 }
 
@@ -45,10 +46,15 @@ function SchemaTree(props: SchemaTreeProps) {
     };
   }, []);
 
-  const convertSchemaToTree = useConvertSchemaToTree(schema, showDetail, {
-    onCreateGraphType,
-    onCreateGraph,
-  });
+  const convertSchemaToTree = useConvertSchemaToTree(
+    schema,
+    showDetail,
+    {
+      onCreateGraphType,
+      onCreateGraph,
+    },
+    props.getNodeKey
+  );
 
   const onDrag = (e: MouseEvent) => {
     e.preventDefault();
@@ -63,7 +69,7 @@ function SchemaTree(props: SchemaTreeProps) {
   };
 
   return (
-    <SiderItem sx={{ width: curWidth, position: 'relative' }} ref={siderItemRef}>
+    <SiderItem sx={{ width: curWidth, position: 'relative', minHeight: 0 }} ref={siderItemRef}>
       <SchemaSelector paperWidth={curWidth} {...selector} />
       <LazyTree<ISchemaTreeRawData>
         treeData={convertSchemaToTree(schema)}

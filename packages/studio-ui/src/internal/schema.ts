@@ -12,15 +12,26 @@ export function acquireSchema(scope: StudioScope, services: StudioServices) {
     const adapted = bindSchema(service, lifetime);
     const controller = new SchemaController(adapted);
     if (scope.schemaPath !== undefined) controller.updateCurrentSchame({ path: scope.schemaPath });
+    const switchSchema = async (path: string) => {
+      if (!lifetime.active) return;
+      const response = await controller.switchSchema(path);
+      if (lifetime.active && response.code === 0 && controller.currentSchema.path === path) scope.setSchema(path);
+      return response;
+    };
     let initialization: Promise<void> | undefined;
     const initialize = () => {
       if (controller.currentSchema.path) return Promise.resolve();
-      return (initialization ??= controller.refreshCurrentSchema().finally(() => {
-        initialization = undefined;
-      }));
+      return (initialization ??= controller
+        .refreshCurrentSchema()
+        .then((response) => {
+          if (response.code !== 0) throw new Error(response.message);
+        })
+        .finally(() => {
+          initialization = undefined;
+        }));
     };
     return {
-      value: { controller, services: adapted, initialize },
+      value: { controller, services: adapted, initialize, switchSchema },
       dispose: controller.destroy,
       schemaChanged: (path: string) => controller.updateCurrentSchame({ path }),
     };

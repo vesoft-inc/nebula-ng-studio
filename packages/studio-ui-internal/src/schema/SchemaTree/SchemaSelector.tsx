@@ -15,7 +15,7 @@ export interface SchemaSelectorProps {
   switching?: boolean;
   onSwitchSchema: (schema: ISchemaItem) => Promise<boolean>;
   onCreateSchema: (path: string) => Promise<boolean>;
-  onViewAllSchemas: () => void;
+  onViewAllSchemas?: () => void;
 }
 
 const popoverId = 'schema-selector';
@@ -135,15 +135,17 @@ function SchemaSelector(props: SchemaSelectorProps) {
           </List>
           <Divider sx={{ mb: 1 }} />
           <Box>
-            <ListItemButton
-              sx={{
-                fontWeight: 'bold',
-                color: (theme) => theme.palette.vesoft.v2.primary3,
-              }}
-              onClick={onViewAllSchemas}
-            >
-              {t('viewAllSchemas', { ns: 'common' })}
-            </ListItemButton>
+            {onViewAllSchemas && (
+              <ListItemButton
+                sx={{
+                  fontWeight: 'bold',
+                  color: (theme) => theme.palette.vesoft.v2.primary3,
+                }}
+                onClick={onViewAllSchemas}
+              >
+                {t('viewAllSchemas', { ns: 'common' })}
+              </ListItemButton>
+            )}
             <ListItemButton
               onClick={() => setCreateModalOpen(true)}
               sx={{

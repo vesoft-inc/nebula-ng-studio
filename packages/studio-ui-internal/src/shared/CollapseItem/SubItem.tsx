@@ -20,6 +20,7 @@ function SubItem(props: ISubItemProps) {
 
   return (
     <ListItem
+      aria-current={selected ? 'true' : undefined}
       onClick={onClick}
       sx={{
         padding: 0,

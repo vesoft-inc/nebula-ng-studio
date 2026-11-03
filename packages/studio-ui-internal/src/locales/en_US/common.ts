@@ -3,6 +3,8 @@ const common = {
   password: 'Password',
   success: 'Success',
   error: 'Error',
+  retry: 'Retry',
+  schemaTreeLoadFailed: 'Unable to load Schema data.',
   graphtype: 'Graph Type',
   'schema-manager': 'Schema',
   console: 'Console',

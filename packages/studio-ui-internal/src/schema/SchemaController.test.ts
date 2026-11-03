@@ -99,6 +99,124 @@ describe('SchemaStore session reaction', () => {
 });
 
 describe('catalog request isolation', () => {
+  it.each(['success', 'failure'])('ignores a late graph-list %s from before creation', async (outcome) => {
+    let finish!: (value: unknown) => void;
+    let fail!: (error: Error) => void;
+    const oldGraph = { graph: 'old', graph_type: 'type', owner: '', schema: '/one', index_cnt: 0 };
+    const newGraph = { ...oldGraph, graph: 'new' };
+    const execute = vi.fn().mockResolvedValue({ code: 0, data: { tables: [oldGraph, newGraph] } });
+    execute.mockReturnValueOnce(
+      new Promise((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      })
+    );
+    const store = new SchemaStore({ execute });
+    store.updateCurrentSchame({ path: '/one' });
+    try {
+      const stale = store.updateGraphsBySchema().catch((error: Error) => error.name);
+      await store.createGraph('new', 'type');
+      const fresh = store.updateGraphsBySchema();
+      expect(execute.mock.calls.filter(([gql]) => gql.startsWith('call show_graphs()'))).toHaveLength(2);
+      await fresh;
+      expect(store.currentSchema.graphs.map(({ graph }) => graph)).toEqual(['old', 'new']);
+      if (outcome === 'success') finish({ code: 0, data: { tables: [oldGraph] } });
+      else fail(new Error('Old request failed'));
+      await expect(stale).resolves.toBe('AbortError');
+      expect(store.currentSchema.graphs.map(({ graph }) => graph)).toEqual(['old', 'new']);
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it('keeps current-schema discovery active when creating another schema', async () => {
+    let finish!: (value: unknown) => void;
+    const execute = vi.fn().mockResolvedValue({ code: 0 });
+    execute.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const store = new SchemaStore({ execute });
+    try {
+      const discovery = store.refreshCurrentSchema();
+      await store.createSchema('/new');
+      finish({ code: 0, data: { tables: [{ name: 'one', path: '/one', owner: '' }] } });
+      await discovery;
+      expect(store.currentSchema.path).toBe('/one');
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it('does not commit a pre-write list while its response handlers are completing', async () => {
+    let finish!: (value: unknown) => void;
+    const execute = vi.fn().mockResolvedValue({ code: 0 });
+    execute.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const store = new SchemaStore({ execute });
+    try {
+      const pending = store.updateGraphsBySchema().catch(() => {});
+      finish({ code: 0, data: { tables: [{ graph: 'old' }] } });
+      await store.createGraph('new', 'type');
+      await pending;
+      expect(store.currentSchema.graphs).toEqual([]);
+    } finally {
+      store.destroy();
+    }
+  });
+
+  it.each(['createSchema', 'dropSchema'] as const)(
+    'refreshes schemas after %s without reusing pre-write data',
+    async (operation) => {
+      let finish!: (value: unknown) => void;
+      const schemas = [{ name: 'new', path: '/new', owner: '' }];
+      const execute = vi.fn().mockResolvedValue({ code: 0, data: { tables: schemas } });
+      execute.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+      );
+      const store = new SchemaStore({ execute });
+      try {
+        const stale = store.getSchemas().catch((error: Error) => error.name);
+        await store[operation]('/new');
+        const fresh = store.getSchemas();
+        expect(execute.mock.calls.filter(([gql]) => gql === 'SHOW SCHEMAS')).toHaveLength(2);
+        await fresh;
+        finish({ code: 0, data: { tables: [{ name: 'old', path: '/old', owner: '' }] } });
+        await expect(stale).resolves.toBe('AbortError');
+        expect(store.schemas.map(({ path }) => path)).toEqual(['/new']);
+      } finally {
+        store.destroy();
+      }
+    }
+  );
+
+  it('retains request sharing when a catalog mutation fails', async () => {
+    let finish!: (value: unknown) => void;
+    const execute = vi.fn().mockResolvedValue({ code: 1, message: 'creation failed' });
+    execute.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const store = new SchemaStore({ execute });
+    try {
+      const original = store.updateGraphsBySchema();
+      await store.createGraph('new', 'type');
+      const shared = store.updateGraphsBySchema();
+      expect(execute.mock.calls.filter(([gql]) => gql.startsWith('call show_graphs()'))).toHaveLength(1);
+      finish({ code: 0, data: { tables: [] } });
+      await Promise.all([original, shared]);
+    } finally {
+      store.destroy();
+    }
+  });
+
   it('ignores graph lists that resolve after a schema change', async () => {
     let complete!: (value: unknown) => void;
     const execute = vi.fn().mockReturnValue(

@@ -56,7 +56,8 @@ export const generateTreeNodeKey = (
 export default function useConvertSchemaToTree(
   schema: NebulaSchema,
   showDetail: boolean,
-  actions?: { onCreateGraphType?: () => void; onCreateGraph?: () => void }
+  actions?: { onCreateGraphType?: () => void; onCreateGraph?: () => void },
+  getNodeKey: typeof generateTreeNodeKey = generateTreeNodeKey
 ) {
   const theme = useTheme();
   const { t } = useTranslation(['common']);
@@ -167,15 +168,16 @@ export default function useConvertSchemaToTree(
         {
           title: t('graphtype', { ns: 'common' }),
           icon: <SpaceDashboardFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />,
-          key: generateTreeNodeKey(SchemaItemType.GraphType, {}),
+          key: getNodeKey(SchemaItemType.GraphType, {}),
           rawData: {
             type: SchemaItemType.GraphType,
           },
-          rightPart: showDetail ? undefined : (
-            <IconButton onClick={handleCreateGraphType()}>
-              <AddFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />
-            </IconButton>
-          ),
+          rightPart:
+            showDetail || !actions?.onCreateGraphType ? undefined : (
+              <IconButton aria-label={t('createGraphType', { ns: 'graphtype' })} onClick={handleCreateGraphType()}>
+                <AddFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />
+              </IconButton>
+            ),
           children: schema.graphTypes.map((graphType) => ({
             title: (
               <Typography color="text.primary" maxWidth={210} overflow="hidden" textOverflow="ellipsis">
@@ -196,7 +198,7 @@ export default function useConvertSchemaToTree(
               </Typography>
             ),
             icon: <SpaceDashboardFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />,
-            key: generateTreeNodeKey(SchemaItemType.GraphTypeDescItem, {
+            key: getNodeKey(SchemaItemType.GraphTypeDescItem, {
               graphTypeName: graphType.graph_type,
             }),
             rawData: { graphType, type: SchemaItemType.GraphTypeDescItem },
@@ -204,14 +206,14 @@ export default function useConvertSchemaToTree(
               ? (graphType.entities || []).map((entity) => ({
                   title: entity.type_name,
                   icon: entity.entity_type === GraphEntityType.Node ? <DotsHexagon /> : <EdgeType />,
-                  key: generateTreeNodeKey(SchemaItemType.EntityTypeDescItem, {
+                  key: getNodeKey(SchemaItemType.EntityTypeDescItem, {
                     graphTypeName: graphType.graph_type,
                     entityTypeName: entity.type_name,
                   }),
                   subTitle: renderSubTitle(entity),
                   children: (entity.propertyInfos || []).map((property) => ({
                     title: renderProperty(property),
-                    key: generateTreeNodeKey(SchemaItemType.PropertyDescItem, {
+                    key: getNodeKey(SchemaItemType.PropertyDescItem, {
                       graphTypeName: graphType.graph_type,
                       entityTypeName: entity.type_name,
                       propertyName: property.property_name,
@@ -240,18 +242,20 @@ export default function useConvertSchemaToTree(
         },
         {
           title: t('graph', { ns: 'common' }),
-          key: generateTreeNodeKey(SchemaItemType.Graph, {}),
+          key: getNodeKey(SchemaItemType.Graph, {}),
           icon: <ChartTimelineVariant sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />,
           rawData: { type: SchemaItemType.Graph },
-          rightPart: showDetail ? undefined : (
-            <IconButton
-              onClick={() => {
-                actions?.onCreateGraph?.();
-              }}
-            >
-              <AddFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />
-            </IconButton>
-          ),
+          rightPart:
+            showDetail || !actions?.onCreateGraph ? undefined : (
+              <IconButton
+                aria-label={t('createGraph')}
+                onClick={() => {
+                  actions?.onCreateGraph?.();
+                }}
+              >
+                <AddFilled sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />
+              </IconButton>
+            ),
           children: schema.graphs.map((graph) => ({
             title: (
               <Typography color="text.primary" maxWidth={210} overflow="hidden" textOverflow="ellipsis">
@@ -272,7 +276,7 @@ export default function useConvertSchemaToTree(
               </Typography>
             ),
             icon: <ChartTimelineVariant sx={{ color: (theme) => theme.palette.vesoft.v2.text3 }} />,
-            key: generateTreeNodeKey(SchemaItemType.GraphDescItem, {
+            key: getNodeKey(SchemaItemType.GraphDescItem, {
               graphName: graph.graph,
             }),
             rawData: {
@@ -283,7 +287,7 @@ export default function useConvertSchemaToTree(
         },
       ];
     },
-    [schema, showDetail, actions?.onCreateGraph, actions?.onCreateGraphType, t, theme]
+    [schema, showDetail, actions?.onCreateGraph, actions?.onCreateGraphType, getNodeKey, t, theme]
   );
 
   return convertSchemasToTree;

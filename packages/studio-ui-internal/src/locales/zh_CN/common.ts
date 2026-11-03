@@ -3,6 +3,8 @@ const common = {
   password: '密码',
   success: '成功',
   error: '错误',
+  retry: '重试',
+  schemaTreeLoadFailed: '无法加载 Schema 数据。',
   graphtype: '图类型',
   'schema-manager': 'Schema 管理',
   console: '控制台',

@@ -105,6 +105,25 @@ it('skips detail queries when disabled while still loading graph categories', as
   ]);
 });
 
+it('finishes a tree load when a successful write invalidates its pending metadata', async () => {
+  const { result, controller, execute } = setup();
+  let finish!: (response: ServerResponse<object>) => void;
+  execute.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve;
+    })
+  );
+  const loading = result.current.onLoadNode({
+    key: 'graphs',
+    title: 'Graphs',
+    rawData: { type: SchemaItemType.Graph },
+  });
+  await controller.createGraph('new', 'type');
+  finish({ code: 0, message: '', data: { tables: [{ graph: 'old' }] } });
+  await expect(loading).resolves.toBeUndefined();
+  expect(controller.currentSchema.graphs).toEqual([]);
+});
+
 it('notifies the host and provider only after a successful schema switch', async () => {
   const { result, switchSchema, controller, onSchemaChange, modalStore } = setup();
   let finish!: (response: ServerResponse<object>) => void;

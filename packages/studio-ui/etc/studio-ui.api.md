@@ -16,6 +16,7 @@ import { GraphTypeElement } from '@vesoft-inc/studio-core/contracts';
 import { i18n } from 'i18next';
 import { ISchemaItem } from '@vesoft-inc/studio-core/contracts';
 import { NebulaSchema } from '@vesoft-inc/studio-core/contracts';
+import * as react from 'react';
 import { ReactElement } from 'react';
 import { ReactNode } from 'react';
 import { Ref } from 'react';
@@ -563,6 +564,33 @@ export interface SchemaTreeNode {
 }
 
 // @public (undocumented)
+export const SchemaTreePanel: react.FunctionComponent<SchemaTreePanelProps>;
+
+// @public (undocumented)
+export interface SchemaTreePanelProps {
+    // (undocumented)
+    className?: string;
+    // (undocumented)
+    collapsed?: boolean;
+    // (undocumented)
+    onCreateGraphType?: () => void;
+    // (undocumented)
+    onSchemaCreated?: (schemaPath: string) => void;
+    // (undocumented)
+    onSelect?: (selection: SchemaTreeSelection) => void;
+    // (undocumented)
+    onViewAllSchemas?: () => void;
+    // (undocumented)
+    schemaLabel?: string;
+    // (undocumented)
+    selected?: SchemaTreeSelection | null;
+    // (undocumented)
+    showDetail?: boolean;
+    // (undocumented)
+    style?: CSSProperties;
+}
+
+// @public (undocumented)
 export interface SchemaTreeProps {
     // (undocumented)
     onCreateGraph?: () => void;
@@ -583,6 +611,30 @@ export interface SchemaTreeProps {
     // (undocumented)
     showDetail?: boolean;
 }
+
+// @public (undocumented)
+export type SchemaTreeSelection = {
+    schemaPath: string;
+} & ({
+    kind: 'graph-types';
+} | {
+    kind: 'graphs';
+} | {
+    kind: 'graph-type';
+    graphTypeName: string;
+} | {
+    kind: 'graph';
+    graphName: string;
+} | {
+    kind: 'entity-type';
+    graphTypeName: string;
+    entityTypeName: string;
+} | {
+    kind: 'property';
+    graphTypeName: string;
+    entityTypeName: string;
+    propertyName: string;
+});
 
 // @public
 export interface SerializedGraphEntity {

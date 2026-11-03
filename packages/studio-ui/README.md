@@ -16,7 +16,7 @@
 | --- | --- |
 | 根入口 | `UiProvider`、`StudioProvider`、配置与服务集合类型 |
 | `/console` | `ConsoleWorkbench`、服务与设置类型 |
-| `/schema` | `SchemaList`、`GraphTypeList`、`GraphList`、`GraphInfo`、`CreateGraphDialog`、`SchemaTree` 及各自 Props |
+| `/schema` | `SchemaList`、`GraphTypeList`、`GraphList`、`GraphInfo`、`CreateGraphDialog`、`SchemaTree`、`SchemaTreePanel` 及各自 Props |
 | `/schema-editor` | `SchemaEditorWorkbench`、`SketchList`、布局与草稿服务类型 |
 | `/explorer` | `SnapshotList`、`ExplorerGraph`、快照与设置服务、导航阻止契约 |
 | `/editor` | `GqlEditor`、`GqlViewer`，只提供 `focus()` 的句柄 |
@@ -39,6 +39,33 @@
 - Schema 与 Explorer 不保存页面选择或执行导航。宿主分别挂载列表、详情或编辑器，并处理 `onOpen`、`onView`、`onEdit`、`onBack` 等事件。
 - `ExplorerGraph` 必须接收 `snapshotId`；通过 `onDirtyChange` 通知宿主。宿主负责拦截返回、切页、浏览器历史和关闭页面，并把 `blocker` 的 `state/proceed/reset` 传给画布中的保存/离开提示。组件没有内部导航或兜底阻止器。
 - `UiProvider` 默认关闭全局 CSS baseline，弹窗状态归实例所有；Monaco 主题仍为页面级。
+
+## Schema 树的两种粒度
+
+`SchemaTree` 保留数据驱动接口，只需 `UiProvider`；由宿主提供 Schema 数据、懒加载、选择器操作和选中 key，适合宿主已有独立数据模型的场景。
+
+`SchemaTreePanel` 必须位于 `StudioProvider` 下，使用 `services.schema`，与同作用域的列表和详情共享 Schema 状态。它自动加载 Schema 列表；未提供当前 Schema 时先查询当前 Schema。GraphType、Graph、实体和属性按展开加载，并发中的相同元数据请求共享，完成后不保留额外请求缓存。
+
+```tsx
+import { SchemaTreePanel, type SchemaTreeSelection } from '@vesoft-inc/studio-ui/schema';
+
+// 放在已有 StudioProvider 内，下面的回调由宿主映射到自己的路由。
+<SchemaTreePanel
+  selected={selection}
+  onSelect={(selection: SchemaTreeSelection) => openSelection(selection)}
+  onCreateGraphType={() => openCreateGraphTypePage()}
+  onViewAllSchemas={() => openSchemaListPage()}
+/>;
+```
+
+- `showDetail` 默认 `false`，仅展示 GraphType、Graph 目录；设为 `true` 后可展开实体和属性。`collapsed` 默认 `false`，设为 `true` 时沿用现有选择器的固定标题模式。
+- `selected` 省略时内部维护选中项；传入对象时受控，`null` 清空选择。`SchemaTreeSelection` 包含 `schemaPath` 和业务名称，不暴露内部节点 key；Schema 不匹配时不高亮。`onSelect` 只在用户选择时调用，不执行导航。
+- Schema 切换成功后只通过 Provider 的 `onSchemaChange` 通知宿主，并清理旧树的选中、展开和弹窗状态；宿主继续同步其 `schemaPath`。
+- Schema 创建由组件处理；成功后尝试刷新列表，再调用可选的 `onSchemaCreated(path)`，默认不切换、不导航。刷新失败不把创建改判为失败。
+- 目录模式下，Graph 分类的“＋”直接打开内置创建 Graph 弹窗，组件加载 GraphType、提交并在成功后刷新共享列表。取消、Schema 变化或卸载会关闭弹窗；宿主无需管理其开关。
+- 创建 GraphType 和查看全部 Schema 只发送事件；未提供对应回调时隐藏入口。组件不读取 URL，也不挂载详情页面。
+- 加载失败在树区提供重试；取消不显示失败提示。创建失败保留表单，可再次提交。
+- 每个 Provider 最多挂载一个活动 `SchemaTreePanel`，可以同时挂载列表、详情等不同组件。树卸载保留共享状态，并停止其页面完成回调；已经发起的 Schema 切换由作用域完成，即使树卸载，仍会同步 Provider 并通知其 `onSchemaChange`。身份或服务替换时取消旧操作。使用方无需引入 MobX。
 
 ## 服务契约
 

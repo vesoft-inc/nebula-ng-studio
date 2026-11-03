@@ -84,7 +84,9 @@ export async function ensureExplorerSnapshot({
 
   const schemaPath = await ensureSnapshotSchemaPath({
     getPath: () => schemaController.currentSchema.path,
-    refresh: () => schemaController.refreshCurrentSchema(),
+    refresh: async () => {
+      await schemaController.refreshCurrentSchema();
+    },
     fallback: () => schemaPathFallback,
   });
   assertActive();

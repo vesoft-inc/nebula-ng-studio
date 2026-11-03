@@ -17,6 +17,29 @@ import { WorkbenchContainer } from './internal/container';
 export type { SchemaServices, QueryExecutor, QueryOptions } from './services';
 export type { ISchemaTreeRawData as SchemaTreeItem } from '@vesoft-inc/studio-ui-internal/schema/types';
 export { SchemaItemType } from '@vesoft-inc/studio-ui-internal/utilities';
+export { SchemaTreePanel } from './internal/schema-tree-panel';
+
+export type SchemaTreeSelection = { schemaPath: string } & (
+  | { kind: 'graph-types' }
+  | { kind: 'graphs' }
+  | { kind: 'graph-type'; graphTypeName: string }
+  | { kind: 'graph'; graphName: string }
+  | { kind: 'entity-type'; graphTypeName: string; entityTypeName: string }
+  | { kind: 'property'; graphTypeName: string; entityTypeName: string; propertyName: string }
+);
+
+export interface SchemaTreePanelProps {
+  showDetail?: boolean;
+  collapsed?: boolean;
+  schemaLabel?: string;
+  selected?: SchemaTreeSelection | null;
+  onSelect?: (selection: SchemaTreeSelection) => void;
+  onCreateGraphType?: () => void;
+  onViewAllSchemas?: () => void;
+  onSchemaCreated?: (schemaPath: string) => void;
+  className?: string;
+  style?: CSSProperties;
+}
 
 export interface SchemaListProps {
   onOpen?: (schema: ISchemaItem) => void;

@@ -12,9 +12,10 @@ import {
   NebulaSchema,
 } from './types';
 import type { SchemaServices } from './services';
-import { action, makeAutoObservable, observable, reaction, type IReactionDisposer } from 'mobx';
+import { action, makeAutoObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
 
 type SchemaStoreDeps = { getCurrentSchemaPath: () => string | undefined };
+type MetadataCollection = 'schemas' | 'current-schema' | 'graph-types' | 'graphs';
 
 const emptyCurrentSchema = (): NebulaSchema =>
   ({
@@ -45,9 +46,19 @@ export default class SchemaStore {
   private schemaSwitchQueue: Promise<void> = Promise.resolve();
   private pendingSchemaSwitches = 0;
   private abort = new AbortController();
+  private metadataRequests = new Map<string, Promise<ServerResponse<object>>>();
+  private metadataVersions: Record<MetadataCollection, number> = {
+    schemas: 0,
+    'current-schema': 0,
+    'graph-types': 0,
+    graphs: 0,
+  };
 
   constructor(public readonly services: SchemaServices) {
-    makeAutoObservable<this, 'abort' | 'schemaSwitchQueue' | 'sessionGeneration'>(this, {
+    makeAutoObservable<
+      this,
+      'abort' | 'schemaSwitchQueue' | 'sessionGeneration' | 'metadataRequests' | 'metadataVersions'
+    >(this, {
       selectedKeys: observable.shallow,
       deps: false,
       reactionDisposer: false,
@@ -56,6 +67,8 @@ export default class SchemaStore {
       abort: false,
       schemaSwitchQueue: false,
       sessionGeneration: false,
+      metadataRequests: false,
+      metadataVersions: false,
     });
     this.bindSchemaReaction();
   }
@@ -75,6 +88,7 @@ export default class SchemaStore {
     this.schemaSwitchQueue = Promise.resolve();
     this.pendingSchemaSwitches = 0;
     this.abort.abort();
+    this.metadataRequests.clear();
     this.abort = new AbortController();
     this.reactionDisposer?.();
     this.reactionDisposer = undefined;
@@ -111,6 +125,7 @@ export default class SchemaStore {
     if (schema.path && schema.path !== this.currentSchema.path) {
       this.generation += 1;
       this.abort.abort();
+      this.metadataRequests.clear();
       this.abort = new AbortController();
       this.currentSchema = emptyCurrentSchema();
     }
@@ -121,24 +136,65 @@ export default class SchemaStore {
     this.updateLoading(false);
   };
 
+  /** Share only pending metadata reads, including reads requested by sibling views. */
+  private readMetadata = <T extends object>(
+    gql: string,
+    collection: MetadataCollection
+  ): Promise<ServerResponse<T>> => {
+    const generation = this.generation;
+    const version = this.metadataVersions[collection];
+    const key = `${collection}:${generation}:${version}:${gql}`;
+    const pending = this.metadataRequests.get(key);
+    if (pending) return pending as Promise<ServerResponse<T>>;
+    const assertFresh = () => {
+      if (generation === this.generation && version !== this.metadataVersions[collection])
+        throw new DOMException('Metadata changed while the request was pending', 'AbortError');
+    };
+    const request = this.services
+      .execute<T>(gql, { signal: this.abort.signal })
+      .finally(() => {
+        if (this.metadataRequests.get(key) === request) this.metadataRequests.delete(key);
+      })
+      .then(
+        (response) => {
+          assertFresh();
+          return response;
+        },
+        (error) => {
+          assertFresh();
+          throw error;
+        }
+      );
+    this.metadataRequests.set(key, request);
+    return request;
+  };
+
+  private invalidateMetadata = (...collections: MetadataCollection[]) => {
+    for (const collection of collections) {
+      this.metadataVersions[collection]++;
+      for (const key of this.metadataRequests.keys())
+        if (key.startsWith(`${collection}:`)) this.metadataRequests.delete(key);
+    }
+  };
+
   getSchemas = async () => {
     const generation = this.generation;
+    const version = this.metadataVersions.schemas;
     const gql = `SHOW SCHEMAS`;
-    const res = await this.services.execute<GQLResult<ISchemaItem>>(gql, { signal: this.abort.signal });
+    const res = await this.readMetadata<GQLResult<ISchemaItem>>(gql, 'schemas');
     const curSchemas: ISchemaItem[] = safeArray(res.data?.tables).map((item: ISchemaItem) => ({
       name: item.name,
       path: item.path,
       owner: item.owner,
     }));
-    if (generation === this.generation) this.updateSchemas(curSchemas);
+    if (generation === this.generation && version === this.metadataVersions.schemas) this.updateSchemas(curSchemas);
+    return res;
   };
 
   refreshCurrentSchema = async () => {
     const generation = this.generation;
     const initialSchemaPath = this.currentSchema?.path;
-    const res = await this.services.execute<{ tables: ISchemaItem[] }>('SHOW CURRENT_SCHEMA', {
-      signal: this.abort.signal,
-    });
+    const res = await this.readMetadata<{ tables: ISchemaItem[] }>('SHOW CURRENT_SCHEMA', 'current-schema');
     const currentSchema = res.data?.tables?.[0];
     if (
       generation === this.generation &&
@@ -148,6 +204,7 @@ export default class SchemaStore {
     ) {
       this.updateCurrentSchame(currentSchema);
     }
+    return res;
   };
 
   unsafeAction = (fn: (store: this) => void) => action('unsafeAction', () => fn(this))();
@@ -159,10 +216,10 @@ export default class SchemaStore {
    * layout sweep: an empty list from a failed query must not be read as "every
    * graph type is gone".
    */
-  queryGraphTypes = async (): Promise<{ graphTypes: GraphType[]; ok: boolean }> => {
+  queryGraphTypes = async () => {
     const gql = `SHOW GRAPH TYPES`;
-    const res = await this.services.execute<GQLResult<GraphType>>(gql, { signal: this.abort.signal });
-    return { graphTypes: (res.data?.tables || []) as GraphType[], ok: res.code === 0 };
+    const res = await this.readMetadata<GQLResult<GraphType>>(gql, 'graph-types');
+    return { graphTypes: (res.data?.tables || []) as GraphType[], ok: res.code === 0, response: res };
   };
 
   getCreateGraphTypeDDL = async (graphType: string) => {
@@ -176,8 +233,9 @@ export default class SchemaStore {
 
   updateGraphTypesBySchema = async () => {
     const generation = this.generation;
-    const { graphTypes, ok } = await this.queryGraphTypes();
-    if (generation !== this.generation) return;
+    const version = this.metadataVersions['graph-types'];
+    const { graphTypes, ok, response } = await this.queryGraphTypes();
+    if (generation !== this.generation || version !== this.metadataVersions['graph-types']) return;
     this.updateCurrentSchame({
       graphTypes,
     });
@@ -185,6 +243,7 @@ export default class SchemaStore {
     if (ok) {
       this.sweepStaleLayouts(graphTypes);
     }
+    return response;
   };
 
   /**
@@ -201,21 +260,24 @@ export default class SchemaStore {
       .catch(() => {});
   };
 
-  getGraphs = async () => {
+  private queryGraphs = () => {
     const gql =
       'call show_graphs() yield name as gn,graph_type,`schema` AS sa, owner optional call show_indexes(gn) return gn as graph_name, graph_type, sa, owner, count(name) as index_cnt group by graph_name, graph_type, sa ,owner next return graph_name as "graph",  graph_type, sa as "schema", owner, index_cnt';
-    const res = await this.services.execute<GQLResult<GraphItem>>(gql, { signal: this.abort.signal });
-    const graphs = (res.data?.tables || []) as GraphItem[];
-    return graphs;
+    return this.readMetadata<GQLResult<GraphItem>>(gql, 'graphs');
   };
+
+  getGraphs = async () => ((await this.queryGraphs()).data?.tables || []) as GraphItem[];
 
   updateGraphsBySchema = async () => {
     const generation = this.generation;
-    const graphs = await this.getGraphs();
-    if (generation !== this.generation) return;
+    const version = this.metadataVersions.graphs;
+    const response = await this.queryGraphs();
+    const graphs = (response.data?.tables || []) as GraphItem[];
+    if (generation !== this.generation || version !== this.metadataVersions.graphs) return;
     this.updateCurrentSchame({
       graphs,
     });
+    return response;
   };
 
   sessionSetSchema = async (schemaPath: string) => {
@@ -224,26 +286,35 @@ export default class SchemaStore {
     return res;
   };
 
-  getGraphTypeDetail = async (graphTypeName: string) => {
+  private queryGraphTypeDetail = (graphTypeName: string) => {
     const gql = `DESCRIBE GRAPH TYPE \`${graphTypeName}\``;
-    const res = await this.services.execute<GQLResult<GraphTypeElement>>(gql, { signal: this.abort.signal });
-    return (res.data?.tables || []) as GraphTypeElement[];
+    return this.readMetadata<GQLResult<GraphTypeElement>>(gql, 'graph-types');
   };
+
+  getGraphTypeDetail = async (graphTypeName: string) =>
+    ((await this.queryGraphTypeDetail(graphTypeName)).data?.tables || []) as GraphTypeElement[];
 
   updateGraphTypeDetailBySchema = async (graphTypeName: string) => {
     const generation = this.generation;
+    const version = this.metadataVersions['graph-types'];
     const graphType = this.currentSchema.graphTypes.find((graphType) => graphType.graph_type === graphTypeName)!;
-    const entities = await this.getGraphTypeDetail(graphTypeName);
-    if (generation !== this.generation || !graphType) return;
-    graphType.entities = entities;
-    this.updateCurrentSchame({
-      graphTypes: this.currentSchema.graphTypes,
+    const response = await this.queryGraphTypeDetail(graphTypeName);
+    const entities = (response.data?.tables || []) as GraphTypeElement[];
+    if (generation !== this.generation || version !== this.metadataVersions['graph-types'] || !graphType) return;
+    runInAction(() => {
+      graphType.entities = entities;
+      this.updateCurrentSchame({ graphTypes: this.currentSchema.graphTypes });
     });
+    return response;
+  };
+
+  private queryEdgeTypeDesc = (gtn: string, edgeTypeName: string) => {
+    const gql = `DESCRIBE EDGE TYPE \`${edgeTypeName}\` OF \`${gtn}\` `;
+    return this.readMetadata<GQLResult<DescEdgeTypeResult>>(gql, 'graph-types');
   };
 
   getEdgeTypeDesc = async (gtn: string, edgeTypeName: string) => {
-    const gql = `DESCRIBE EDGE TYPE \`${edgeTypeName}\` OF \`${gtn}\` `;
-    const res = await this.services.execute<GQLResult<DescEdgeTypeResult>>(gql, { signal: this.abort.signal });
+    const res = await this.queryEdgeTypeDesc(gtn, edgeTypeName);
     return (
       res.data?.tables ||
       ([] as (DescEdgeTypeResult & {
@@ -257,9 +328,13 @@ export default class SchemaStore {
     }));
   };
 
-  getNodeTypeDesc = async (gtn: string, nodeTypeName: string) => {
+  private queryNodeTypeDesc = (gtn: string, nodeTypeName: string) => {
     const gql = `DESCRIBE NODE TYPE \`${nodeTypeName}\` OF \`${gtn}\` `;
-    const res = await this.services.execute<GQLResult<DescNodeTypeResult>>(gql, { signal: this.abort.signal });
+    return this.readMetadata<GQLResult<DescNodeTypeResult>>(gql, 'graph-types');
+  };
+
+  getNodeTypeDesc = async (gtn: string, nodeTypeName: string) => {
+    const res = await this.queryNodeTypeDesc(gtn, nodeTypeName);
     return (
       res.data?.tables ||
       ([] as (DescNodeTypeResult & {
@@ -275,24 +350,36 @@ export default class SchemaStore {
 
   updateEntityTypeDescsBySchema = async (graph_type_name: string, entity_type_name: string) => {
     const generation = this.generation;
+    const version = this.metadataVersions['graph-types'];
     const graphType = this.currentSchema.graphTypes.find((graphType) => graphType.graph_type === graph_type_name)!;
     if (!graphType) return;
     const entity = graphType.entities.find((entity) => entity.type_name === entity_type_name)!;
     if (!entity) return;
-    if (entity.entity_type === GraphEntityType.Node) {
-      const properties = await this.getNodeTypeDesc(graph_type_name, entity_type_name);
-      if (generation !== this.generation) return;
-      // @ts-ignore
-      entity.propertyInfos = properties;
-    } else if (entity.entity_type === GraphEntityType.Edge) {
-      const properties = await this.getEdgeTypeDesc(graph_type_name, entity_type_name);
-      if (generation !== this.generation) return;
-      // @ts-ignore
-      entity.propertyInfos = properties;
-    }
-    this.updateCurrentSchame({
-      graphTypes: this.currentSchema.graphTypes,
+    const response = await (entity.entity_type === GraphEntityType.Node
+      ? this.queryNodeTypeDesc(graph_type_name, entity_type_name)
+      : this.queryEdgeTypeDesc(graph_type_name, entity_type_name));
+    if (generation !== this.generation || version !== this.metadataVersions['graph-types']) return;
+    runInAction(() => {
+      if (entity.entity_type === GraphEntityType.Node) {
+        // @ts-ignore
+        entity.propertyInfos = (response.data?.tables || []).map((property) => ({
+          ...property,
+          type: GraphEntityType.Node,
+          type_name: entity_type_name,
+        }));
+      } else if (entity.entity_type === GraphEntityType.Edge) {
+        // @ts-ignore
+        entity.propertyInfos = (response.data?.tables || []).map((property) => ({
+          ...property,
+          type: GraphEntityType.Edge,
+          type_name: entity_type_name,
+        }));
+      }
+      this.updateCurrentSchame({
+        graphTypes: this.currentSchema.graphTypes,
+      });
     });
+    return response;
   };
 
   importDemoDataset = async (dataSet: string) => {
@@ -309,32 +396,42 @@ export default class SchemaStore {
   };
 
   dropGraphType = async (graphTypeName: string) => {
+    const generation = this.generation;
     const ngql = `DROP GRAPH TYPE IF EXISTS \`${graphTypeName}\``;
     const res = await this.services.execute<GQLResult>(ngql, { signal: this.abort.signal });
+    if (res.code === 0 && generation === this.generation) this.invalidateMetadata('graph-types', 'graphs');
     return res;
   };
 
   dropSchema = async (schemaPath: string) => {
+    const generation = this.generation;
     const ngql = `DROP SCHEMA IF EXISTS \`${schemaPath}\``;
     const res = await this.services.execute<GQLResult>(ngql, { signal: this.abort.signal });
+    if (res.code === 0 && generation === this.generation) this.invalidateMetadata('schemas');
     return res;
   };
 
   createSchema = async (schemaPath: string) => {
+    const generation = this.generation;
     const ngql = `CREATE SCHEMA \`${schemaPath}\``;
     const res = await this.services.execute<GQLResult>(ngql, { signal: this.abort.signal });
+    if (res.code === 0 && generation === this.generation) this.invalidateMetadata('schemas');
     return res;
   };
 
   createGraph = async (graphName: string, graphType: string) => {
+    const generation = this.generation;
     const ngql = `CREATE GRAPH \`${graphName}\` :: \`${graphType}\``;
     const res = await this.services.execute<GQLResult>(ngql, { signal: this.abort.signal });
+    if (res.code === 0 && generation === this.generation) this.invalidateMetadata('graphs');
     return res;
   };
 
   dropGraph = async (graphName: string) => {
+    const generation = this.generation;
     const ngql = `DROP GRAPH IF EXISTS \`${graphName}\``;
     const res = await this.services.execute<GQLResult>(ngql, { signal: this.abort.signal });
+    if (res.code === 0 && generation === this.generation) this.invalidateMetadata('graphs');
     return res;
   };
 
@@ -411,8 +508,12 @@ export default class SchemaStore {
         if (sessionGeneration !== this.sessionGeneration) {
           throw new DOMException('Schema switch cancelled', 'AbortError');
         }
+        const generation = this.generation;
         const res = await (this.services.switchSchema?.(schemaPath) ?? this.sessionSetSchema(schemaPath));
-        if (sessionGeneration !== this.sessionGeneration) {
+        if (
+          sessionGeneration !== this.sessionGeneration ||
+          (generation !== this.generation && this.currentSchema.path !== schemaPath)
+        ) {
           throw new DOMException('Schema switch cancelled', 'AbortError');
         }
         if (res.code === 0) {
