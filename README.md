@@ -76,7 +76,7 @@ See the [troubleshooting guide](deploy/troubleshooting.md).
 
 See the [contributing guide](CONTRIBUTING.md).
 
-Shared UI code is organized into [Studio UI](packages/studio-ui/README.md) for controlled public APIs and [Studio UI Internal](packages/studio-ui-internal/README.md) for the implementation used by Web/GUI. [Studio Core](packages/studio-core/README.md) supplies shared protocols and utilities.
+Shared UI code is organized into [Studio UI](docs/agents/STUDIO-UI.md) for controlled public APIs and [Studio UI Internal](docs/agents/STUDIO-UI-INTERNAL.md) for the implementation used by Web/GUI. [Studio Core](docs/agents/STUDIO-CORE.md) supplies shared protocols and utilities.
 
 ## 📄 License
 

@@ -2,13 +2,17 @@
 
 Thank you for contributing to NebulaGraph Studio.
 
+## Repository guidance
+
+Read [AGENTS.md](AGENTS.md) for repository-wide rules and task-specific guides. Shared package contracts and lessons are maintained in [docs/agents](docs/agents).
+
 ## Tech stack
 
 - [Turborepo](https://turbo.build/repo/docs) for managing multiple packages
 - [React](https://reactjs.org/) for building user interfaces
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
 - [MUI](https://mui.com/) for UI components
-- [React Router](https://reactrouter.com/) for routing
+- TanStack Router file routes for Web; React Router for GUI (see [Web routing](apps/web/README.md) and [GUI routes](apps/gui/src/routes.tsx))
 - [MobX](https://mobx.js.org/) for state management
 - [Emotion](https://emotion.sh/) for styling
 - [Tailwind CSS](https://tailwindcss.com/) for utility-first styling
