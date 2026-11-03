@@ -4,6 +4,7 @@
 
 ```ts
 
+import { AxiosInstance } from 'axios';
 import { CSSProperties } from 'react';
 import { DescEdgeTypeResult } from '@vesoft-inc/studio-core/contracts';
 import { DescGraphTypeResult } from '@vesoft-inc/studio-core/contracts';
@@ -87,6 +88,21 @@ export interface CreateGraphDialogProps {
     // (undocumented)
     open: boolean;
 }
+
+// @public (undocumented)
+export function createStudioServerConsoleServices(input: StudioServerConsoleOptions): ConsoleServices;
+
+// @public (undocumented)
+export function createStudioServerExplorerServices(input: StudioServerExplorerOptions): ExplorerServices;
+
+// @public (undocumented)
+export function createStudioServerIconServices(input: StudioServerIconOptions): IconServices;
+
+// @public (undocumented)
+export function createStudioServerSchemaEditorServices(input: StudioServerSchemaEditorOptions): SchemaEditorServices;
+
+// @public (undocumented)
+export function createStudioServerSchemaServices(input: StudioServerSchemaOptions): SchemaServices;
 
 // @public
 export function decodeSnapshotPayload(serialized?: string): SnapshotPayload | undefined;
@@ -842,6 +858,63 @@ export interface StudioProviderProps extends UiProviderProps {
     schemaPath?: string;
     scopeKey: string;
     services: StudioServices;
+}
+
+// @public (undocumented)
+export interface StudioServerConsoleOptions {
+    // (undocumented)
+    http: AxiosInstance;
+}
+
+// @public (undocumented)
+export interface StudioServerExplorerOptions {
+    backgroundHttp?: AxiosInstance;
+    // (undocumented)
+    http: AxiosInstance;
+    // (undocumented)
+    settings?: {
+        appKey: string;
+        personalKey?: string;
+    };
+    // (undocumented)
+    snapshotVersion?: string;
+}
+
+// @public (undocumented)
+export interface StudioServerIconOptions {
+    // (undocumented)
+    http: AxiosInstance;
+}
+
+// @public (undocumented)
+export interface StudioServerSchemaEditorOptions {
+    backgroundHttp?: AxiosInstance;
+    // (undocumented)
+    http: AxiosInstance;
+    // (undocumented)
+    layouts?: {
+        address: string;
+        username: string;
+        schemaPath: string;
+        namespace?: string;
+    };
+    // (undocumented)
+    sketches?: boolean;
+}
+
+// @public (undocumented)
+export interface StudioServerSchemaOptions {
+    backgroundHttp?: AxiosInstance;
+    // (undocumented)
+    http: AxiosInstance;
+    // (undocumented)
+    importDataset?: boolean;
+    // (undocumented)
+    layouts?: {
+        address: string;
+        username: string;
+        namespace?: string;
+    };
 }
 
 // @public

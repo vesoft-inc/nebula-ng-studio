@@ -53,9 +53,29 @@ async function files(directory) {
     )
   ).flat();
 }
-function imports(source) {
+function imports(source, runtimeOnly = false) {
   const specifiers = [];
   function visit(node) {
+    if (runtimeOnly) {
+      if (ts.isImportTypeNode(node)) return;
+      if (
+        ts.isImportDeclaration(node) &&
+        (node.importClause?.isTypeOnly ||
+          (node.importClause?.namedBindings &&
+            ts.isNamedImports(node.importClause.namedBindings) &&
+            !node.importClause.name &&
+            node.importClause.namedBindings.elements.every((item) => item.isTypeOnly)))
+      )
+        return;
+      if (
+        ts.isExportDeclaration(node) &&
+        (node.isTypeOnly ||
+          (node.exportClause &&
+            ts.isNamedExports(node.exportClause) &&
+            node.exportClause.elements.every((item) => item.isTypeOnly)))
+      )
+        return;
+    }
     let value;
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) value = node.moduleSpecifier;
     else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) value = node.argument.literal;
@@ -79,13 +99,50 @@ for (const name of ['studio-ui-internal', 'studio-core']) {
       errors.push(`Reverse dependency: ${relative(root, file)}`);
   }
 }
-// Web and GUI intentionally consume only the internal implementation in this release.
+const adapterEntry = `${pkg.name}/adapters/studio-server`;
+const adapterSource = resolve(root, 'src/adapters/studio-server');
+// Hosts may share the HTTP adapter without mixing UI contexts.
 for (const name of ['web', 'gui']) {
   for (const file of await files(resolve(root, '../../apps', name, 'src'))) {
     if (!/\.[jt]sx?$/.test(file) || /\.test\./.test(file)) continue;
     const source = ts.createSourceFile(file, await readFile(file, 'utf8'), ts.ScriptTarget.Latest, true);
-    if (imports(source).some((id) => id === pkg.name || id.startsWith(`${pkg.name}/`)))
+    if (
+      imports(source).some(
+        (id) => (id === pkg.name || id.startsWith(`${pkg.name}/`)) && !(name === 'web' && id === adapterEntry)
+      )
+    )
       errors.push(`Do not mix external and internal UI contexts in ${name}: ${relative(root, file)}`);
+  }
+}
+
+// The optional adapter is a service-only entry. Follow local runtime imports so
+// an innocent-looking helper cannot pull in providers, models or UI barrels.
+const adapterVisited = new Set();
+async function checkAdapterSource(file) {
+  if (adapterVisited.has(file)) return;
+  adapterVisited.add(file);
+  if (!file.startsWith(`${adapterSource}/`)) {
+    errors.push(`Adapter loads UI source: ${relative(root, file)}`);
+    return;
+  }
+  const source = ts.createSourceFile(file, await readFile(file, 'utf8'), ts.ScriptTarget.Latest, true);
+  for (const id of imports(source, true)) {
+    if (id.startsWith('.')) {
+      const result = ts.resolveModuleName(id, file, sourceProgram.getCompilerOptions(), ts.sys).resolvedModule;
+      if (result) await checkAdapterSource(result.resolvedFileName);
+      else errors.push(`Unresolved adapter import: ${id}`);
+    } else if (!/^(?:@vesoft-inc\/studio-core(?:\/(?:contracts|request|graph))?|axios)$/.test(id))
+      errors.push(`Adapter loads a runtime dependency: ${id}`);
+  }
+}
+await checkAdapterSource(resolve(adapterSource, 'index.ts'));
+for (const file of await files(resolve(root, 'src'))) {
+  if (!/\.[jt]sx?$/.test(file) || /\.test\./.test(file) || file.startsWith(`${adapterSource}/`)) continue;
+  const source = ts.createSourceFile(file, await readFile(file, 'utf8'), ts.ScriptTarget.Latest, true);
+  for (const id of imports(source)) {
+    const result = ts.resolveModuleName(id, file, sourceProgram.getCompilerOptions(), ts.sys).resolvedModule;
+    if (id === adapterEntry || result?.resolvedFileName.startsWith(`${adapterSource}/`))
+      errors.push(`UI source imports the optional adapter: ${relative(root, file)}`);
   }
 }
 
@@ -170,6 +227,41 @@ if (dist) {
   };
   for (const entry of ['./contracts', './locales/zh_CN', './locales/en_US'])
     await pure(resolve(root, pkg.exports[entry].import));
+
+  const checkAdapterGraph = async (file, visited = new Set()) => {
+    if (visited.has(file)) return;
+    visited.add(file);
+    const source = ts.createSourceFile(file, await readFile(file, 'utf8'), ts.ScriptTarget.Latest, true);
+    for (const id of imports(source)) {
+      if (id.startsWith('.')) {
+        await checkAdapterGraph(
+          resolve(dirname(file), id.replace(/\.js$/, file.endsWith('.d.ts') ? '.d.ts' : '.js')),
+          visited
+        );
+      } else if (!/^(?:@vesoft-inc\/studio-core(?:\/(?:contracts|request|graph))?|axios)$/.test(id))
+        errors.push(`Adapter reaches a UI dependency: ${id}`);
+    }
+  };
+  await checkAdapterGraph(resolve(root, pkg.exports['./adapters/studio-server'].import));
+  await checkAdapterGraph(resolve(root, pkg.exports['./adapters/studio-server'].types));
+
+  // Other entry declaration graphs must not acquire the optional Axios peer.
+  const ordinaryVisited = new Set();
+  const checkOrdinaryGraph = async (file) => {
+    if (ordinaryVisited.has(file)) return;
+    ordinaryVisited.add(file);
+    const source = ts.createSourceFile(file, await readFile(file, 'utf8'), ts.ScriptTarget.Latest, true);
+    for (const id of imports(source)) {
+      if (id === 'axios') errors.push(`Ordinary UI entry requires Axios: ${relative(root, file)}`);
+      if (id.startsWith('.'))
+        await checkOrdinaryGraph(resolve(dirname(file), id.replace(/\.js$/, file.endsWith('.d.ts') ? '.d.ts' : '.js')));
+    }
+  };
+  for (const [name, entry] of Object.entries(pkg.exports)) {
+    if (name === './adapters/studio-server' || name === './styles.css') continue;
+    await checkOrdinaryGraph(resolve(root, entry.import));
+    await checkOrdinaryGraph(resolve(root, entry.types));
+  }
 }
 if (errors.length) {
   console.error(errors.join('\n'));

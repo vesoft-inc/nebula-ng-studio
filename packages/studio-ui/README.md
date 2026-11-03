@@ -9,6 +9,7 @@
 - `studio-core`：通用协议、纯算法及现有基础工具，不承担 UI 生命周期或路由管理。
 
 内部包和 core 不得反向依赖 `studio-ui`。同一组件树不混用公共包和内部包的 Provider 与组件。
+Web 可以单独复用下列 Studio Server 服务适配入口；该入口不创建 Provider 或加载 UI 实现。
 
 ## 公开入口
 
@@ -21,6 +22,7 @@
 | `/explorer` | `SnapshotList`、`ExplorerGraph`、快照与设置服务、导航阻止契约 |
 | `/editor` | `GqlEditor`、`GqlViewer`，只提供 `focus()` 的句柄 |
 | `/contracts` | 快照、过滤、图标等纯 DTO、枚举及快照编解码函数 |
+| `/adapters/studio-server` | 将宿主 Axios 实例连接到 Studio Server 的五个领域服务工厂 |
 | `/locales/zh_CN`、`/locales/en_US` | 静态语言资源 |
 | `/styles.css` | 组件必需样式 |
 
@@ -152,6 +154,45 @@ export function StudioArea({ connection, schemaPath, onSchemaChange, page }: Stu
 中止客户端请求不表示服务端操作已经撤销。需要取消服务端查询时，使用现有可选 `ConsoleServices.cancelQuery`；它与 `AbortSignal` 承担不同职责。
 
 组件没有统一的异常转换或错误提示去重机制。宿主应结合所用工作台的既有反馈安排网络错误提示：例如 Console 的网络 reject 如需用户可见提示，由宿主处理；Explorer 打开、保存快照的异常已有本地错误提示，应避免宿主对同一次失败再次弹错。不要在通用请求拦截器中对所有非零响应或异常无差别显示提示。
+
+## Studio Server 服务适配
+
+使用相同 Studio Server HTTP 协议的宿主可以按域导入服务工厂。仅此入口需要 Axios 类型；其他 UI、契约和语言入口不引入 Axios。工厂不创建请求实例、不安装拦截器、不发初始化请求，也不处理登录、路由或错误提示。普通传输异常继续 reject，业务响应保留原始 `code/message`。
+
+| 工厂 | Options | 可选能力 |
+| --- | --- | --- |
+| `createStudioServerConsoleServices` | `StudioServerConsoleOptions` | 不提供没有协议映射的 `getSessionId/cancelQuery` |
+| `createStudioServerSchemaServices` | `StudioServerSchemaOptions` | `importDataset: true`、`layouts` 启用示例数据导入及布局清理 |
+| `createStudioServerSchemaEditorServices` | `StudioServerSchemaEditorOptions` | `sketches: true`、`layouts` 启用草稿及布局持久化 |
+| `createStudioServerExplorerServices` | `StudioServerExplorerOptions` | `settings: { appKey, personalKey? }`、`snapshotVersion` |
+| `createStudioServerIconServices` | `StudioServerIconOptions` | 图标组和图标项 CRUD |
+
+所有 Options 必须传入 `http: AxiosInstance`。Schema、SchemaEditor、Explorer 还接受 `backgroundHttp`，省略时使用 `http`：配置读取和布局读写使用后台实例，设置保存使用普通实例，布局清理的删除使用普通实例。宿主决定这些实例是否显示错误，并保持相同的认证及会话处理。
+
+```tsx
+import axios from 'axios';
+import { parseResponseBody } from '@vesoft-inc/studio-core/request';
+import { createStudioServerExplorerServices } from '@vesoft-inc/studio-ui/adapters/studio-server';
+
+// 在宿主会话中创建稳定的实例，并在这里配置认证和错误处理。
+const http = axios.create({
+  baseURL: '/api-studio',
+  transformResponse: [(data, headers, status) => parseResponseBody(data, headers.get('content-type'), status)],
+});
+
+// React 中按实际依赖 useMemo；替换领域服务会重建依赖它的 UI 状态。
+const explorerServices = createStudioServerExplorerServices({
+  http,
+  snapshotVersion: '5.4',
+  settings: { appKey: 'my-app-settings', personalKey: 'my-user-settings' },
+});
+```
+
+`http.baseURL` 应已经包含 API 前缀；工厂只追加相对路径。认证、Cookie、Authorization、会话过期和错误提示归宿主。使用 `parseResponseBody` 可保留 Studio 当前的大整数响应解析。Console 的 `execute` 对应 `/nebula/console/execGql`，`query` 对应 `/gql/exec`；`queryTimeout` 按毫秒写入请求体 `timeout`，不作为 Axios 网络超时。所有方法转发取消信号；已经提交到服务端的操作不保证撤销。
+
+布局配置的 `address/username` 必填，编辑器布局额外绑定 `schemaPath`。工厂复制身份和设置 key；身份变化后创建新的服务。未提供 `namespace` 时保留 Studio 原有 `studio-schema-layout-v1` key 与 v1 文档；提供时把命名空间作为经过编码的额外 key 段，读写和清理遵循同一范围，不迁移旧数据。Explorer 的设置 key 完全由宿主提供，加载只返回已保存的分组，UI 负责合并默认值。
+
+同一编辑器服务实例的布局保存串行执行，读取最多等待两秒。空布局、过长 key 或未获确认的保存返回 `false`；可选读取失败返回 `null`；取消会拒绝并停止后续步骤。清理记录属于 Schema 服务实例，失败后允许重试。宿主在需要保留队列时应跨页面复用实例；跨实例、标签页和客户端的并发顺序需要服务端支持。这里不提供通用配置客户端或持久化内部对象。
 
 ## 开发检查
 

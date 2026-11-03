@@ -54,6 +54,11 @@
     "./styles.css": {
       "import": "./dist/style.css",
       "default": "./dist/style.css"
+    },
+    "./adapters/studio-server": {
+      "types": "./dist/adapters/studio-server.d.ts",
+      "import": "./dist/adapters/studio-server.js",
+      "default": "./dist/adapters/studio-server.js"
     }
   },
   "files": [
@@ -83,7 +88,8 @@
     "@mui/system": "^7.1.1",
     "@mui/x-date-pickers": "^7.17.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "axios": "^1.6.7"
   },
   "dependencies": {
     "@tweenjs/tween.js": "18",
@@ -171,10 +177,16 @@
     "@microsoft/api-extractor": "^7.52.8",
     "rollup-plugin-dts": "^6.2.1",
     "rollup": "^4.34.8",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "axios": "^1.6.7"
   },
   "engines": {
     "node": ">=22"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "peerDependenciesMeta": {
+    "axios": {
+      "optional": true
+    }
+  }
 }
