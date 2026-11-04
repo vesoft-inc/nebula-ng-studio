@@ -10,15 +10,16 @@
 
 ## Read as needed
 
-| Task                                               | Guide                                                   |
-| -------------------------------------------------- | ------------------------------------------------------- |
-| Package boundaries, type ownership, public surface | [ARCHITECTURE](docs/agents/ARCHITECTURE.md)             |
-| Core protocols and utilities                       | [STUDIO-CORE](docs/agents/STUDIO-CORE.md)               |
-| Public UI and service contracts                    | [STUDIO-UI](docs/agents/STUDIO-UI.md)                   |
-| Internal components and runtime                    | [STUDIO-UI-INTERNAL](docs/agents/STUDIO-UI-INTERNAL.md) |
-| HTTP, settings, layout persistence                 | [STUDIO-SERVER](docs/agents/STUDIO-SERVER.md)           |
-| Builds, verification, generated files              | [VERIFICATION](docs/agents/VERIFICATION.md)             |
-| Concurrency, interaction, or boundary regressions  | [LESSONS](docs/agents/LESSONS.md)                       |
-| Go development and deployment                      | [CONTRIBUTING](CONTRIBUTING.md), [deploy](deploy)       |
+| Task                                               | Guide                                                           |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| Package boundaries, type ownership, public surface | [ARCHITECTURE](docs/agents/ARCHITECTURE.md)                     |
+| Core protocols and utilities                       | [STUDIO-CORE](docs/agents/STUDIO-CORE.md)                       |
+| Public UI and service contracts                    | [STUDIO-UI](docs/agents/STUDIO-UI.md)                           |
+| Internal components and runtime                    | [STUDIO-UI-INTERNAL](docs/agents/STUDIO-UI-INTERNAL.md)         |
+| Server sessions, query execution, HTTP responses   | [STUDIO-SERVER](docs/agents/STUDIO-SERVER.md)                   |
+| Studio Server adapters, settings, layouts          | [STUDIO-SERVER-ADAPTERS](docs/agents/STUDIO-SERVER-ADAPTERS.md) |
+| Builds, verification, generated files              | [VERIFICATION](docs/agents/VERIFICATION.md)                     |
+| Concurrency, interaction, or boundary regressions  | [LESSONS](docs/agents/LESSONS.md)                               |
+| Go development and deployment                      | [CONTRIBUTING](CONTRIBUTING.md), [deploy](deploy)               |
 
 Keep always-applicable rules here and conditional constraints or key implementation details in their owning guides. Omit source inventories and generic advice.

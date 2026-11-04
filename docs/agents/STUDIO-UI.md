@@ -13,7 +13,7 @@ Exact Props and service signatures live in [services.ts](../../packages/studio-u
 | `/explorer`                                                     | `SnapshotList`, `ExplorerGraph` for a specific `snapshotId`                                                   |
 | `/editor`                                                       | Controlled `GqlEditor` and `GqlViewer`; the handle exposes only `focus()`                                     |
 | `/contracts`, `/locales/zh_CN`, `/locales/en_US`, `/styles.css` | Plain DTOs/codecs, static locales, required styles                                                            |
-| `/adapters/studio-server`                                       | [Five optional service factories](STUDIO-SERVER.md), not re-exported by root or component entries             |
+| `/adapters/studio-server`                                       | [Five optional service factories](STUDIO-SERVER-ADAPTERS.md), not re-exported by root or component entries    |
 
 ## Provider lifecycle
 
@@ -51,4 +51,4 @@ Schema changes clear selection, expansion, and dialogs. Unmount stops page callb
 
 `execute` handles user/warning queries; `query` handles metadata. Public `QueryOptions` contains only cancellation and a timeout in milliseconds; components convert UI settings from seconds. Optional `getSessionId/cancelQuery` provides server cancellation; client cancellation cannot undo submitted writes.
 
-Business failures preserve `code/message`; transport failures may reject. Console creates results for business failures but does not guarantee a visible message for network rejection. Explorer already shows local open/save errors. Hosts choose error presentation per operation; components have no universal deduplication. [Studio Server adapters](STUDIO-SERVER.md) additionally require HTTP business-error normalization.
+Business failures preserve `code/message`; transport failures may reject. Console creates results for business failures but does not guarantee a visible message for network rejection. Explorer already shows local open/save errors. Hosts choose error presentation per operation; components have no universal deduplication. [Studio Server adapters](STUDIO-SERVER-ADAPTERS.md) additionally require HTTP business-error normalization.
