@@ -5,14 +5,39 @@ import type { ExplorerServices, ExplorerSettings, SnapshotPage } from '../../ser
 import { createQuery, requestConfig, response } from './request';
 import { readConfig, writeConfig } from './config';
 
+/**
+ * Host HTTP, version and optional settings configuration for the Explorer service adapter.
+ * @public
+ */
 export interface StudioServerExplorerOptions {
+  /** Host Axios client with the Studio Server API prefix, authentication and response/error policy configured. */
   http: AxiosInstance;
-  /** Host client for configuration reads. Settings saves use http. Defaults to http. */
+  /**
+   * Host client for configuration reads. Settings saves use `http`; the host controls error presentation.
+   * @defaultValue `http`
+   */
   backgroundHttp?: AxiosInstance;
+  /** Version stamp used by the UI when exporting snapshots. Supplied by the host; no environment variables are read. */
   snapshotVersion?: string;
-  settings?: { appKey: string; personalKey?: string };
+  /** Fixed persistence keys copied at creation. Omit to disable remote settings. */
+  settings?: {
+    /** Application settings key, including any database/tenant scope required by the host. */
+    appKey: string;
+    /** User settings key bound by the host. Omit for application-only settings without personal configuration requests. */
+    personalKey?: string;
+  };
 }
 
+/**
+ * Creates Explorer query, snapshot CRUD and optionally remote settings services.
+ *
+ * @remarks
+ * Creation sends no requests and installs no interceptors. Settings loading returns persisted groups;
+ * the UI merges defaults. Replace the service when its bound persistence keys change.
+ * Snapshot creation preserves `schema_path`; reads preserve `schemaPath` and serialized snapshot data.
+ * The host owns authentication and the Axios policy for HTTP business errors, transport failures and error presentation.
+ * @public
+ */
 export function createStudioServerExplorerServices({
   http,
   backgroundHttp = http,

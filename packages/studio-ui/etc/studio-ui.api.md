@@ -89,19 +89,19 @@ export interface CreateGraphDialogProps {
     open: boolean;
 }
 
-// @public (undocumented)
+// @public
 export function createStudioServerConsoleServices(input: StudioServerConsoleOptions): ConsoleServices;
 
-// @public (undocumented)
+// @public
 export function createStudioServerExplorerServices(input: StudioServerExplorerOptions): ExplorerServices;
 
-// @public (undocumented)
+// @public
 export function createStudioServerIconServices(input: StudioServerIconOptions): IconServices;
 
-// @public (undocumented)
+// @public
 export function createStudioServerSchemaEditorServices(input: StudioServerSchemaEditorOptions): SchemaEditorServices;
 
-// @public (undocumented)
+// @public
 export function createStudioServerSchemaServices(input: StudioServerSchemaOptions): SchemaServices;
 
 // @public
@@ -860,56 +860,45 @@ export interface StudioProviderProps extends UiProviderProps {
     services: StudioServices;
 }
 
-// @public (undocumented)
+// @public
 export interface StudioServerConsoleOptions {
-    // (undocumented)
     http: AxiosInstance;
 }
 
-// @public (undocumented)
+// @public
 export interface StudioServerExplorerOptions {
     backgroundHttp?: AxiosInstance;
-    // (undocumented)
     http: AxiosInstance;
-    // (undocumented)
     settings?: {
         appKey: string;
         personalKey?: string;
     };
-    // (undocumented)
     snapshotVersion?: string;
 }
 
-// @public (undocumented)
+// @public
 export interface StudioServerIconOptions {
-    // (undocumented)
     http: AxiosInstance;
 }
 
-// @public (undocumented)
+// @public
 export interface StudioServerSchemaEditorOptions {
     backgroundHttp?: AxiosInstance;
-    // (undocumented)
     http: AxiosInstance;
-    // (undocumented)
     layouts?: {
         address: string;
         username: string;
         schemaPath: string;
         namespace?: string;
     };
-    // (undocumented)
     sketches?: boolean;
 }
 
-// @public (undocumented)
+// @public
 export interface StudioServerSchemaOptions {
     backgroundHttp?: AxiosInstance;
-    // (undocumented)
     http: AxiosInstance;
-    // (undocumented)
     importDataset?: boolean;
-    // (undocumented)
     layouts?: {
         address: string;
         username: string;

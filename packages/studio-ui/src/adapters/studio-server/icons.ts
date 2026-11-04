@@ -4,10 +4,23 @@ import type { IconGroupRecord, IconItemRecord } from '../../contracts';
 import type { IconServices } from '../../services';
 import { requestConfig, response } from './request';
 
+/**
+ * Host HTTP configuration for the remote icon catalog service adapter.
+ * @public
+ */
 export interface StudioServerIconOptions {
+  /** Host Axios client with the Studio Server API prefix, authentication and response/error policy configured. */
   http: AxiosInstance;
 }
 
+/**
+ * Creates remote SVG/image group and item services for graph node styles.
+ *
+ * @remarks
+ * Creation sends no requests and does not load a UI or icon catalog.
+ * The host binds the client to the appropriate user/database scope and owns error presentation.
+ * @public
+ */
 export function createStudioServerIconServices({ http }: StudioServerIconOptions): IconServices {
   return {
     getIconGroupList: async (type, options) =>
