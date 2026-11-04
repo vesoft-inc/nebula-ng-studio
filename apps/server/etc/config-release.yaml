@@ -12,7 +12,7 @@ Assets:
   Gzip: true
 Auth:
   TokenName: 'studio_token'
-  TokenSecret: '${STUDIO_TOKEN_SECRET}' # Set a stable deployment secret to preserve sessions across restarts
+  TokenSecret: '${STUDIO_TOKEN_SECRET}'
   EncryptPassphrase: '${STUDIO_ENCRYPT_PASSPHRASE}' # Must be 16, 24, or 32 bytes when set
   TokenMaxAge: 86400
 
