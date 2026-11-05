@@ -2,8 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { StrictMode, type DragEventHandler } from 'react';
-import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { StrictMode, useState, type DragEventHandler } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '../../theme/index';
 import type { ReactFlowInstance } from '@xyflow/react';
@@ -119,40 +118,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function RoutedBuilder({ mode }: { mode: GraphTypeBuildMode }) {
-  const navigate = useNavigate();
-  const params = useParams();
+function ControlledBuilder({ initialMode }: { initialMode: GraphTypeBuildMode }) {
+  const [mode, setMode] = useState(initialMode);
   return (
     <GraphTypeBuilder
       mode={mode}
-      graphTypeName={params.graphTypeName}
-      sketchId={Number(params.id)}
-      onEdit={(name) => navigate(`/schema-manager/graphtype/edit/${name}`)}
-      onView={(name) => navigate(`/schema-manager/graphtype/view/${name}`)}
+      graphTypeName={mode === GraphTypeBuildMode.Sketch ? undefined : 'people'}
+      sketchId={mode === GraphTypeBuildMode.Sketch ? 1 : undefined}
+      onEdit={() => setMode(GraphTypeBuildMode.Edit)}
+      onView={() => setMode(GraphTypeBuildMode.Readonly)}
     />
   );
 }
 
 function mount(mode: 'view' | 'edit' | 'sketch' = 'view', strictMode = false) {
+  const modes = {
+    view: GraphTypeBuildMode.Readonly,
+    edit: GraphTypeBuildMode.Edit,
+    sketch: GraphTypeBuildMode.Sketch,
+  };
   const builder = (
     <ThemeProvider theme={themeStore.theme}>
       <GraphTypeStoreProvider value={store}>
-        <MemoryRouter initialEntries={[`/schema-manager/graphtype/${mode}/${mode === 'sketch' ? '1' : 'people'}`]}>
-          <Routes>
-            <Route
-              path="/schema-manager/graphtype/view/:graphTypeName"
-              element={<RoutedBuilder mode={GraphTypeBuildMode.Readonly} />}
-            />
-            <Route
-              path="/schema-manager/graphtype/edit/:graphTypeName"
-              element={<RoutedBuilder mode={GraphTypeBuildMode.Edit} />}
-            />
-            <Route
-              path="/schema-manager/graphtype/sketch/:id"
-              element={<RoutedBuilder mode={GraphTypeBuildMode.Sketch} />}
-            />
-          </Routes>
-        </MemoryRouter>
+        <ControlledBuilder initialMode={modes[mode]} />
       </GraphTypeStoreProvider>
     </ThemeProvider>
   );

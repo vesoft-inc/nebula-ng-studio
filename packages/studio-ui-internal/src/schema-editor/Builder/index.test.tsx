@@ -5,7 +5,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { themeStore } from '../../theme/index';
-import { MemoryRouter } from 'react-router-dom';
 import { GraphTypeBuildMode, IEdgeTypeItem, INodeTypeItem, IProperty } from '../../schema/types';
 import { PropertyDataType } from '@vesoft-inc/studio-core/contracts';
 import { StrictMode } from 'react';
@@ -92,16 +91,13 @@ const person = (withKey = true) =>
     properties: [new IProperty({ name: 'id', isPrimaryKey: withKey })],
   });
 const renderBuilder = (mode = GraphTypeBuildMode.Create, strictMode = false) => {
-  const path = `/schema-manager/graphtype/${mode === GraphTypeBuildMode.Edit ? 'edit/people' : 'create'}`;
   const builder = (
     <ThemeProvider theme={themeStore.theme}>
-      <MemoryRouter initialEntries={[path]}>
-        <GraphTypeBuilder
-          mode={mode}
-          graphTypeName="people"
-          onSaved={() => mocks.navigate('/schema-manager/graphtype')}
-        />
-      </MemoryRouter>
+      <GraphTypeBuilder
+        mode={mode}
+        graphTypeName="people"
+        onSaved={() => mocks.navigate('/schema-manager/graphtype')}
+      />
     </ThemeProvider>
   );
   const result = render(strictMode ? <StrictMode>{builder}</StrictMode> : builder);

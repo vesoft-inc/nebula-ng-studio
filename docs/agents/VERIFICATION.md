@@ -30,7 +30,7 @@ STUDIO_UI_INTERNAL_DIST=1 pnpm --filter nebula-gui exec vite build
 
 Root `pnpm build` / Web `build` runs copy:server, replacing `apps/server/assets/public`. Use the Vite commands above for frontend-only verification. Builds do not produce installation packages.
 
-Generate Web `routeTree.gen.ts` with `pnpm --filter nebula-studio routes:generate`; lint:types already includes it. Do not edit it manually. Prefix route helpers/tests with `-` to exclude them from the route tree.
+Web/GUI each maintain their own generated `routeTree.gen.ts`. Generate them with `pnpm --filter nebula-studio routes:generate` or `pnpm --filter nebula-gui routes:generate`; each app's lint:types includes generation. Do not edit the trees manually. Prefix route helpers/tests with `-` to exclude them from the route tree.
 
 ## Development and Server
 

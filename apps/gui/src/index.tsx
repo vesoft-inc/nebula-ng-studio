@@ -3,7 +3,7 @@ import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import { StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
-import { RouterProvider } from 'react-router-dom';
+import { RouterProvider } from '@tanstack/react-router';
 import { GlobalModal } from '@vesoft-inc/studio-ui-internal/modal';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { createGuiRouter } from './app/router';
@@ -26,7 +26,7 @@ const PageRoot = ({ router }: { router: ReturnType<typeof createGuiRouter>['rout
         <ThemeWrapper>
           <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
             <Suspense fallback={<PageLoading />}>
-              <RouterProvider router={router} future={{ v7_startTransition: true }} />
+              <RouterProvider router={router} />
               <GlobalModal store={modalStore} />
             </Suspense>
           </UiProvider>

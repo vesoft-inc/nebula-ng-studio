@@ -47,7 +47,8 @@ for (const file of await files(sourceRoot)) {
         if (
           ['axios', 'mobx', 'react', 'react-dom', 'react-router', 'react-router-dom', '@remix-run/router'].includes(
             dependency
-          )
+          ) ||
+          /^@tanstack\/(?:react-router|router-core|history)$/.test(dependency)
         )
           report(node, 'Transport clients, application state and routing belong to the host.');
       }

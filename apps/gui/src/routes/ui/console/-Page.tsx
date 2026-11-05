@@ -4,11 +4,11 @@ import {
   CONSOLE_DEFAULT_LOCAL_SETTINGS,
   type ConsoleSettingsForm,
 } from '@vesoft-inc/studio-ui-internal/settings';
-import { CONSOLE_SETTINGS_ID } from '../../utils/preferences';
-import { consoleStore } from '../../stores/console';
-import { guiConsoleServices } from '../../services/console';
-import { getToken } from '../../utils/auth';
-import { brandConfig } from '../../utils/brand';
+import { CONSOLE_SETTINGS_ID } from '@gui/utils/preferences';
+import { consoleStore } from '@gui/stores/console';
+import { guiConsoleServices } from '@gui/services/console';
+import { getToken } from '@gui/utils/auth';
+import { brandConfig } from '@gui/utils/brand';
 
 export default function ConsolePage() {
   const { settings, upsertSettings, isPending } = useStorageSettings<ConsoleSettingsForm>({

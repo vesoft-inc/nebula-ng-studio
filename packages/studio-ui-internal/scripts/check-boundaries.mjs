@@ -78,7 +78,7 @@ async function checkSources(directory, library) {
         if (
           library &&
           production &&
-          /^(?:react-router(?:-dom)?|@tanstack\/(?:react-router|router-core))(?:\/|$)/.test(name)
+          /^(?:react-router(?:-dom)?|@tanstack\/(?:react-router|router-core|history))(?:\/|$)/.test(name)
         )
           report(node, 'Business components accept semantic navigation callbacks; routers belong in the host.');
         if (

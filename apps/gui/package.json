@@ -7,11 +7,12 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "NODE_ENV=development vite",
-    "build": "NODE_ENV=production vite build",
+    "build": "pnpm routes:generate && NODE_ENV=production vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\"",
-    "lint:types": "node --stack-size=8192 ../../node_modules/typescript/bin/tsc -b --noEmit",
-    "test": "vitest run"
+    "lint:types": "pnpm routes:generate && node --stack-size=8192 ../../node_modules/typescript/bin/tsc -b --noEmit",
+    "test": "vitest run",
+    "routes:generate": "node scripts/generate-routes.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -30,10 +31,12 @@
     "react-hook-form": "7.55.0",
     "react-hook-form-mui": "^7.6.1",
     "react-i18next": "^14.0.5",
-    "react-router-dom": "6.28.1",
+    "@tanstack/react-router": "1.170.46",
     "axios": "^1.6.7"
   },
   "devDependencies": {
+    "@tanstack/router-plugin": "1.168.48",
+    "@tanstack/router-generator": "1.167.46",
     "@types/node": "^22",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

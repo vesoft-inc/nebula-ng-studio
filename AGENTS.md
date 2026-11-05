@@ -2,7 +2,7 @@
 
 - Dependencies flow from `studio-ui` to `studio-ui-internal` to `studio-core`, never in reverse. Core has no UI, MobX, Router, or Axios dependency.
 - Web/GUI use internal UI. Web may also use the public `adapters/studio-server` entry. Do not mix the two sets of Providers.
-- Applications own routing and page composition: TanStack file routes in Web, React Router in GUI. UI packages do not parse URLs or dispatch pages.
+- Applications own routing and page composition through TanStack file routes in Web/GUI. UI packages do not parse URLs or dispatch pages.
 - Keep MobX internal. Public APIs must not expose Controllers, Stores, observables, or Monaco/ForceGraph instances.
 - Preserve encryption, snapshot, and storage key compatibility. Keep product behavior regressions, not migration comparison tests.
 - Update affected guides, API documentation/reports, commands, and references alongside implementation changes; remove stale statements in the same change. Record reusable corrections in LESSONS.

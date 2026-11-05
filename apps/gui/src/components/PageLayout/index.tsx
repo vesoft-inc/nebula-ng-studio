@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet } from '@tanstack/react-router';
 import { StudioShell } from '@vesoft-inc/studio-ui-internal/shell';
 import PageHeader from '../PageHeader';
 import LoginModal from '../LoginModal';

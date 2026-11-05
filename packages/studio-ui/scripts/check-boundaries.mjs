@@ -10,9 +10,9 @@ const dist = process.argv.includes('--dist');
 const errors = [];
 const equal = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 const forbiddenPackages =
-  /^(?:@vesoft-inc\/(?:studio-ui-internal|force-graph)|@tanstack\/(?:react-router|router-core)|react-router(?:-dom)?)(?:\/|$)/;
+  /^(?:@vesoft-inc\/(?:studio-ui-internal|force-graph)|@tanstack\/(?:react-router|router-core|history)|react-router(?:-dom)?)(?:\/|$)/;
 const runtimeTypes =
-  /(?:^|\/)(?:mobx(?:-react-lite)?|monaco-editor|force-graph|@tanstack\/(?:react-router|router-core)|react-router(?:-dom)?)(?:\/|$)/;
+  /(?:^|\/)(?:mobx(?:-react-lite)?|monaco-editor|force-graph|@tanstack\/(?:react-router|router-core|history)|react-router(?:-dom)?)(?:\/|$)/;
 if (!equal(Object.keys(pkg.exports), [...Object.keys(surface), './styles.css']))
   errors.push('Public entry list differs from public-api.json.');
 if (Object.keys(pkg.exports).some((name) => name.includes('*'))) errors.push('Wildcard exports are not supported.');

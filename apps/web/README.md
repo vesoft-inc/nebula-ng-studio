@@ -19,7 +19,7 @@ Web 使用 TanStack Router 文件路由。`src/routes` 是页面地址和层级�
 
 URL 参数由路由解码和校验，导航使用 `to/params/search`。应用负责菜单、侧栏、返回、会话失效跳转和未保存探索的离开确认。组件库不引入 Router，也不根据 URL 或通用视图枚举分发页面。详情中的显示页签、编辑模式和查询结果格式仍属于组件交互状态。
 
-部署前缀来自 `APP_CONFIG.basePath`，由 Router 统一应用。登录返回及会话过期支持 query/hash；身份失效时绕过未保存拦截并清理应用资源。GUI 本轮继续使用其现有路由实现。
+部署前缀来自 `APP_CONFIG.basePath`，由 Router 统一应用。登录返回及会话过期支持 query/hash；身份失效时绕过未保存拦截并清理应用资源。GUI 同样使用 TanStack 文件路由，独立维护自己的路由树和部署前缀。
 
 ## Studio Server 服务
 

@@ -12,7 +12,7 @@ Read [AGENTS.md](AGENTS.md) for repository-wide rules and task-specific guides. 
 - [React](https://reactjs.org/) for building user interfaces
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
 - [MUI](https://mui.com/) for UI components
-- TanStack Router file routes for Web; React Router for GUI (see [Web routing](apps/web/README.md) and [GUI routes](apps/gui/src/routes.tsx))
+- TanStack Router file routes for Web/GUI (see [Web routing](apps/web/README.md) and [GUI routes](apps/gui/src/routes))
 - [MobX](https://mobx.js.org/) for state management
 - [Emotion](https://emotion.sh/) for styling
 - [Tailwind CSS](https://tailwindcss.com/) for utility-first styling
