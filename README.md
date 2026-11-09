@@ -3,14 +3,14 @@
     <picture>
       <source
         media="(prefers-color-scheme: dark)"
-        srcset="https://github.com/user-attachments/assets/4f7c9f6d-7ce3-4c57-8e1b-26a7f53c26da"
+        srcset="apps/web/public/images/login-logo-dark.svg"
       />
       <source
         media="(prefers-color-scheme: light)"
-        srcset="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
+        srcset="apps/web/public/images/login-logo-light.svg"
       />
       <img
-        src="https://github.com/user-attachments/assets/a82894c8-de42-4b87-9bc0-134b203b5c0e"
+        src="apps/web/public/images/login-logo-light.svg"
         alt="NebulaGraph Studio"
         width="429"
         height="57"
@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="https://github.com/vesoft-inc/nebula-ng-studio/actions/workflows/ci.yml"><img src="https://github.com/vesoft-inc/nebula-ng-studio/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
-  <a href="LICENSE"><img src="https://github.com/user-attachments/assets/d2877980-d8d4-4185-8c7c-05852bc89c90" alt="License: Apache-2.0" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-blue" alt="License: Apache-2.0" /></a>
 </p>
 
 <p align="center">
