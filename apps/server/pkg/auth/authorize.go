@@ -136,7 +136,7 @@ func CreateToken(authData *AuthData, config *config.Config) (string, error) {
 			EncryptedAuthData: encryptedAuthData,
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: &jwt.NumericDate{Time: time.Unix(expiresAt, 0)},
-				Issuer:    config.Auth.TokenSecret,
+				Issuer:    "studio",
 			},
 		})
 	return token.SignedString([]byte(config.Auth.TokenSecret))
