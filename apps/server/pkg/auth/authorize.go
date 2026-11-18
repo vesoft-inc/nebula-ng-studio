@@ -38,7 +38,7 @@ type (
 		ClientID         string `json:"clientId"`
 		CoreVersion      string `json:"coreVersion"`
 		Version          string `json:"version"`
-		Token            string `json:"token"` // token is used for OAuth2 authentication
+		Token            string `json:"token"` // token is passed to Graphd authentication
 		OAuth2SessionID  string `json:"oauth2SessionID,omitempty"`
 		OAuth2ServerName string `json:"oauth2ServerName,omitempty"`
 	}
@@ -189,10 +189,15 @@ func ParseConnectDBParams(params *types.ConnectDBParams, config *config.Config) 
 	return tokenString, err
 }
 
-func AuthMiddlewareWithCtx(svcCtx *svc.ServiceContext) rest.Middleware {
+func AuthMiddlewareWithCtx(svcCtx *svc.ServiceContext, extraPublicRoutes ...rest.Route) rest.Middleware {
+	type endpoint struct{ method, path string }
+	publicRoutes := make(map[endpoint]bool, len(extraPublicRoutes))
+	for _, route := range extraPublicRoutes {
+		publicRoutes[endpoint{route.Method, route.Path}] = true
+	}
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			if isNoAPIAuthRoute(r.URL.Path) {
+			if isNoAPIAuthRoute(r.URL.Path) || publicRoutes[endpoint{r.Method, r.URL.Path}] {
 				next(w, r)
 				return
 			}

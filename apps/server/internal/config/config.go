@@ -12,9 +12,10 @@ import (
 
 type Config struct {
 	rest.RestConf
-	BasePath    string `json:"basePath,optional"`
-	DefaultHost string `json:"defaultHost,optional"`
-	DefaultPort string `json:"defaultPort,optional"`
+	BasePath    string   `json:"basePath,optional"`
+	DefaultHost string   `json:"defaultHost,optional"`
+	DefaultPort string   `json:"defaultPort,optional"`
+	Plugins     []string `json:",optional"`
 	Assets      Assets
 	Auth        Auth
 	SSO         SSO `json:",optional" yaml:"sso"`

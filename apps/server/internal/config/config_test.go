@@ -125,3 +125,27 @@ func unsetEnvForTest(t *testing.T, name string) {
 		}
 	})
 }
+
+func TestOptionalStartupPlugins(t *testing.T) {
+	source, err := os.ReadFile("../../etc/config-release.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, enabled := range []bool{false, true} {
+		contents := append([]byte(nil), source...)
+		if enabled {
+			contents = append(contents, []byte("\nPlugins:\n  - extension\n")...)
+		}
+		var cfg Config
+		if err := conf.LoadFromYamlBytes(contents, &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if enabled {
+			if len(cfg.Plugins) != 1 || cfg.Plugins[0] != "extension" {
+				t.Fatalf("unexpected plugins: %v", cfg.Plugins)
+			}
+		} else if len(cfg.Plugins) != 0 {
+			t.Fatalf("unexpected default plugins: %v", cfg.Plugins)
+		}
+	}
+}

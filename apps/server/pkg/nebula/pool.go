@@ -171,6 +171,11 @@ func PingWithClientInfo(address string, username string, password string) (strin
 	return version.String(), nil
 }
 
+// PingWithTokenClientInfo probes Graphd using token authentication without an OAuth2 server.
+func PingWithTokenClientInfo(address string, username string, token string) (string, error) {
+	return pingWithTokenAuth(address, username, token, "")
+}
+
 func PingWithOAuth2ClientInfo(address string, username string, token string, serverName string) (string, error) {
 	return pingWithTokenAuth(address, username, token, serverName)
 }

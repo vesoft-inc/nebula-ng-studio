@@ -13,6 +13,7 @@ import (
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/config"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/internal/svc"
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/oauth2auth"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 func TestRefreshOAuth2TokenAllowsValidAccessTokenWithoutRefreshToken(t *testing.T) {
@@ -321,4 +322,35 @@ type errRefreshNotReported struct{}
 
 func (errRefreshNotReported) Error() string {
 	return "refresh was not reported"
+}
+
+func TestInjectedPublicRoutesAreExactAndLocal(t *testing.T) {
+	cfg := config.Config{Auth: config.Auth{TokenName: "studio_token"}}
+	svcCtx := svc.NewServiceContext(cfg, nil)
+	extra := []rest.Route{
+		{Method: http.MethodPost, Path: "/extra/login"},
+	}
+	injected := AuthMiddlewareWithCtx(svcCtx, extra...)
+	// Authentication keeps its own snapshot of the supplied route metadata.
+	extra[0].Path = "/extra/changed"
+	plain := AuthMiddlewareWithCtx(svcCtx)
+	for _, test := range []struct {
+		name, method, path string
+		middleware         rest.Middleware
+		wantStatus         int
+	}{
+		{"public", http.MethodPost, "/extra/login", injected, http.StatusNoContent},
+		{"wrong method", http.MethodGet, "/extra/login", injected, http.StatusUnauthorized},
+		{"child path", http.MethodPost, "/extra/login/child", injected, http.StatusUnauthorized},
+		{"protected", http.MethodPost, "/extra/private", injected, http.StatusUnauthorized},
+		{"other instance", http.MethodPost, "/extra/login", plain, http.StatusUnauthorized},
+		{"changed input", http.MethodPost, "/extra/changed", injected, http.StatusUnauthorized},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			next := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }
+			test.middleware(next)(response, httptest.NewRequest(test.method, test.path, nil))
+			require.Equal(t, test.wantStatus, response.Code)
+		})
+	}
 }

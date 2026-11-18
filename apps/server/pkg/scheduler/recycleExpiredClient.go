@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"time"
 
 	"github.com/vesoft-inc/nebula-ng-studio/apps/server/pkg/nebula"
@@ -8,10 +9,21 @@ import (
 )
 
 func RecycleExpiredClientScheduler() {
+	Run(context.Background())
+}
+
+// Run recycles expired clients until ctx is cancelled.
+func Run(ctx context.Context) {
 	logx.Info("[Scheduler] Start Recycle Expired Client Scheduler")
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
 	for {
 		clientContainer := nebula.GetClientContainer()
 		clientContainer.RemoveExpiredClient()
-		time.Sleep(time.Hour * 24)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
