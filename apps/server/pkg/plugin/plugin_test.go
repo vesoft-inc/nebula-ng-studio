@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -158,4 +159,24 @@ func TestUnexpectedPluginNameClosesInstance(t *testing.T) {
 	require.Nil(t, loaded)
 	require.ErrorContains(t, err, "returned instance named")
 	require.True(t, closed)
+}
+
+func TestTypedNilPluginFromFactory(t *testing.T) {
+	factoryErr := errors.New("plugin unavailable")
+	for _, initErr := range []error{factoryErr, nil} {
+		t.Run(fmt.Sprint(initErr), func(t *testing.T) {
+			name := t.Name()
+			registerForTest(t, name, func(Host) (Plugin, error) {
+				var instance *testPlugin
+				return instance, initErr
+			})
+			loaded, err := Load([]string{name}, testHost{})
+			require.Nil(t, loaded)
+			if initErr != nil {
+				require.ErrorIs(t, err, initErr)
+			} else {
+				require.ErrorContains(t, err, "returned no instance")
+			}
+		})
+	}
 }

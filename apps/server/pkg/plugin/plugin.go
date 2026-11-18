@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"sync"
 )
 
@@ -69,6 +70,10 @@ func Load(names []string, host Host) (_ *Loaded, err error) {
 	}()
 	for index, factory := range factories {
 		instance, initErr := factory(host)
+		// A factory may forward a nil concrete pointer as a Plugin.
+		if v := reflect.ValueOf(instance); v.Kind() == reflect.Pointer && v.IsNil() {
+			instance = nil
+		}
 		if instance != nil {
 			loaded.instances = append(loaded.instances, namedPlugin{names[index], instance})
 		}

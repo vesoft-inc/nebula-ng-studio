@@ -291,7 +291,7 @@ func TestPluginRoutesRejectInvalidContributionsBeforeMounting(t *testing.T) {
 		{"public parent path", []plugin.Route{{Method: http.MethodGet, Path: "/extra/../login", Public: true, Handler: handle}}, "canonical literal path"},
 		{"built-in collision", []plugin.Route{{Method: http.MethodPost, Path: "/api-studio/gql/exec", Public: true, Handler: handle}}, "duplicated item"},
 		{"normalized built-in collision", []plugin.Route{{Method: http.MethodPost, Path: "/api-studio/gql//exec/", Handler: handle}}, "duplicated item"},
-		{"built-in parameter collision", []plugin.Route{{Method: http.MethodGet, Path: "/api-studio/explorer/snapshots/:other", Handler: handle}}, "duplicated item"},
+		{"built-in parameter collision", []plugin.Route{{Method: http.MethodGet, Path: "/api-studio/explorer/snapshots/:other", Handler: handle}}, "ambiguous with /api-studio/explorer/snapshots/:id"},
 		{"private on public path", []plugin.Route{{Method: http.MethodPost, Path: "/api-studio/health", Handler: handle}}, "overlaps built-in public path"},
 		{"private pattern on public path", []plugin.Route{{Method: http.MethodPost, Path: "/api-studio/:resource", Handler: handle}}, "overlaps built-in public path"},
 		{"plugin collision", []plugin.Route{
@@ -301,7 +301,7 @@ func TestPluginRoutesRejectInvalidContributionsBeforeMounting(t *testing.T) {
 		{"plugin parameter collision", []plugin.Route{
 			{Method: http.MethodGet, Path: "/extra/:id", Handler: handle},
 			{Method: http.MethodGet, Path: "/extra/:name", Handler: handle},
-		}, "duplicated item"},
+		}, "ambiguous with /extra/:id"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := config.Config{Auth: config.Auth{TokenName: "studio_token"}}
@@ -353,6 +353,38 @@ func TestPluginRoutesUseExactPublicAccessAndSupportPrivateParameters(t *testing.
 			recorder := httptest.NewRecorder()
 			server.ServeHTTP(recorder, httptest.NewRequest(test.method, test.path, nil))
 			require.Equal(t, test.status, recorder.Code)
+		})
+	}
+}
+
+func TestPluginParameterRouteConflicts(t *testing.T) {
+	const specific = "/reports/:team/all"
+	const general = "/reports/:dept/:report"
+	for _, test := range []struct {
+		name, first, second, secondMethod string
+		conflict                          bool
+	}{
+		{"ambiguous", specific, general, http.MethodGet, true},
+		{"reversed", general, specific, http.MethodGet, true},
+		{"same parameter branch", specific, "/reports/:team/:report", http.MethodGet, false},
+		{"different suffix", specific, "/reports/:dept/summary", http.MethodGet, false},
+		{"literal branch wins", specific, "/reports/finance/:report", http.MethodGet, false},
+		{"different methods", specific, general, http.MethodPost, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server, err := rest.NewServer(config.Config{}.RestConf)
+			require.NoError(t, err)
+			handle := func(http.ResponseWriter, *http.Request) {}
+			server.AddRoute(rest.Route{Method: http.MethodGet, Path: test.first, Handler: handle})
+			_, err = registerPluginRoutes(server, []plugin.Route{{Method: test.secondMethod, Path: test.second, Handler: handle}})
+			if test.conflict {
+				require.ErrorContains(t, err, test.first)
+				require.ErrorContains(t, err, test.second)
+				require.Len(t, server.Routes(), 1)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, server.Routes(), 2)
+			}
 		})
 	}
 }

@@ -138,12 +138,14 @@ func registerPluginRoutes(server *rest.Server, routes []plugin.Route) ([]rest.Ro
 		return nil, nil
 	}
 	checker := router.NewRouter()
-	for _, route := range server.Routes() {
-		if err := checker.Handle(route.Method, pluginRoutePattern(route.Path), route.Handler); err != nil {
+	known := server.Routes()
+	builtInCount := len(known)
+	for _, route := range known {
+		if err := checker.Handle(route.Method, route.Path, route.Handler); err != nil {
 			return nil, fmt.Errorf("existing route %s %s: %w", route.Method, route.Path, err)
 		}
 	}
-	var registered, public []rest.Route
+	var public []rest.Route
 	for _, route := range routes {
 		if route.Handler == nil {
 			return nil, fmt.Errorf("plugin route %s %s has no handler", route.Method, route.Path)
@@ -151,8 +153,13 @@ func registerPluginRoutes(server *rest.Server, routes []plugin.Route) ([]rest.Ro
 		if route.Public && (path.Clean(route.Path) != route.Path || strings.Contains(route.Path, "/:")) {
 			return nil, fmt.Errorf("public plugin route %s %s must use a canonical literal path", route.Method, route.Path)
 		}
-		if err := checker.Handle(route.Method, pluginRoutePattern(route.Path), route.Handler); err != nil {
+		if err := checker.Handle(route.Method, route.Path, route.Handler); err != nil {
 			return nil, fmt.Errorf("plugin route %s %s: %w", route.Method, route.Path, err)
+		}
+		for _, other := range known {
+			if route.Method == other.Method && ambiguousParameterPaths(route.Path, other.Path) {
+				return nil, fmt.Errorf("plugin route %s %s is ambiguous with %s", route.Method, route.Path, other.Path)
+			}
 		}
 		if !route.Public {
 			// Built-in exemptions match paths regardless of method. A private
@@ -167,25 +174,39 @@ func registerPluginRoutes(server *rest.Server, routes []plugin.Route) ([]rest.Ro
 				}
 			}
 		}
-		registered = append(registered, rest.Route{Method: route.Method, Path: route.Path, Handler: route.Handler})
+		known = append(known, rest.Route{Method: route.Method, Path: route.Path, Handler: route.Handler})
 		if route.Public {
 			public = append(public, rest.Route{Method: route.Method, Path: route.Path})
 		}
 	}
-	if len(registered) > 0 {
-		server.AddRoutes(registered)
-	}
+	server.AddRoutes(known[builtInCount:])
 	return public, nil
 }
 
-// Parameter names do not distinguish endpoints: /items/:id and /items/:name
-// must conflict even though go-zero stores them as separate patterns.
-func pluginRoutePattern(routePath string) string {
-	segments := strings.Split(path.Clean(routePath), "/")
-	for i, segment := range segments {
-		if strings.HasPrefix(segment, ":") {
-			segments[i] = ":param"
+// go-zero prefers literals, but visits sibling named parameters in map order.
+// Those branches are ambiguous only if the remaining segments can also match.
+func ambiguousParameterPaths(a, b string) bool {
+	if !strings.Contains(a, "/:") || !strings.Contains(b, "/:") {
+		return false
+	}
+	left, right := strings.Split(path.Clean(a), "/"), strings.Split(path.Clean(b), "/")
+	if len(left) != len(right) {
+		return false
+	}
+	branched := false
+	for i, segment := range left {
+		if segment == right[i] {
+			continue
+		}
+		leftParam, rightParam := strings.HasPrefix(segment, ":"), strings.HasPrefix(right[i], ":")
+		switch {
+		case leftParam && rightParam:
+			branched = true
+		case !leftParam && !rightParam:
+			return false
+		case !branched:
+			return false // A literal wins at the first differing segment.
 		}
 	}
-	return strings.Join(segments, "/")
+	return branched
 }
