@@ -12,6 +12,7 @@ export interface GqlEditorProps {
   maxHeight?: string;
   onSubmit?: () => void;
   onClear?: () => void;
+  /** Receives the mounted editor, then undefined when this callback is replaced or the editor unmounts. */
   onReady?: (editor: editor.IStandaloneCodeEditor | undefined) => void;
   onRowCountChange?: (count: number) => void;
   placeholder?: ReactNode;

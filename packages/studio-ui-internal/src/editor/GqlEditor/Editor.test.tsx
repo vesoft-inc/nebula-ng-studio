@@ -134,6 +134,23 @@ describe('GqlEditor sizing', () => {
 });
 
 describe('GqlEditor instance isolation', () => {
+  it('hands the mounted editor to a replacement owner and releases it on unmount', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(<GqlEditor value="RETURN 1" onReady={first} />);
+    const instance = registry.editors[0];
+    const submit = instance.actions.get('submit-gql');
+    expect(first).toHaveBeenLastCalledWith(instance);
+
+    view.rerender(<GqlEditor value="RETURN 1" onReady={second} />);
+    expect(first).toHaveBeenLastCalledWith(undefined);
+    expect(second).toHaveBeenLastCalledWith(instance);
+    expect(instance.actions.get('submit-gql')).toBe(submit);
+
+    view.unmount();
+    expect(second).toHaveBeenLastCalledWith(undefined);
+  });
+
   it('submits only the active editor and completes only that model using current props', () => {
     const submitA = vi.fn();
     const submitB = vi.fn();
@@ -165,14 +182,13 @@ describe('GqlEditor instance isolation', () => {
     );
     expect(registry.completion.size).toBe(2);
     const activeA = registry.editors.find((item) => item === editorA);
+    const modelA = editorA!.getModel();
     act(() => activeA.actions.get('submit-gql').run());
     expect(submitA).toHaveBeenCalledOnce();
     expect(submitB).not.toHaveBeenCalled();
     const suggestions = () =>
       [...registry.completion]
-        .flatMap(
-          (provider) => provider.provideCompletionItems(editorA!.getModel(), { lineNumber: 1, column: 5 }).suggestions
-        )
+        .flatMap((provider) => provider.provideCompletionItems(modelA, { lineNumber: 1, column: 5 }).suggestions)
         .filter((item) => item.detail === 'Graph')
         .map((item) => item.label);
     expect(suggestions()).toEqual(['graph-a']);
@@ -181,6 +197,7 @@ describe('GqlEditor instance isolation', () => {
         <GqlEditor value="USE " graphNames={['updated-a']} readOnly onSubmit={submitA} />
       </StrictMode>
     );
+    expect(editorA).toBeUndefined();
     expect(suggestions()).toEqual(['updated-a']);
     act(() => activeA.actions.get('submit-gql').run());
     expect(submitA).toHaveBeenCalledOnce();

@@ -12,6 +12,7 @@ import type { GqlEditorProps } from '../types';
 const registeredLanguages = new WeakSet<object>();
 
 export default function GqlEditor(props: GqlEditorProps) {
+  const { onReady } = props;
   const theme = useTheme();
   const { t } = useTranslation('console');
   const latest = useRef(props);
@@ -137,12 +138,16 @@ export default function GqlEditor(props: GqlEditorProps) {
     if (latest.current.autoHeight)
       editor.updateOptions({ cursorStyle: 'line', cursorBlinking: 'blink', cursorWidth: 8 });
     updateHeight();
-    latest.current.onReady?.(editor);
     return () => {
       disposables.forEach((item) => item.dispose());
-      latest.current.onReady?.(undefined);
     };
   }, [instance, t]);
+
+  useEffect(() => {
+    if (!instance || !onReady) return;
+    onReady(instance.editor);
+    return () => onReady(undefined);
+  }, [instance, onReady]);
 
   return (
     <MonacoEditor
