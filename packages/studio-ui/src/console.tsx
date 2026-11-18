@@ -48,10 +48,9 @@ export function ConsoleWorkbench({
   const { t } = useTranslation('console');
   const binding = useWorkbench('ConsoleWorkbench', { console: source }, (scope) =>
     scope.acquire('console', { console: source }, (lifetime) => {
-      const adapted = bindConsole(source, lifetime);
-      const controller = new ConsoleController(adapted);
+      const controller = new ConsoleController(bindConsole(source, lifetime));
       return {
-        value: { controller, services: adapted },
+        value: controller,
         dispose: controller.destroy,
         schemaChanged: controller.clearConsole,
         snapshotDeleted: controller.removeResultSnapshotsBySnapshotId,
@@ -66,8 +65,7 @@ export function ConsoleWorkbench({
       <WorkbenchContainer className={className} style={style}>
         <InternalConsole
           {...props}
-          controller={resource.value.controller}
-          services={resource.value.services}
+          controller={resource.value}
           onSettingsChange={binding.guard(props.onSettingsChange)}
           onExplore={
             onOpenSnapshot
@@ -86,7 +84,7 @@ export function ConsoleWorkbench({
                     const reference = await ensureExplorerSnapshot({
                       result,
                       graph,
-                      consoleController: resource.value.controller,
+                      consoleController: resource.value,
                       schemaController: schema.value.controller,
                       snapshots: explorer.value.snapshots,
                       snapshotVersion: explorer.value.snapshotVersion,

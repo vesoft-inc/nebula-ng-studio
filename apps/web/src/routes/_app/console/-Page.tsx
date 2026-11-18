@@ -11,7 +11,6 @@ import {
 } from '@vesoft-inc/studio-ui-internal/settings';
 import { CONSOLE_SETTINGS_ID_PREFIX } from '@studio/app/settings';
 import { commonStore, consoleStore, schemaStore } from '@studio/app/session';
-import { studioConsoleServices } from '@studio/stores/console';
 import { useSchemaTreeBindings } from './-schemaTreeBindings';
 import { brandConfig } from '@studio/utils';
 import { exploreConsoleResult } from './-exploreResult';
@@ -29,7 +28,6 @@ export default observer(function ConsolePage() {
   return (
     <ConsoleWorkbench
       key={commonStore.userInfo?.curSchemaPath}
-      services={studioConsoleServices}
       controller={consoleStore}
       appearance={{ prompt: brandConfig.consolePrompt, showPrompt: !!commonStore.userInfo }}
       settings={settings}

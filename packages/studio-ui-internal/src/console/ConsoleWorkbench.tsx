@@ -262,9 +262,10 @@ function WorkbenchContent({
 
 const ObservedWorkbench = observer(WorkbenchContent);
 
-export interface ConsoleWorkbenchProps {
-  services: ConsoleServices;
-  controller?: ConsoleController;
+export type ConsoleWorkbenchProps = (
+  | { controller: ConsoleController; services?: never }
+  | { services: ConsoleServices; controller?: never }
+) & {
   sidebar?: ReactNode;
   emptyState?: ReactNode;
   appearance?: ConsoleAppearance;
@@ -274,7 +275,7 @@ export interface ConsoleWorkbenchProps {
   canOpenSettings?: () => boolean;
   loadGraphMetadata?: boolean;
   onExplore?: ConsoleProviderProps['onExplore'];
-}
+};
 
 export default function ConsoleWorkbench(props: ConsoleWorkbenchProps) {
   const controller = useMemo(

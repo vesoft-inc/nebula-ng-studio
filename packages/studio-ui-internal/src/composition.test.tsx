@@ -7,11 +7,13 @@ import { SchemaProvider } from './schema/context';
 import SchemaController from './schema/SchemaController';
 import GraphTypeList from './schema/GraphTypeList';
 import { ExplorerSession, type ExplorerSessionProps } from './explorer/ExplorerSession';
+import { ExplorerStore } from './explorer/ExplorerController';
+import { useExplorerStore } from './explorer/context';
 import SnapshotList from './explorer/Snapshots';
 import { StudioShell } from './shell/StudioShell';
 import type { QueryExecutor } from './shared/query';
 import type { ServerResponse } from '@vesoft-inc/studio-core/contracts';
-import type { SnapshotServices } from './explorer/services';
+import type { ExplorerServices, SnapshotServices } from './explorer/services';
 // jsdom cannot initialize WebGL; these tests exercise composition and list navigation.
 vi.mock('./graph/utils/layouts', () => ({ default: {} }));
 
@@ -33,7 +35,11 @@ const execute: QueryExecutor = async <T extends object>(gql: string): Promise<Se
 function SnapshotsHost({
   onOpen,
   ...props
-}: Omit<ExplorerSessionProps, 'children'> & { onOpen?: (id: string) => void }) {
+}: {
+  services: ExplorerServices;
+  initialSettings?: ExplorerSessionProps['initialSettings'];
+  onOpen?: (id: string) => void;
+}) {
   return (
     <ExplorerSession {...props}>
       <SnapshotList onOpen={onOpen} />
@@ -53,6 +59,41 @@ function SchemaHost() {
 afterEach(cleanup);
 
 describe('standalone business workbenches', () => {
+  it('releases only the Explorer resources created by the session', async () => {
+    const schema = new SchemaController({ execute });
+    const services: ExplorerServices = {
+      execute,
+      snapshots: { list: vi.fn(), read: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    };
+    const host = new ExplorerStore({ services, schemaStore: schema, settings: {} });
+    let current!: ExplorerStore;
+    function Probe() {
+      current = useExplorerStore();
+      return <span>{current === host ? 'Host Explorer' : 'Managed Explorer'}</span>;
+    }
+    const view = render(
+      <ExplorerSession services={services} schemaController={schema}>
+        <Probe />
+      </ExplorerSession>
+    );
+    await screen.findByText('Managed Explorer');
+    expect(current.schemaStore).toBe(schema);
+    const managed = current;
+    expect(managed.graphItems).toHaveLength(1);
+    view.rerender(
+      <ExplorerSession controller={host}>
+        <Probe />
+      </ExplorerSession>
+    );
+    await screen.findByText('Host Explorer');
+    view.unmount();
+    expect(managed.graphItems).toHaveLength(0);
+    expect(host.graphItems).toHaveLength(1);
+    expect(schema.currentSchema.path).toBe('/demo');
+    host.destroy();
+    schema.destroy();
+  });
+
   it('composes Schema with the shell without a router or application stores', async () => {
     render(
       <StrictMode>

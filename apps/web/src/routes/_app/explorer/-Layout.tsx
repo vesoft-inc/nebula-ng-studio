@@ -37,7 +37,7 @@ export default observer(function ExplorerLayout() {
     };
   }, [controller]);
   return (
-    <ExplorerSession services={services} controller={controller}>
+    <ExplorerSession controller={controller}>
       <Outlet />
     </ExplorerSession>
   );

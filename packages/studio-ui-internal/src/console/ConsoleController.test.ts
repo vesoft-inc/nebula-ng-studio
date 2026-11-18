@@ -18,6 +18,25 @@ describe('ConsoleController lifecycle', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('keeps one snapshot reference per result and cleans it up on removal and clear', () => {
+    const store = new ConsoleController({ execute: executor(), query: executor() });
+
+    store.setResultSnapshot('result-1', { snapshotId: 'snap-1', graph: 'graph_a' });
+    store.setResultSnapshot('result-2', { snapshotId: 'snap-2', graph: 'graph_b' });
+    expect(store.getResultSnapshot('result-1')).toEqual({ snapshotId: 'snap-1', graph: 'graph_a' });
+
+    store.removeResult({ id: 'result-1' } as never);
+    expect(store.getResultSnapshot('result-1')).toBeUndefined();
+    expect(store.getResultSnapshot('result-2')).toEqual({ snapshotId: 'snap-2', graph: 'graph_b' });
+
+    store.removeResultSnapshotsBySnapshotId('snap-2');
+    expect(store.getResultSnapshot('result-2')).toBeUndefined();
+
+    store.setResultSnapshot('result-3', { snapshotId: 'snap-3', graph: 'graph_c' });
+    store.clearConsole();
+    expect(store.getResultSnapshot('result-3')).toBeUndefined();
+  });
+
   it('keeps execution, editor state and result resources independent between instances', async () => {
     const executeA = vi.fn(async (_gql: string) => response());
     const executeB = vi.fn(async (_gql: string) => response());

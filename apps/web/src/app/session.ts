@@ -1,9 +1,11 @@
 import { modalStore } from '@vesoft-inc/studio-ui-internal/modal';
 import { themeStore } from '@vesoft-inc/studio-ui-internal/theme';
 import { CommonStore } from '@studio/stores/common';
-import ConsoleStore from '@studio/stores/console';
-import { IconGroupStore } from '@studio/stores/iconGroup';
+import { ConsoleController } from '@vesoft-inc/studio-ui-internal/console/model';
+import { IconCatalog } from '@vesoft-inc/studio-ui-internal/graph/resources';
 import { SchemaController } from '@vesoft-inc/studio-ui-internal/schema/model';
+import { execConsoleGql, execGql } from '@studio/services';
+import { studioIconServices } from '@studio/services/explorer';
 import { createSchemaServices } from '@studio/services/schemaCatalog';
 import { sessionRequests } from '@studio/services/sessionRequests';
 import { StudioServerAdapters } from '@studio/services/studioServer';
@@ -14,8 +16,8 @@ export { modalStore, themeStore };
 export const commonStore = new CommonStore();
 export const studioServerAdapters = new StudioServerAdapters();
 export const schemaStore = new SchemaController(createSchemaServices(() => commonStore.userInfo, studioServerAdapters));
-export const consoleStore = new ConsoleStore();
-export const iconGroupStore = new IconGroupStore();
+export const consoleStore = new ConsoleController({ execute: execConsoleGql, query: execGql });
+export const iconGroupStore = new IconCatalog(studioIconServices);
 
 function navigateToLogin(restoreLocation: boolean, navigate?: (path: string) => void) {
   const { pathname, search, hash } = window.location;
