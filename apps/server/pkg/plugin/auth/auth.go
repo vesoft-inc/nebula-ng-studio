@@ -1,4 +1,5 @@
-// Package auth defines the optional Studio database-session capability for plugins.
+// Package auth defines the experimental Studio database-session API for plugins.
+// Its interfaces may change between Studio releases.
 package auth
 
 import "context"

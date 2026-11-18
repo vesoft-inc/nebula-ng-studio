@@ -1,4 +1,7 @@
-// Package plugin loads compiled Studio extensions and owns their lifetime.
+// Package plugin provides an experimental API for trusted extensions compiled into Studio.
+//
+// The plugin API is unstable and may change between Studio releases.
+// Pin the Studio server module version and test extensions when upgrading.
 package plugin
 
 import (
@@ -29,6 +32,7 @@ var registry = struct {
 }{factories: make(map[string]Factory)}
 
 // RegisterPlugin registers a factory without initializing its plugin.
+// This experimental registration API may change between Studio releases.
 func RegisterPlugin(name string, factory Factory) {
 	if name == "" || factory == nil {
 		panic("Studio plugin registration requires a name and factory")
