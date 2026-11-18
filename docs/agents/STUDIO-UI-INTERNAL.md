@@ -41,7 +41,7 @@ Codecs create no images, observables, or canvases. Decode migrates legacy edge I
 
 ## Provider and resources
 
-- UiProvider accepts theme/i18n/modalStore. Fill missing Vesoft colors according to the MUI theme mode without mutating the input. Custom i18n loads uiResources from `/locales`. Internal CSS baseline defaults to enabled; disable as needed. Use renderGlobalModal=false if the host already renders it.
+- Web and GUI pass their i18n instance directly to UiProvider. ThemeWrapper tracks the host theme and supplies the CSS baseline and style injection order. Fill missing Vesoft colors according to the MUI theme mode without mutating the input. Custom i18n loads uiResources from `/locales`. Internal CSS baseline defaults to enabled; disable as needed. Use renderGlobalModal=false if the host already renders it.
 - React uses the current Provider's useModal; HTTP/session modules use the same host modalStore injected into that Provider. Import `/styles.css` once. Monaco themes apply to the entire page.
 - IconCatalog creates reactive collections and display fields at the catalog boundary; missing category falls back to groupId. Services need not fabricate icons/editable/category. Built-in icons work offline.
 - `IProperty`, node/edge models, LINE_STYLE, ToolNodeColor, ConsoleResult, and plan display fields stay in UI. CSV download lives in `shared/download.ts`, exported by `/utilities`, and handles BOM, filenames, and error messages.

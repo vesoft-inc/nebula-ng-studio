@@ -2,7 +2,6 @@ import '@vesoft-inc/studio-ui-internal/styles.css';
 import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import { StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { I18nextProvider } from 'react-i18next';
 import { RouterProvider } from '@tanstack/react-router';
 import { GlobalModal } from '@vesoft-inc/studio-ui-internal/modal';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/studio-ui-internal/theme';
@@ -22,16 +21,14 @@ const PageRoot = ({ router }: { router: ReturnType<typeof createGuiRouter>['rout
 
   return (
     <StrictMode>
-      <I18nextProvider i18n={i18n}>
-        <ThemeWrapper>
-          <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
-            <Suspense fallback={<PageLoading />}>
-              <RouterProvider router={router} />
-              <GlobalModal store={modalStore} />
-            </Suspense>
-          </UiProvider>
-        </ThemeWrapper>
-      </I18nextProvider>
+      <ThemeWrapper>
+        <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
+          <Suspense fallback={<PageLoading />}>
+            <RouterProvider router={router} />
+            <GlobalModal store={modalStore} />
+          </Suspense>
+        </UiProvider>
+      </ThemeWrapper>
     </StrictMode>
   );
 };

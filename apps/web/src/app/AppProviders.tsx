@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import { autorun } from 'mobx';
-import { I18nextProvider } from 'react-i18next';
 import { GraphResourcesProvider } from '@vesoft-inc/studio-ui-internal/graph/resources';
 import { UiProvider } from '@vesoft-inc/studio-ui-internal/provider';
 import { ThemeWrapper, themeStore } from '@vesoft-inc/studio-ui-internal/theme';
@@ -12,12 +11,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => autorun(() => injectCssVariable(themeStore.theme)), []);
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <ThemeWrapper>
-        <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
-          <GraphResourcesProvider value={iconGroupStore}>{children}</GraphResourcesProvider>
-        </UiProvider>
-      </ThemeWrapper>
-    </I18nextProvider>
+    <ThemeWrapper>
+      <UiProvider i18n={i18n} modalStore={modalStore} renderGlobalModal={false} cssBaseline={false}>
+        <GraphResourcesProvider value={iconGroupStore}>{children}</GraphResourcesProvider>
+      </UiProvider>
+    </ThemeWrapper>
   );
 }
