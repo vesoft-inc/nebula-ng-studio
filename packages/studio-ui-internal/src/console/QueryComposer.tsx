@@ -75,9 +75,7 @@ export default observer(function QueryComposer({ maxHeight, onRunGql, onAfterRun
           running={controller.editorRunning}
           stopping={controller.stopping}
           onRun={run}
-          onStop={() => {
-            void controller.cancelQuery().catch(console.error);
-          }}
+          onStop={controller.canCancelQuery ? () => void controller.cancelQuery().catch(console.error) : undefined}
         />
       </Box>
     </Box>

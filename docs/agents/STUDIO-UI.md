@@ -49,6 +49,6 @@ Schema changes clear selection, expansion, and dialogs. Unmount stops page callb
 
 ## Queries and errors
 
-`execute` handles user/warning queries; `query` handles metadata. Public `QueryOptions` contains only cancellation and a timeout in milliseconds; components convert UI settings from seconds. Optional `getSessionId/cancelQuery` provides server cancellation; client cancellation cannot undo submitted writes.
+`execute` handles user/warning queries; `query` handles metadata. Public `QueryOptions` contains only cancellation and a timeout in milliseconds; components convert UI settings from seconds. The Console enables Stop when the host supplies `getSessionId` and `cancelQuery` and a query session ID is available. Otherwise Run stays disabled until execution finishes. Scope disposal still aborts outstanding requests.
 
 Business failures preserve `code/message`; transport failures may reject. Console creates results for business failures but does not guarantee a visible message for network rejection. Explorer already shows local open/save errors. Hosts choose error presentation per operation; components have no universal deduplication. [Studio Server adapters](STUDIO-SERVER-ADAPTERS.md) additionally require HTTP business-error normalization.

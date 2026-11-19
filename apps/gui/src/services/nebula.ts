@@ -26,7 +26,7 @@ export const disconnect = async () => {
 
 export const execGql = async (gql: string, config?: ConfigType): Promise<ServerResponse<GQLResult>> => {
   const startTime = Date.now();
-  const { data } = await fetcher.post<RestGqlResultParams>('/gql', { gql, timeout: config?.timeout }, config);
+  const { data } = await fetcher.post<RestGqlResultParams>('/gql', { gql }, config);
   const duration = Date.now() - startTime;
   if (data.code === EXECUTION_SUCCESS_CODE) {
     return { code: 0, data: parseGqlResult(data, duration), message: 'Success' };

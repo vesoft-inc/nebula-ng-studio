@@ -21,7 +21,7 @@ export default class ConsoleController {
   editorRunning = false;
   stopping = false;
   private activeRequest?: AbortController;
-  private currentSessionId?: string;
+  private currentSessionId: string | undefined = undefined;
   private executionGeneration = 0;
   private metadataRequest = new AbortController();
   private graphListGeneration = 0;
@@ -34,7 +34,8 @@ export default class ConsoleController {
   graphTypeInfo = observable.map<string, GraphTypeElement[]>({}, { deep: false });
 
   constructor(public readonly services: ConsoleServices) {
-    makeObservable(this, {
+    makeObservable<this, 'currentSessionId'>(this, {
+      currentSessionId: observable,
       // observable properties
       editorRef: observable.ref,
       editorValue: observable,
@@ -375,7 +376,7 @@ export default class ConsoleController {
       if (this.services.getSessionId && !this.currentSessionId) {
         const sessionId = await this.services.getSessionId({ signal: request.signal });
         if (request.signal.aborted) return;
-        this.currentSessionId = sessionId;
+        this.unsafeAction(() => (this.currentSessionId = sessionId));
       }
       let allSuccess = true;
       const warnings: { code?: string; message?: string }[] = [];
@@ -457,13 +458,13 @@ export default class ConsoleController {
     this.executionGeneration++;
     this.activeRequest?.abort();
     this.activeRequest = undefined;
-    this.currentSessionId = undefined;
     this.metadataRequest.abort();
     this.metadataRequest = new AbortController();
     this.graphWorkspaces.forEach((workspace) => workspace.destroy());
     this.graphWorkspaces.clear();
     this.graphTypeInfo.clear();
     this.unsafeAction(() => {
+      this.currentSessionId = undefined;
       this.updateEditorValue('');
       this.updateGraphs([]);
       this.results.clear();
@@ -472,15 +473,20 @@ export default class ConsoleController {
     });
   };
 
+  get canCancelQuery() {
+    return !!(this.services.cancelQuery && this.currentSessionId);
+  }
+
   cancelQuery = async () => {
-    if (this.stopping) return;
+    const sessionId = this.currentSessionId;
+    if (!this.editorRunning || this.stopping || !sessionId || !this.services.cancelQuery) return;
     const generation = this.executionGeneration;
     this.unsafeAction(() => {
       this.stopping = true;
     });
     this.activeRequest?.abort();
     try {
-      if (this.currentSessionId) await this.services.cancelQuery?.(this.currentSessionId);
+      await this.services.cancelQuery(sessionId);
     } finally {
       this.unsafeAction(() => {
         this.stopping = false;

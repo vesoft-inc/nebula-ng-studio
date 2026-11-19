@@ -6,7 +6,6 @@ const query: QueryExecutor = async <T extends object>(gql: string, options?: Par
   const { queryTimeout, ...config } = options ?? {};
   const result = await execGql(gql, {
     ...config,
-    timeout: queryTimeout,
     ...(queryTimeout && queryTimeout > 0 ? { headers: { 'X-Request-Timeout': queryTimeout } } : {}),
   });
   // The query caller supplies its expected result shape at this protocol boundary.

@@ -72,3 +72,25 @@ it.each([
     data: undefined,
   });
 });
+
+it.each([120000, 0, undefined])('uses only the GUI deadline header for queryTimeout %s', async (queryTimeout) => {
+  const originalTimeout = fetcher.defaults.timeout;
+  fetcher.defaults.timeout = 4567;
+  try {
+    const capture = vi.fn();
+    fetcher.defaults.adapter = async (config) => {
+      capture(config.timeout, config.headers.get('X-Request-Timeout'), JSON.parse(config.data));
+      return {
+        config,
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        data: '{"code":"00042","message":"done"}',
+      };
+    };
+    await guiConsoleServices.execute('RETURN 1', { queryTimeout });
+    expect(capture).toHaveBeenCalledWith(4567, queryTimeout ? '120000' : undefined, { gql: 'RETURN 1' });
+  } finally {
+    fetcher.defaults.timeout = originalTimeout;
+  }
+});

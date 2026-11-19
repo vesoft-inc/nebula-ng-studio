@@ -45,3 +45,19 @@ it('returns cancellation without an error toast', async () => {
   expect(await execConsoleGql('RETURN 1')).toEqual({ code: HTTP_CANCEL_CODE, message: 'request canceled' });
   expect(modalStore.message?.error).not.toHaveBeenCalled();
 });
+
+it('sends the Console query deadline in the Studio Server request body', async () => {
+  const capture = vi.fn();
+  fetcher.defaults.adapter = async (config) => {
+    capture(config.timeout, JSON.parse(config.data));
+    return {
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      data: '{"code":0,"message":""}',
+    };
+  };
+  await execConsoleGql('RETURN 1', { queryTimeout: 120000 });
+  expect(capture).toHaveBeenCalledWith(fetcher.defaults.timeout, { gql: 'RETURN 1', timeout: 120000 });
+});

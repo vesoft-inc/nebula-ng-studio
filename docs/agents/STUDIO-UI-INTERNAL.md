@@ -31,6 +31,8 @@ Codecs create no images, observables, or canvases. Decode migrates legacy edge I
 
 `openSnapshot()` reads, verifies/switches Schema, decodes, restores, and loads metadata. `restoreSnapshot()` only applies state/history; `loadGraphTypeDetails()` queries explicitly. Legacy `initSnapShot()` still combines them. Switching or disposal invalidates old metadata. Ownership rules are in the [public contract](STUDIO-UI.md).
 
+GUI Console sends a positive query deadline in milliseconds through `X-Request-Timeout`. Its `/gql` body contains only `gql`. Axios uses the host transport timeout. Web sends the query deadline in the Studio Server request body.
+
 ## Console → Explorer
 
 `ensureExplorerSnapshot` in `/integrations/console-explorer` receives Console/Schema Controllers, snapshot read/create services, version, Schema fallback, and a cancellation signal:

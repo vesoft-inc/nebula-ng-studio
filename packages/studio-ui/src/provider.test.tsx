@@ -95,6 +95,11 @@ describe('Studio session ownership', () => {
     const view = render(host(services));
     fireEvent.change(await screen.findByRole('textbox', { name: 'Query' }), { target: { value: 'RETURN 2' } });
     fireEvent.click(screen.getByRole('button', { name: /run/i }));
+    const run = screen.getByRole('button', { name: /run/i });
+    expect(run).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
+    fireEvent.click(run);
+    expect(execute).toHaveBeenCalledOnce();
     const signal = execute.mock.calls[0][1]?.signal;
     view.rerender(host(services, false));
     expect(signal?.aborted).toBe(false);
@@ -103,6 +108,36 @@ describe('Studio session ownership', () => {
     });
     view.rerender(host(services));
     await waitFor(() => expect(screen.getByTestId('query-result').textContent).toContain('background result'));
+  });
+  it('offers Stop only once the host has supplied a query session', async () => {
+    const { services, execute } = fixture();
+    let identify!: (id: string) => void;
+    const cancelQuery = vi.fn(async (_id: string) => {});
+    services.console = {
+      ...services.console!,
+      getSessionId: () =>
+        new Promise((resolve) => {
+          identify = resolve;
+        }),
+      cancelQuery,
+    };
+    let finish!: (value: ServerResponse<object>) => void;
+    execute.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve as typeof finish;
+        })
+    );
+    render(host(services));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Query' }), { target: { value: 'RETURN 3' } });
+    fireEvent.click(screen.getByRole('button', { name: /run/i }));
+    expect(screen.getByRole('button', { name: /run/i })).toHaveProperty('disabled', true);
+    await act(async () => identify('session-3'));
+    fireEvent.click(await screen.findByRole('button', { name: /stop/i }));
+    expect(cancelQuery).toHaveBeenCalledOnce();
+    expect(cancelQuery.mock.calls[0][0]).toBe('session-3');
+    await act(async () => finish({ code: 0, message: 'late' }));
+    expect(screen.queryByTestId('query-result')).toBeNull();
   });
   it.each(['scope', 'schema', 'service'] as const)(
     'cancels old queries when the %s changes and rejects their late results',
