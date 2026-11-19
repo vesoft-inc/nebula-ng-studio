@@ -7,7 +7,7 @@ import { routePaths } from '@studio/app/paths';
 
 export default observer(function SchemaSidebar() {
   const navigate = useNavigate();
-  const match = useMatches().at(-1);
+  const match = useMatches({ select: (matches) => matches[matches.length - 1] });
   const handle = match?.staticData;
   const params = match?.params as { graphName?: string; graphTypeName?: string } | undefined;
   const name = params?.graphName ?? params?.graphTypeName;

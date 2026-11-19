@@ -74,3 +74,41 @@ it.each([true, false])('navigates to graph types only after a successful switch 
     controller.destroy();
   }
 });
+
+it.each([
+  ['/schema-manager/graphs', 'Graph'],
+  ['/schema-manager/graphs/demo', 'demo'],
+])('highlights the selected node at %s without Array.at', async (url, label) => {
+  const controller = new SchemaController({ execute: vi.fn() });
+  state.controller = controller;
+  controller.updateCurrentSchame({
+    path: '/initial',
+    graphs: [{ graph: 'demo', graph_type: 'type', schema: '/initial', owner: '', index_cnt: 0 }],
+  });
+  const router = createTestRouter(
+    [
+      { path: '/schema-manager/graphs', staticData: { schemaSelection: 'graphs' }, element: <SchemaSidebar /> },
+      {
+        path: '/schema-manager/graphs/$graphName',
+        staticData: { schemaSelection: 'graph' },
+        element: <SchemaSidebar />,
+      },
+    ],
+    { initialEntries: [url] }
+  );
+  const at = Object.getOwnPropertyDescriptor(Array.prototype, 'at')!;
+  try {
+    Object.defineProperty(Array.prototype, 'at', { ...at, value: undefined });
+    const view = render(
+      <UiProvider locale="en_US" renderGlobalModal={false}>
+        <SchemaProvider value={controller}>
+          <RouterProvider router={router} />
+        </SchemaProvider>
+      </UiProvider>
+    );
+    await waitFor(() => expect(view.container.querySelector('[aria-current="true"]')?.textContent).toBe(label));
+  } finally {
+    Object.defineProperty(Array.prototype, 'at', at);
+    controller.destroy();
+  }
+});

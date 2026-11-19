@@ -267,3 +267,25 @@ it('ignores a completed graph creation after leaving the Schema session', async 
   expect(router.state.location.pathname).toBe('/console');
   expect(screen.getByText('console page')).toBeTruthy();
 });
+
+it('returns from a graph detail through the original browser history', async () => {
+  const router = await open('/console', '/studio');
+  await act(async () => {
+    await router.navigate({ href: '/studio/schema-manager/graphs?tab=mine#list' });
+  });
+  fireEvent.click(await screen.findByText('Open graph'));
+  fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+  expect(await screen.findByText('Open graph')).toBeTruthy();
+  expect(router.history.location.href).toBe('/studio/schema-manager/graphs?tab=mine#list');
+  act(() => router.history.back());
+  expect(await screen.findByText('console page')).toBeTruthy();
+});
+
+it('keeps a directly opened graph detail when there is no previous entry', async () => {
+  const router = await open('/schema-manager/graphs/demo');
+  await act(async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+  });
+  expect(router.history.location.pathname).toBe('/schema-manager/graphs/demo');
+  expect(router.history.length).toBe(1);
+});
