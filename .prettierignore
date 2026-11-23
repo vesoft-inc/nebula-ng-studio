@@ -1,5 +1,6 @@
 pnpm-lock.yaml
 .turbo
+/test-results/
 apps/web/index.html
 **/*.md
 **/*.mdx

@@ -32,6 +32,19 @@ Root `pnpm build` / Web `build` runs copy:server, replacing `apps/server/assets/
 
 Web/GUI each maintain their own generated `routeTree.gen.ts`. Generate them with `pnpm --filter nebula-studio routes:generate` or `pnpm --filter nebula-gui routes:generate`; each app's lint:types includes generation. Do not edit the trees manually. Prefix route helpers/tests with `-` to exclude them from the route tree.
 
+## Browser regression
+
+Build the two frontend hosts with the Vite commands above, then run `pnpm test:e2e:install` and `pnpm test:e2e`. Playwright serves their dist directories on loopback ports 4174 and 4175. Use `pnpm test:e2e --project=web` or `--project=gui` for one host. CI typechecks the suite and retains failure traces under `test-results/`.
+
+Each browser test owns its HTTP fixture. Web exercises the deployed `/studio` base path and Studio Server envelopes. GUI exercises its native REST responses. Delay responses explicitly for cancellation and session switches. Verify persisted changes through a fresh read after navigation or reload.
+
+Run `pnpm test:e2e:live` separately against English-language test deployments. Missing configuration reports the affected scenarios as skipped. Live tracing, screenshots and video are disabled.
+
+| Deployment | Configuration                                                                                                                                                                                          | Optional scenario                                                                                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | `STUDIO_INTEGRATION_BASE_URL` (deployed Web URL including its prefix), `STUDIO_INTEGRATION_GRAPHD_ADDRESS` (host and port), `STUDIO_INTEGRATION_GRAPHD_USERNAME`, `STUDIO_INTEGRATION_GRAPHD_PASSWORD` | Set `STUDIO_INTEGRATION_WRITE_SCHEMA` and `STUDIO_INTEGRATION_GRAPH_TYPE` for an isolated writable schema. The test creates a uniquely named graph, reloads the list and removes that graph. |
+| GUI        | `GUI_INTEGRATION_BASE_URL` (deployment root before `/ui/console`), `GUI_INTEGRATION_USERNAME`, `GUI_INTEGRATION_PASSWORD`                                                                              | Set `GUI_INTEGRATION_LONG_QUERY` to a cancellable read-only query for the test account to exercise remote cancellation.                                                                      |
+
 ## Development and Server
 
 Web `pnpm dev` starts only the frontend and proxies `/api` to `127.0.0.1:7001`; run `pnpm dev:server` separately. `/api-studio/health` confirms only Server availability; Server establishes the Graphd connection. GUI `pnpm dev:gui` uses its own protocol and GUI_API_TARGET.

@@ -6,6 +6,7 @@ desktop.ini
 node_modules
 .pnpm-store
 .turbo
+/test-results/
 coverage
 dist
 *.log

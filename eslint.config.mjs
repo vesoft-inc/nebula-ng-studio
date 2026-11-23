@@ -9,6 +9,7 @@ export default [
   {
     ignores: [
       '**/dist/**',
+      'test-results/**',
       '**/routeTree.gen.ts',
       '**/.temp/**',
       '**/.types/**',

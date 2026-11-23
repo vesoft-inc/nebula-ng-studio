@@ -119,24 +119,22 @@ jobs:
           pnpm --filter @vesoft-inc/studio-ui check:boundaries --dist
           pnpm --filter @vesoft-inc/studio-ui check:api
 
-      - name: Smoke test the workspace apps
+      - name: Install E2E browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Web and GUI browser regression tests
         run: |
-          pnpm --dir apps/gui preview --host 127.0.0.1 --port 4173 &
-          preview_pid=$!
-          trap 'kill "${preview_pid}" || true' EXIT
-          for attempt in {1..20}; do
-            if curl --fail --silent http://127.0.0.1:4173/ui/console >/dev/null; then
-              break
-            fi
-            if [ "${attempt}" -eq 20 ]; then
-              exit 1
-            fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:4173/ >/dev/null
-          kill "${preview_pid}"
-          wait "${preview_pid}" || true
-          trap - EXIT
+          pnpm test:e2e:types
+          pnpm test:e2e
+
+      - name: Retain browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-regression
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Reject tracked build drift
         run: git diff --exit-code
