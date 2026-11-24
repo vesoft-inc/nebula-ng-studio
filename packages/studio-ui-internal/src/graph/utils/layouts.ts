@@ -29,29 +29,46 @@ const parseToGraphData = (nodes: NodeObject[], links: LinkObject[]): Graph<Graph
   return graphData;
 };
 
+function supportsGpuLayout() {
+  const context = document.createElement('canvas').getContext('webgl');
+  if (!context) return false;
+  // The layout engine initializes regl with these required extensions.
+  const supported = [
+    'OES_element_index_uint',
+    'OES_texture_float',
+    'OES_standard_derivatives',
+    'ANGLE_instanced_arrays',
+  ].every((name) => context.getExtension(name));
+  context.getExtension('WEBGL_lose_context')?.loseContext();
+  return supported;
+}
+
+async function calculateForceLayout(data: Graph<GraphNode, GraphLink>) {
+  const options = {
+    gravity: 5,
+    speed: 5,
+    clustering: true,
+    clusterGravity: 5,
+  };
+  if (supportsGpuLayout()) {
+    try {
+      return await new FruchtermanGPULayout(options).execute(data, {});
+    } catch (error) {
+      console.warn('GPU graph layout failed. Retrying on the CPU.', error);
+    }
+  }
+  return new FruchtermanLayout(options).execute(data, {});
+}
+
 const layouts = {
   [GraphLayoutType.Force]: async (graph: GraphStore) => {
     const { nowDataMap } = graph;
-    let LayoutObj;
-    if (!window.WebGLRenderingContext) {
-      console.error('WebGL is not supported in this browser, use cpu instead.');
-      LayoutObj = FruchtermanLayout;
-    } else {
-      console.log('WebGL is supported.');
-      LayoutObj = FruchtermanGPULayout;
-    }
-    const layout = new LayoutObj({
-      gravity: 5,
-      speed: 5,
-      clustering: true,
-      clusterGravity: 5,
-    });
     graph.nodes.forEach((node) => {
       node.fx = undefined;
       node.fy = undefined;
     });
     const graphData = parseToGraphData(Array.from(graph.nodes), Array.from(graph.links));
-    const layoutMapping = await layout.execute(graphData, {});
+    const layoutMapping = await calculateForceLayout(graphData);
     layoutMapping.nodes.forEach((outputNode) => {
       const node = nowDataMap.get(outputNode.id.toString())!;
       node.x = outputNode.data.x;

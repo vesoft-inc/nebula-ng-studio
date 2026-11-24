@@ -98,11 +98,18 @@ export class StudioApi {
       case 'GET /explorer/icongroup':
         return ok({ items: [] });
       case 'GET /explorer/snapshots': {
-        const filter = JSON.parse(new URL(request.url()).searchParams.get('filter') ?? '{}');
+        const query = new URL(request.url()).searchParams;
+        const filter = JSON.parse(query.get('filter') ?? '{}');
+        const page = Number(query.get('page') ?? 1);
+        const pageSize = Number(query.get('pageSize') ?? 9);
         const items = [...this.snapshots.values()].filter(
-          (snapshot) => snapshot.schemaPath === filter.schema_path && (!filter.id || snapshot.id === filter.id)
+          (snapshot) =>
+            snapshot.schemaPath === filter.schema_path &&
+            (!filter.id || snapshot.id === filter.id) &&
+            (!filter.graph || snapshot.graph === filter.graph) &&
+            (!filter.name || snapshot.name.toLowerCase().includes(filter.name.toLowerCase()))
         );
-        return ok({ items, total: items.length });
+        return ok({ items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize });
       }
       case 'POST /explorer/snapshots': {
         const id = String(this.nextSnapshot++);

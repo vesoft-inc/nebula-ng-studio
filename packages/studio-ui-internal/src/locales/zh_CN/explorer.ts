@@ -149,6 +149,8 @@ const explorer = {
   changedDuringSave: '快照已保存，但保存期间的新修改尚未保存，请再次保存后离开。',
   searchInCanvas: '在画布中搜索',
   graphLayout: {
+    failed: '无法应用图布局，请重试。',
+    label: '图布局',
     force: '力导向图',
     dagre: '层次图',
     dagreLR: '水平层次图',
@@ -159,8 +161,12 @@ const explorer = {
     neuralNetwork: '神经网络',
     mds: '多维缩放',
   },
+  minimap: '小地图',
+  minimapViewport: '小地图视口',
+  graphTypesPanel: '图类型面板',
   settings: {
     settings: '设置',
+    closeSettings: '关闭设置',
     querySection: '查询',
     queryTimeout: '查询超时时间',
     queryTimeoutTip: '设置查询超时时间，范围[0,600]秒',

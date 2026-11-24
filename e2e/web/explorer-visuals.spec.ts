@@ -1,0 +1,142 @@
+import { expect } from '@playwright/test';
+import { GraphLayoutType } from '../../packages/studio-ui-internal/src/graph/constants';
+import {
+  acme,
+  alex,
+  edgeId,
+  graphCanvas,
+  locateNode,
+  neha,
+  paintedColor,
+  saveGraph,
+  seedGraph,
+  serveGraph,
+} from '../support/explorer';
+import { test } from '../support/web';
+
+const layoutLabels: Record<GraphLayoutType, string> = {
+  force: 'Force',
+  dagre: 'Dagre',
+  dagreLR: 'Dagre-LR',
+  circular: 'Circular',
+  grid: 'Grid',
+  radial: 'Ridal',
+  concentric: 'Concentric',
+  neural: 'Neural Network',
+};
+
+for (const layout of Object.values(layoutLabels)) {
+  test('applies and persists the ' + layout + ' graph layout', async ({ page, api }) => {
+    if (layout === layoutLabels.force) {
+      await page.addInitScript(() => {
+        const getContext = HTMLCanvasElement.prototype.getContext;
+        // Browsers can expose WebGLRenderingContext while context creation fails.
+        Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+          value(this: HTMLCanvasElement, type: string, ...options: unknown[]) {
+            if (type === 'webgl' || type === 'experimental-webgl') return null;
+            return Reflect.apply(getContext, this, [type, ...options]);
+          },
+        });
+      });
+    }
+    serveGraph(api);
+    await page.goto(seedGraph(api, 'layout'));
+    const before = await locateNode(page, alex);
+    await page.getByRole('button', { name: 'Graph Layout' }).click();
+    await page.getByText(layout, { exact: true }).click();
+    await expect(page.getByText(layout, { exact: true })).toBeHidden();
+    await expect
+      .poll(async () => {
+        const point = await paintedColor(graphCanvas(page), alex.color);
+        return point ? Math.hypot(point.x - before.x, point.y - before.y) : 0;
+      })
+      .toBeGreaterThan(12);
+    await saveGraph(page, 'layout');
+    const saved = JSON.parse(api.snapshots.get('layout')!.data);
+    expect(saved.nodes.sort()).toEqual(['11', '12', '13']);
+    expect(saved.links).toEqual([edgeId]);
+    for (const node of [alex, neha, acme]) {
+      const position = saved.nowDataMap[node.id];
+      expect(Number.isFinite(position.x) && Number.isFinite(position.y)).toBe(true);
+    }
+    expect(saved.nowDataMap[alex.id]).not.toMatchObject({ x: alex.x, y: alex.y });
+    await page.reload();
+    await locateNode(page, alex);
+    await locateNode(page, neha);
+    await locateNode(page, acme);
+  });
+}
+
+test('a filter changes rendered visibility and removing it restores the graph', async ({ page, api }) => {
+  serveGraph(api);
+  await page.goto(seedGraph(api, 'visibility'));
+  const surface = graphCanvas(page);
+  await locateNode(page, neha);
+  const filter = page.getByRole('button', { name: 'Exploration Result Filter' });
+  await filter.click();
+  for (const [label, value] of [
+    ['Node/Edge Type', 'Person'],
+    ['Property', 'age'],
+    ['Operator', '>='],
+  ]) {
+    await page.getByRole('combobox', { name: label }).click();
+    await page.getByRole('option', { name: value, exact: label !== 'Property' }).click();
+  }
+  await page.getByRole('textbox', { name: 'Value', exact: true }).fill('30');
+  await page.getByRole('radio', { name: 'Hide', exact: true }).click();
+  const apply = page.getByRole('checkbox', { name: 'Apply', exact: true });
+  await apply.press('Space');
+  await expect(apply).toBeChecked();
+  await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await locateNode(page, alex);
+  await locateNode(page, acme);
+  await saveGraph(page, 'visibility');
+  expect(JSON.parse(api.snapshots.get('visibility')!.data).nodes).toHaveLength(3);
+  await page.reload();
+  await locateNode(page, alex);
+  await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await filter.click();
+  await apply.press('Space');
+  await locateNode(page, neha);
+  await page.getByRole('radio', { name: 'Dismiss', exact: true }).click();
+  await apply.press('Space');
+  await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await apply.press('Space');
+  await locateNode(page, neha);
+});
+
+test('the type panel recolors nodes and edges independently and reads the styles back', async ({ page, api }) => {
+  serveGraph(api);
+  await page.goto(seedGraph(api, 'styles'));
+  await locateNode(page, alex);
+  const panel = page.getByRole('button', { name: 'Graph Types Panel' });
+  await panel.click();
+  await expect(panel).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('radio', { name: 'Node Type', exact: true }).click();
+  await expect(page.getByTitle('WorksAt', { exact: true })).toHaveCount(0);
+  const person = page.locator('nav').filter({ has: page.getByTitle('Person', { exact: true }) });
+  await person.locator('.color-picker-item').first().click();
+  await page.getByTitle('#8ACCFF', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  await locateNode(page, { color: '#8accff' });
+  await expect.poll(() => paintedColor(graphCanvas(page), alex.color)).toBeNull();
+  await expect.poll(() => paintedColor(graphCanvas(page), neha.color)).toBeNull();
+  await locateNode(page, acme);
+
+  await page.getByRole('radio', { name: 'Edge Type', exact: true }).click();
+  await expect(page.getByTitle('Person', { exact: true })).toHaveCount(0);
+  await page.getByTitle('WorksAt', { exact: true }).locator('..').locator('svg').click();
+  await page.getByTitle('#F1A829', { exact: true }).click();
+  await page.keyboard.press('Escape');
+  await graphCanvas(page).click({ position: { x: 60, y: 63 } });
+  await expect.poll(() => paintedColor(graphCanvas(page), '#f1a829')).not.toBeNull();
+  await saveGraph(page, 'styles');
+  const data = JSON.parse(api.snapshots.get('styles')!.data).nowDataMap;
+  expect(data[alex.id].color).toBe('#8accff');
+  expect(data[neha.id].color).toBe('#8accff');
+  expect(data[acme.id].color).toBe(acme.color);
+  expect(data[edgeId].color).toBe('#f1a829');
+  await page.reload();
+  await locateNode(page, { color: '#8accff' });
+  await expect.poll(() => paintedColor(graphCanvas(page), '#f1a829')).not.toBeNull();
+});

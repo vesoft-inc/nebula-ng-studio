@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import { Drawer } from '../../shared/index';
 import { IconButton, type Theme } from '@mui/material';
 import { FormatIndentDecrease, FormatIndentIncrease } from '@vesoft-inc/icons';
+import { useTranslation } from 'react-i18next';
 import { useExplorerStore } from '../context';
 import PageLoading from '../../graph/components/PageLoading/index';
 import GraphHeader from './Header/index';
@@ -33,6 +34,7 @@ function SnapshotGraph({
   allowRemoteIconManagement = false,
 }: ExplorerGraphProps) {
   const modalStore = useModal();
+  const { t } = useTranslation('explorer');
   const explorerStore = useExplorerStore();
   const { loading } = explorerStore;
   const dirty = !!explorerStore.graphWorkspace?.graph.shouldBlockRouter;
@@ -125,6 +127,8 @@ function SnapshotGraph({
               <RightSideTool explorerItem={graphWorkspace} allowRemoteIconManagement={allowRemoteIconManagement} />
             </Box>
             <IconButton
+              aria-label={t('graphTypesPanel')}
+              aria-expanded={drawerOpen}
               sx={{
                 position: 'absolute',
                 bottom: 2,

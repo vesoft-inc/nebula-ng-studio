@@ -53,6 +53,7 @@ export function SettingsDrawer({
             {t('settings')}
           </Typography>
           <IconButton
+            aria-label={t('closeSettings')}
             onClick={onClose}
             sx={{
               color: theme.palette.vesoft.v2.text2,

@@ -56,6 +56,7 @@ export const ActionButton = ({ children, sx, ...props }: PropsWithChildren<Butto
 
 const MinimapAreaBox = observer(function AreaBox({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
   const { graph: graphStore, minimap: minimapStore } = explorerItem;
+  const { t } = useTranslation('explorer');
   const handleRef = useRef({
     startEvent: undefined as undefined | React.MouseEvent,
     startTransform: undefined as undefined | ITransform,
@@ -156,7 +157,7 @@ const MinimapAreaBox = observer(function AreaBox({ explorerItem }: { explorerIte
       <Box position="absolute" bottom={0} left="5px">
         {text}%
       </Box>
-      <MinimapDragBox onMouseDown={onBoxMoveStart} style={style}>
+      <MinimapDragBox role="group" aria-label={t('minimapViewport')} onMouseDown={onBoxMoveStart} style={style}>
         <MinimapDragPoint onMouseDown={onBoxResizeStart} />
       </MinimapDragBox>
     </>
@@ -220,7 +221,7 @@ export const MinimapActionButtonGraphLayout = observer(function ({
     <PopupState variant="popper" popupId="layout-selector">
       {(popupState) => (
         <>
-          <ActionButton {...bindTrigger(popupState)}>
+          <ActionButton aria-label={t('graphLayout.label', { ns: 'explorer' })} {...bindTrigger(popupState)}>
             <GraphView sx={{ width: '16px', height: '16px' }} />
           </ActionButton>
           <Popover
@@ -267,8 +268,9 @@ export const MinimapActionButtonGraphLayout = observer(function ({
 
 export const MinimapActionButtonZoomIn = observer(function ({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
   const { graph } = explorerItem;
+  const { t } = useTranslation('common');
   return (
-    <ActionButton onMouseDown={() => graph.twoGraph?.zoom('in')}>
+    <ActionButton aria-label={t('keyboardInfo.zoomIn')} onMouseDown={() => graph.twoGraph?.zoom('in')}>
       <AddFilled sx={{ width: '16px', height: '16px' }} />
     </ActionButton>
   );
@@ -276,8 +278,9 @@ export const MinimapActionButtonZoomIn = observer(function ({ explorerItem }: { 
 
 export const MinimapActionButtonZoomOut = observer(function ({ explorerItem }: { explorerItem: GraphWorkspaceStore }) {
   const { graph } = explorerItem;
+  const { t } = useTranslation('common');
   return (
-    <ActionButton onMouseDown={() => graph.twoGraph?.zoom('out')}>
+    <ActionButton aria-label={t('keyboardInfo.zoomOut')} onMouseDown={() => graph.twoGraph?.zoom('out')}>
       <Minus sx={{ width: '16px', height: '16px' }} />
     </ActionButton>
   );
@@ -289,6 +292,7 @@ export const MinimapActionButtonFullScreen = observer(function ({
   explorerItem: GraphWorkspaceStore;
 }) {
   const isFullScreen = explorerItem.isFullScreen;
+  const { t } = useTranslation('console');
 
   const handleFullScreen = () => {
     explorerItem.setIsFullScreen(!isFullScreen);
@@ -296,7 +300,7 @@ export const MinimapActionButtonFullScreen = observer(function ({
   };
 
   return (
-    <ActionButton onClick={handleFullScreen}>
+    <ActionButton aria-label={t('fullscreen')} aria-pressed={isFullScreen} onClick={handleFullScreen}>
       {isFullScreen ? (
         <FullscreenExit fontSize="medium" sx={{ width: '16px', height: '16px' }} />
       ) : (
@@ -331,6 +335,7 @@ function Minimap({
 }) {
   const minimapDomRef = useRef<HTMLElement | undefined>(undefined);
   const { minimap } = explorerItem;
+  const { t } = useTranslation('explorer');
   const [isOpen, setOpen] = useState(false);
 
   useEffect(() => {
@@ -372,6 +377,8 @@ function Minimap({
         Wrapper: MinimapActionGroup,
         minimapToggleButton: (
           <ActionButton
+            aria-label={t('minimap')}
+            aria-pressed={isOpen}
             sx={{
               bgcolor: ({ palette }) => (isOpen ? palette.action.selected : undefined),
             }}

@@ -681,11 +681,17 @@ export class GraphStore {
     this.layout = layout;
     this.setPageLoading(true);
     setTimeout(async () => {
-      await layouts[layout](this);
-      this.updateShouldBlockRouter(true);
-      this.twoGraph?.autoFit();
-      this.explorerStore.minimap.refresh();
-      this.setPageLoading(false);
+      try {
+        await layouts[layout](this);
+        this.updateShouldBlockRouter(true);
+        this.twoGraph?.autoFit();
+        this.explorerStore.minimap.refresh();
+      } catch (error) {
+        console.error('Graph layout failed.', error);
+        this.message?.error(this.explorerStore.translate('graphLayout.failed', { ns: 'explorer' }));
+      } finally {
+        this.setPageLoading(false);
+      }
     }, 200);
   };
 

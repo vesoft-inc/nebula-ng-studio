@@ -152,6 +152,8 @@ const explorer = {
   changedDuringSave: 'The snapshot was saved, but newer changes are still unsaved. Save again before leaving.',
   searchInCanvas: 'Search in Exploration',
   graphLayout: {
+    label: 'Graph Layout',
+    failed: 'Could not apply the graph layout. Try again.',
     force: 'Force',
     dagre: 'Dagre',
     dagreLR: 'Dagre-LR',
@@ -162,8 +164,12 @@ const explorer = {
     neuralNetwork: 'Neural Network',
     mds: 'MDS',
   },
+  minimap: 'Minimap',
+  minimapViewport: 'Minimap viewport',
+  graphTypesPanel: 'Graph Types Panel',
   settings: {
     settings: 'Settings',
+    closeSettings: 'Close settings',
     querySection: 'Query',
     queryTimeout: 'Query Timeout',
     queryTimeoutTip: 'Set the query timeout (in seconds). Valid range: 0 to 600 seconds',
