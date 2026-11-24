@@ -1,7 +1,5 @@
 # studio-ui-internal: implementation contracts
 
-Exact entries live in [package.json](../../packages/studio-ui-internal/package.json) and [entries](../../packages/studio-ui-internal/src/entries). `src/shared` holds UI shared across domains; business code lives in console/schema/schema-editor/explorer/graph.
-
 ## Composition and ownership
 
 | Domain       | Composition                                                                            | Ownership                                                                                                                                                                              |
@@ -15,7 +13,9 @@ Exact entries live in [package.json](../../packages/studio-ui-internal/package.j
 
 `useSchemaTreeBindings` does not initialize data; load explicitly through onReady or the layout. Use UiProvider and call it inside observer. Notify the host only after a successful switch. Refresh failure does not invalidate creation; unmount/Controller replacement stops old follow-up refreshes and callbacks.
 
-Separate editor selection from writes: `selectItem()` selects; `commitNodeChanges()` / `commitEdgeChanges()` commit. Live panels commit onChange; dialogs commit on confirmation. Compatibility setters remain, but new code must not save implicitly through selection reactions. `useLayoutPersistence` owns autosave subscriptions, timers, and unmount submission; the service owns the persistence queue.
+`selectItem()` changes the selection. Live panels call `commitNodeChanges()` or `commitEdgeChanges()` on change. Dialogs commit on confirmation. `useLayoutPersistence` owns autosave subscriptions, timers, and the final save on unmount. The service owns the write queue.
+
+GUI Console sends a positive query deadline in milliseconds through `X-Request-Timeout`. Its `/gql` body contains only `gql`. Axios uses the host transport timeout. Web sends the query deadline in the Studio Server request body.
 
 ## Snapshots and runtime
 
@@ -25,15 +25,15 @@ Separate editor selection from writes: `selectItem()` selects; `commitNodeChange
 | Canvas/history      | `OpenedSnapshot`, `GraphRuntimeState`, `GraphHistoryFrame`; preserve entity references and index-copy behavior |
 | Icons               | Raw `IconGroupRecord/IconItemRecord`; plain catalog `IconGroupData/IconItemData`                               |
 
-Legacy `Snapshot`/`SnapshotData` mean `OpenedSnapshot`/`GraphRuntimeState`, not JSON DTOs. Read generic runtime collections with `Array.from()`. Existing snapshotTransfer exports and Controller import/export methods remain.
+Snapshot codecs operate on plain data. Decoding migrates legacy edge IDs. Restoration uses entity-index string keys as canvas IDs and binds duplicate edge endpoints once. Preserve raw IDs, endpoints, and property encodings in `data.value`. Convert between persisted and runtime data on load, save, or handoff.
 
-Codecs create no images, observables, or canvases. Decode migrates legacy edge IDs; restoration uses entity-index string keys as canvas IDs and binds duplicate edge endpoints once. Preserve raw IDs, endpoints, and property encodings in `data.value`. Runtime conversion belongs at load/save/handoff boundaries, not in frame loops.
+`openSnapshot()` verifies the owning Schema, switches if needed, and applies the decoded state and history through `restoreSnapshot()`. It starts `loadGraphTypeDetails()` in the background when the snapshot names a graph type. Switching workspaces or disposing one invalidates its pending metadata reads. [Snapshot ownership](STUDIO-UI.md#explorer-and-handoff)
 
-`openSnapshot()` reads, verifies/switches Schema, decodes, restores, and loads metadata. `restoreSnapshot()` only applies state/history; `loadGraphTypeDetails()` queries explicitly. Legacy `initSnapShot()` still combines them. Switching or disposal invalidates old metadata. Ownership rules are in the [public contract](STUDIO-UI.md).
+Reapply active filters on graph queries, property edits and history restores, preserving unrelated manual dismissals. Hide an edge when either endpoint is hidden, including while the renderer still holds endpoint IDs.
 
-The renderer observes the identities of hidden and dimmed entities. Graph queries, property edits and history restores re-evaluate active rules while retaining unrelated manual dismissals. Edges disappear when an endpoint is hidden, including before the renderer resolves endpoint IDs into objects.
+For Explorer's GPU layout, check that the browser can create a WebGL context with the required extensions. Fall back to CPU layout when that check fails and release the loading overlay when layout ends. [Layout regression](../../e2e/web/explorer-visuals.spec.ts)
 
-GUI Console sends a positive query deadline in milliseconds through `X-Request-Timeout`. Its `/gql` body contains only `gql`. Axios uses the host transport timeout. Web sends the query deadline in the Studio Server request body.
+On the Schema canvas, let React Flow hit-test overlapping handles. Configure one to start and the other to end a connection, and use the reported source and target IDs. [Connection regression](../../e2e/web/schema-canvas.spec.ts)
 
 ## Console → Explorer
 

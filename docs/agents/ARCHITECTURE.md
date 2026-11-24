@@ -27,7 +27,7 @@
 
 - Use explicit package `exports` and named symbol allowlists. The public package has no source condition, wildcard entry, `/model`, or general utility collection. Core/internal separate the development `source` condition from default `dist` entries.
 - New public components need a concrete reuse case, an independent interface, and a verifiable lifecycle. Prefer necessary Props/events; do not inherit internal Props containing Controllers.
-- Check both JavaScript and declaration dependency graphs. `import type` does not isolate declarations. Contracts, locales, and adapters must not load workbenches, Monaco, the graph engine, or styles through barrel exports.
+- Check the complete JavaScript and declaration dependency graphs in the built package. Source aliases can resolve private imports that would fail for a consumer, including imports in declarations. Keep contracts, locales, and adapters independent of workbenches, Monaco, the graph engine, and styles.
 - Build all entries together to share the Provider chunk. Preserve CSS, fonts, images, Monaco workers, and `new URL(..., import.meta.url)` paths. The UI baseline is browser React 19 / MUI 7.
 
 Enforcement: [exports and dependencies](../../packages/studio-ui/package.json), [symbol allowlist](../../packages/studio-ui/public-api.json), [API report](../../packages/studio-ui/etc/studio-ui.api.md), and each shared package's `scripts/check-boundaries.mjs`.

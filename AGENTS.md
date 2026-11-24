@@ -5,7 +5,7 @@
 - Applications own routing and page composition through TanStack file routes in Web/GUI. UI packages do not parse URLs or dispatch pages.
 - Keep MobX internal. Public APIs must not expose Controllers, Stores, observables, or Monaco/ForceGraph instances.
 - Preserve encryption, snapshot, and storage key compatibility. Keep product behavior regressions, not migration comparison tests.
-- Update affected guides, API documentation/reports, commands, and references alongside implementation changes; remove stale statements in the same change. Record reusable corrections in LESSONS.
+- Update affected guides, API documentation and reports, commands, and references with each implementation change. Record recurring cross-module mistakes in LESSONS, domain contracts in their guide, and case-specific details beside the test.
 - Unless instructed otherwise, automatically create local commits for completed, verified task changes, grouped by coherent concern. Use Conventional Commits and normal hooks; preserve unrelated edits/staging and push only when requested.
 
 ## Read as needed

@@ -9,7 +9,7 @@
 | `/browser`   | `LocalStorageUtil`                                                  | Browser           |
 | `/crypto`    | Existing credential encryption protocol                             | Web Crypto/Base64 |
 
-The root does not aggregate subentries. There is no RouterStore, HTTP client, or Axios configuration extension. CSV downloads belong to internal `/utilities`.
+Import each capability from its listed entry.
 
 `parsePropertyDataType` returns plain `PropertyTypeDefinition`, without editor IDs, styles, or clone methods. `GQLResultPlanInfo` excludes display groups and time percentages; internal `PlanNodeData` owns those fields.
 
