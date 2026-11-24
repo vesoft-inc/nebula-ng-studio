@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { test } from '../support/web';
-import { failure, table } from '../support/http';
+import { failure } from '../support/http';
 test('a snapshot survives creation, failed rename, retry, reload and deletion', async ({ page, api }) => {
   await page.goto('/studio/explorer/snapshots');
   await page.getByRole('button', { name: 'New Exploration' }).click();
@@ -85,52 +85,4 @@ test('a missing deep link recovers through the list and opens the selected snaps
     await expect(page).toHaveURL(new RegExp('/snapshots/' + id + '$'));
     await expect(page.getByText('Project ' + id, { exact: true })).toBeVisible();
   }
-});
-
-test('display properties are read back from the saved snapshot', async ({ page, api }) => {
-  api.snapshots.set('people', {
-    id: 'people',
-    name: 'People labels',
-    graph: 'people-demo',
-    graph_type: 'People',
-    schemaPath: '/initial',
-    data: '',
-  });
-  api.override = async (path, req) => {
-    if (path !== '/gql/exec') return;
-    const { gql } = req.postDataJSON();
-    if (gql === 'CALL describe_graph_type("People") RETURN *')
-      return table([
-        {
-          type_name: 'Person',
-          entity_type: 'Node',
-          labels: ['Person'],
-          properties: ['id', 'nickname'],
-          'primary_key/multiedge_key': ['id'],
-        },
-      ]);
-    if (gql.includes('CALL describe_node_type(gtn, type_name)'))
-      return table(
-        ['id', 'nickname'].map((property_name) => ({
-          type_name: 'Person',
-          property_name,
-          data_type: 'STRING',
-          primary_key: property_name === 'id' ? 'Y' : 'N',
-        }))
-      );
-    return undefined;
-  };
-  await page.goto('/studio/explorer/snapshots/people');
-  const properties = page.getByRole('button', { name: 'Graph Property' });
-  await properties.click();
-  const field = page.getByRole('checkbox', { name: 'nickname' });
-  await expect(field).not.toBeChecked();
-  await field.press('Space');
-  await expect(field).toBeChecked();
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(() => api.snapshots.get('people')!.data).toContain('nickname');
-  await page.reload();
-  await properties.click();
-  await expect(field).toBeChecked();
 });

@@ -11,7 +11,7 @@ import { CheckboxButtonGroup, FormContainer, useForm } from 'react-hook-form-mui
 import { DisplayedPropertyItem } from '../../../../../graph/types/index';
 
 type GraphPropertyForm = {
-  propertyGroups: Array<string[] | undefined>;
+  propertyGroups: string[][];
 };
 
 export default observer(function GraphProperty() {
@@ -49,10 +49,8 @@ export default observer(function GraphProperty() {
       entityType === GraphEntityType.Node ? displayedNodePropertyItems : displayedEdgePropertyItems;
     return entityTypes.map((entityType) => {
       const displayedPropertyItem = displayedPropertyItems.find((item) => item.type_name === entityType.type_name);
-      if (displayedPropertyItem) {
-        return displayedPropertyItem.properties;
-      }
-      return undefined;
+      // Both tabs reuse the same field paths. An absent group must clear the previous tab's default.
+      return displayedPropertyItem?.properties ?? [];
     });
   };
 
@@ -108,7 +106,6 @@ export default observer(function GraphProperty() {
             active={curTab === tab.type}
             onClick={() => {
               setCurTab(tab.type);
-              // form.reset({propertyGroups: getCurrentPropertyGroups(tab.type)}, { keepDirtyValues: false });
               form.setValue('propertyGroups', getCurrentPropertyGroups(tab.type));
             }}
             variant={curTab === tab.type ? 'contained' : 'outlined'}
