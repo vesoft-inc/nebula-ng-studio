@@ -19,9 +19,9 @@ Exact Props and service signatures live in [services.ts](../../packages/studio-u
 
 - The host defines `scopeKey` for the user, database, and connection session. It is not parsed into API or storage keys. Keep it and the mounted Provider stable across page changes.
 - Domain state is lazy. Services are identified by reference: replacing a dependency cancels and rebuilds its state; unrelated domains or a new outer `services` container do not trigger a rebuild.
-- Console text, results, query state, and snapshot associations survive page changes; unmounting a page releases view resources. Provider unmount, scope changes, or dependency replacement dispose old state; Schema changes clear the query context. Explorer/SchemaEditor do not add automatic drafts across pages.
+- Console text, results, query state, and snapshot associations survive page changes. Unmounting the page releases its view resources and expires its navigation callbacks. Provider unmount, scope changes, or dependency replacement dispose old state. Schema changes clear the query context. Explorer and SchemaEditor use their own save workflows.
 - `schemaPath` represents a successfully selected remote Schema. The host switches remotely before updating Props. A component switch notifies the host through Provider `onSchemaChange`; changing Props does not perform the remote switch.
-- Each Provider permits one active instance of each workbench; a tree may coexist with distinct lists/details. Page callbacks expire on unmount, while Schema synchronization follows the scope lifecycle.
+- Each StudioProvider permits one active instance of each workbench. `SchemaTreePanel` can share a Provider with a Schema list or detail view. `SnapshotList` and `ExplorerGraph` share one Explorer slot. Mount them on alternate routes, or use separate Providers to display both at once.
 - `UiProvider` disables CSS baseline by default and owns its modals. Import `/styles.css` once. Monaco themes apply to the entire page; editors must use a consistent mode.
 
 Evidence: [provider.test.tsx](../../packages/studio-ui/src/provider.test.tsx), [scope.ts](../../packages/studio-ui/src/internal/scope.ts).
@@ -49,6 +49,6 @@ Schema changes clear selection, expansion, and dialogs. Unmount stops page callb
 
 ## Queries and errors
 
-`execute` handles user/warning queries; `query` handles metadata. Public `QueryOptions` contains only cancellation and a timeout in milliseconds; components convert UI settings from seconds. The Console enables Stop when the host supplies `getSessionId` and `cancelQuery` and a query session ID is available. Otherwise Run stays disabled until execution finishes. Scope disposal still aborts outstanding requests.
+`execute` handles user and warning queries. `query` handles metadata. Public `QueryOptions` accepts a cancellation signal and a query timeout in milliseconds. Components convert the UI setting from seconds. Aborting a browser request can leave the database query running. Console enables Stop once the host supplies `getSessionId`, `cancelQuery`, and an active query session ID. Otherwise Run stays disabled until execution finishes. Scope disposal aborts outstanding requests.
 
 Business failures preserve `code/message`; transport failures may reject. Console creates results for business failures but does not guarantee a visible message for network rejection. Explorer already shows local open/save errors. Hosts choose error presentation per operation; components have no universal deduplication. [Studio Server adapters](STUDIO-SERVER-ADAPTERS.md) additionally require HTTP business-error normalization.

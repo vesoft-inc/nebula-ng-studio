@@ -16,9 +16,9 @@ Factories issue no initial requests and create no clients/interceptors. Unconfig
 
 ## Responses and cancellation
 
-All methods forward QueryOptions.signal. Queued or multi-step operations check cancellation again before sending. queryTimeout goes into the query body timeout in milliseconds, not Axios's network timeout. Preserve business code/message; transport failures reject.
+All methods forward `QueryOptions.signal`. Queued or multi-step operations check cancellation again before sending. Query requests put `queryTimeout` in the body as `timeout` in milliseconds. They inherit the host's Axios network timeout. Query methods return the business response or propagate a rejection from the injected client.
 
-Studio Server may return standard business errors with HTTP 404. The host normalizes these so missing configuration can use defaults and missing snapshots return ErrNotFound. Cancellation, network failures, timeouts, and nonstandard bodies still reject. This example preserves large integers and validates business responses; Web's existing policy needs no duplicate interceptor.
+Studio Server may return a business error with HTTP 404. Returning that response lets missing configuration use defaults and missing snapshots report `ErrNotFound`. The following host example preserves large integers, accepts a nonzero business code with a message, and rejects cancellation, network failures, timeouts, and malformed responses.
 
 ```ts
 import axios from 'axios';
@@ -68,14 +68,14 @@ http.interceptors.response.use(
 
 - Schema layout identity contains address/username and optional namespace; SchemaEditor also fixes schemaPath. Factories copy identity and settings keys. Create new instances when identity changes.
 - Without namespace, retain `studio-schema-layout-v1` keys and v1 documents. With namespace, add an encoded key segment consistently across reads, migration, and cleanup; do not migrate old data.
-- Layout reads have a two-second deadline. Ordinary optional read failures return null; empty saves, oversized keys, or unconfirmed writes return false. Cancellation rejects and stops subsequent steps; it is not successful persistence.
-- SchemaEditor services own write queues; Schema services own cleanup records. Delete only records verified to belong to the current identity/Schema, and allow retry after failure. Serialization applies within one instance, not across tabs or clients.
+- Layout reads have a two-second deadline and return `null` on timeout or ordinary read failure. A write captures its identity, key, layout and signal at enqueue time. Its two-second Axios timeout starts when the queued request is sent. Empty layouts, oversized keys, and unconfirmed saves return `false`. Caller cancellation rejects and stops subsequent steps.
+- Each SchemaEditor service serializes its own writes. Each Schema service tracks cleanup for its identity and Schema, verifies ownership before deleting records, and allows retry after failure.
 - Explorer settings loads return only persisted groups; UI merges defaults. Web may merge them in its wrapper when it needs a complete value. No personalKey means no personal configuration request.
 
 ## Web ownership
 
 [StudioServerAdapters](../../apps/web/src/services/studioServer.ts) caches services by identity/Schema within the session, preserving layout queues across routes. Session invalidation cancels old requests and clears caches. A persistent SchemaController selects the current service at operation start through [schemaCatalog](../../apps/web/src/services/schemaCatalog.ts), rather than retaining the identity from before login.
 
-[fetcher](../../apps/web/src/services/fetcher.ts) retains large-integer parsing, session expiry, and silent-request policy. GQL wrappers keep errTip/errMsgInterceptor outside public QueryOptions. Web development uses an exact source alias only for this adapter entry; artifact mode uses package exports. GUI has its own protocol.
+Web's Axios interceptor preserves HTTP responses. When no response arrives, it supplies `HTTP_CANCEL_CODE` for cancellation or `ErrUnknown` for other transport failures. A response from a superseded session also receives the cancellation code. The Web clients share large-integer parsing and session expiry handling. GQL wrappers retain per-request error presentation through `errTip` and `errMsgInterceptor`. [Web HTTP client](../../apps/web/src/services/fetcher.ts)
 
 Regressions: [services](../../packages/studio-ui/src/adapters/studio-server/services.test.ts), [config](../../packages/studio-ui/src/adapters/studio-server/config.test.ts), [layout](../../packages/studio-ui/src/adapters/studio-server/layout.test.ts), [Web sessions](../../apps/web/src/services/studioServer.test.ts).

@@ -2,10 +2,11 @@
 
 ## Packages and API
 
-Run the changed domain's behavior tests and package lint:types. Entry/dependency changes also require source and dist boundary checks. Shared implementation changes cover affected public UI and hosts; do not add migration comparison tests.
+Run behavior tests and `lint:types` for the changed domain and affected hosts. For package entry or dependency changes, check all three packages from source before building, then check the artifacts.
 
 ```sh
-# Source checks need no prior build; all three shared packages provide check:boundaries.
+pnpm --filter @vesoft-inc/studio-core check:boundaries
+pnpm --filter @vesoft-inc/studio-ui-internal check:boundaries
 pnpm --filter @vesoft-inc/studio-ui check:boundaries
 
 # Turbo builds core/graph engine → internal → public UI.
@@ -34,23 +35,11 @@ Web/GUI each maintain their own generated `routeTree.gen.ts`. Generate them with
 
 ## Browser regression
 
-Build the two frontend hosts with the Vite commands above, then run `pnpm test:e2e:install` and `pnpm test:e2e`. Playwright serves their dist directories on loopback ports 4174 and 4175. Use `pnpm test:e2e --project=web` or `--project=gui` for one host. CI typechecks the suite and retains failure traces under `test-results/`.
+Build Web and GUI with Vite, then run `pnpm test:e2e:install`, `pnpm test:e2e:types` and `pnpm test:e2e`. Playwright serves the built apps on loopback with mocked HTTP. Web exercises the `/studio` deployment prefix and Studio Server responses. GUI exercises its native Console protocol. Use `--project=web` or `--project=gui` to select a host, and `pnpm test:e2e --list` to list current scenarios. CI retains failure traces in `test-results/`.
 
-Each browser test owns its HTTP fixture. Web exercises the deployed `/studio` base path and Studio Server envelopes. The GUI fixture authenticates requests with a distinct token for each login and rejects expired tokens. Delay responses explicitly for cancellation and session switches. Verify persisted changes through a fresh read after navigation or reload.
-
-Explorer and Schema Editor are Web routes. The GUI suite covers the Console and its native REST protocol.
-
-| Area                                  | Browser regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Console                               | Check sign-in and session recovery, cross-page drafts, execution plans, query warnings, statistics, raw results and CSV/JSON exports. GUI also checks cancellation and query timeout headers. [Web](../../e2e/web/console.spec.ts), [GUI](../../e2e/gui/console.spec.ts)                                                                                                                                                                                                                                             |
-| Schema management                     | Create and switch Schema, confirm its exact path before deletion, create and drop a Graph, create and drop a normal index, and refresh graph statistics. [Management](../../e2e/web/schema.spec.ts)                                                                                                                                                                                                                                                                                                                  |
-| Explorer lists and handoff            | Create, rename, delete, paginate and search snapshots. Switch Schema during a pending search. Verify settings and snapshots through a fresh read, plus Console handoff and dirty navigation. [Lists](../../e2e/web/explorer-list.spec.ts), [Snapshots](../../e2e/web/explorer.spec.ts), [Handoff](../../e2e/web/handoff.spec.ts)                                                                                                                                                                                     |
-| Explorer panels and canvas            | Run node, relationship and path queries. Verify filters and display properties, Canvas2D hit testing, group selection and dragging, undo/redo, search and neighbor expansion, all eight layouts, zoom, panning, minimap, fullscreen, type styling, selected and full exports, and icon group and file operations. [Panels](../../e2e/web/explorer-panels.spec.ts), [Canvas](../../e2e/web/explorer-canvas.spec.ts), [Visuals](../../e2e/web/explorer-visuals.spec.ts), [Icons](../../e2e/web/explorer-icons.spec.ts) |
-| Explorer database editing             | Check node and edge DML, failed writes, primary key locking, reversed endpoints, insert readback, and delete confirmation. [Editing](../../e2e/web/explorer-edit.spec.ts)                                                                                                                                                                                                                                                                                                                                            |
-| Schema Editor canvas and forms        | Drag nodes and handles, connect and delete edges, create a self-loop, duplicate a node, change the viewport, switch between canvas and table, and verify DDL and persisted layout. [Canvas](../../e2e/web/schema-canvas.spec.ts), [Sketch and submission](../../e2e/web/schema-editor.spec.ts)                                                                                                                                                                                                                       |
-| Schema property and constraint matrix | Check all `PropertyDataType` values on both nodes and edges through DDL submission and fresh metadata. Cross all edge directions with all multi-edge key modes, and verify composite primary key and DECIMAL validation. [Types](../../e2e/web/schema-types.spec.ts), [Constraints](../../e2e/web/schema-constraints.spec.ts)                                                                                                                                                                                        |
-
-Canvas tests use mouse input and rendered pixels or SVG geometry for targets. Layout tests check characteristic node arrangements and restore fixed geometry up to pan and zoom. The Force case covers CPU fallback when Chromium cannot create a WebGL context. Explorer checks active filters after mode changes, queries and edits, and decodes PNG exports to verify node and edge pixels. Schema fixtures verify a backward edge with a custom multi-edge key after submission, layout restoration after a GraphType rename, and isolation from adjacent GraphTypes.
+- Match fixture responses to the identity and resource in the actual request. Delay selected responses to exercise cancellation, session changes and recovery.
+- Verify saved data through a fresh read after navigation or reload. Use the live suite to check real persistence independently of the fixture.
+- Drive the canvas with mouse input. Assert the rendered result using geometry, opacity or decoded image pixels so the test detects a wrong layout, missing entity or blank export.
 
 Run `pnpm test:e2e:live` separately against English-language test deployments. Missing configuration reports the affected scenarios as skipped. Live tracing, screenshots and video are disabled.
 
