@@ -5,5 +5,11 @@ export default defineConfig({
   outputDir: '../test-results/live',
   workers: 1,
   timeout: 60000,
-  use: { locale: 'en-US', trace: 'off', screenshot: 'off', video: 'off' },
+  use: {
+    viewport: { width: 1480, height: 980 },
+    locale: 'en-US',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
+  },
 });
