@@ -1,7 +1,90 @@
+import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import { test } from '../support/web';
 import { signIn, readResult, disconnect, runQuery, runButton, gate, enterQuery } from '../support/browser';
-import { failure, table } from '../support/http';
+import { failure, ok, table } from '../support/http';
+
+test('opens query plans, shows warnings and exports the profiled result', async ({ page, api }) => {
+  const explain = 'EXPLAIN MATCH (n) RETURN n';
+  const profile = 'PROFILE USE `people-demo` MATCH (n) SET n.age = 42 RETURN n.age AS age';
+  const plan = (name: string) => ({
+    id: name,
+    name,
+    details: '',
+    columns: ['age'],
+    timeMs: 4,
+    rows: 1,
+    memoryKib: 0,
+    blockedMs: 0,
+    queuedMs: 0,
+    consumeMs: 0,
+    produceMs: 0,
+    finishMs: 0,
+    batches: 0,
+    concurrency: 1,
+    otherStatsJson: '',
+    children: [],
+  });
+  api.query = async (gql) => {
+    if (gql === explain) {
+      return ok({ headers: [], tables: [], summary: { explainType: 'explain', planInfo: plan('NodeScan') } });
+    }
+    if (gql === profile) {
+      return ok({
+        headers: ['age'],
+        tables: [{ age: 42 }],
+        summary: {
+          explainType: 'profile',
+          rowsCount: 1,
+          totalServerTimeUs: 4000,
+          planInfo: plan('SetProperty'),
+          queryStats: { numAffectedNodes: 1, numAffectedEdges: 0 },
+        },
+      });
+    }
+    return undefined;
+  };
+  api.override = async (path, request) => {
+    if (
+      path === '/nebula/console/execGql' &&
+      request.postDataJSON().gql === 'SHOW WARNINGS' &&
+      api.consoleRequests.at(-1) === profile
+    ) {
+      return table([{ code: 'W01', message: 'Node property was updated' }]);
+    }
+    return undefined;
+  };
+
+  await page.goto('/studio/console');
+  await runQuery(page, explain);
+  const planTab = page.getByRole('tab', { name: 'Execution Plan', exact: true });
+  await expect(planTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('NodeScan', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Table', exact: true })).toHaveCount(0);
+
+  await runQuery(page, profile);
+  await expect(page.getByRole('cell', { name: '42', exact: true })).toBeVisible();
+  await page.getByText('Warning: 1', { exact: true }).hover();
+  await expect(page.getByRole('tooltip', { name: 'W01: Node property was updated' })).toBeVisible();
+  await planTab.first().click();
+  await expect(page.locator('.react-flow__node').getByText('SetProperty', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Stats', exact: true }).click();
+  await expect(page.getByText('Affected nodes: 1')).toBeVisible();
+  await page.getByRole('tab', { name: 'Raw', exact: true }).click();
+  await expect(page.locator('.monaco-editor .view-lines').filter({ hasText: '"age": 42' })).toBeVisible();
+
+  for (const format of ['CSV', 'JSON']) {
+    await page.getByRole('button', { name: 'Export', exact: true }).first().click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByText('Export as ' + format, { exact: true }).click(),
+    ]);
+    const body = await readFile(await download.path(), 'utf8');
+    if (format === 'JSON') expect(JSON.parse(body.replace(/^\uFEFF/, '')).tables).toEqual([{ age: 42 }]);
+    else expect(body.replaceAll('"', '')).toMatch(/age\r?\n42/);
+  }
+  expect(api.consoleRequests).toEqual([explain, profile]);
+});
 
 test('login retries return to the protected deep link and logout protects browser history', async ({ page, api }) => {
   api.user = null;

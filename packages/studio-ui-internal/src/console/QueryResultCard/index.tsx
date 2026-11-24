@@ -679,6 +679,7 @@ function OutputBox({ result }: { result: ConsoleResult<GraphDataTable> }) {
                       ].filter((item): item is NonNullable<typeof item> => Boolean(item))}
                     >
                       <IconButton
+                        aria-label={t('export', { ns: 'common' })}
                         sx={{
                           width: 24,
                           height: 24,
