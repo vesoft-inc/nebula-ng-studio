@@ -81,9 +81,8 @@ const GraphCanvasComponent = ({
   const addEdgeTypeWithTransform = (connection: Connection) => {
     if (!schemaStore || !connection.source || !connection.target) return;
 
-    // Source/Target node id is reversed by default, here is a simple fix
-    const dstNode = schemaStore.nodeTypeList.find((node) => node.id === connection.source);
-    const srcNode = schemaStore.nodeTypeList.find((node) => node.id === connection.target);
+    const srcNode = schemaStore.nodeTypeList.find((node) => node.id === connection.source);
+    const dstNode = schemaStore.nodeTypeList.find((node) => node.id === connection.target);
     if (!srcNode || !dstNode) return;
 
     const existingEdges = schemaStore.edgeTypeList.slice();

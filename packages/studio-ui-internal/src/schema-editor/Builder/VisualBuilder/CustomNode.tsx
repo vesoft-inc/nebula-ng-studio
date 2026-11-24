@@ -32,10 +32,10 @@ function BidirectionalHandle({ position, id, isReadonly }: BidirectionalHandlePr
           backgroundColor: alpha(theme.palette.vesoft.v2.text1, 0.6),
           border: `2px solid ${alpha(theme.palette.vesoft.v2.bg1, 0.8)}`,
           cursor: isReadonly ? 'default' : 'crosshair',
-          pointerEvents: 'all',
           transition: 'opacity 0.2s',
         }}
         isConnectable={!isReadonly}
+        isConnectableEnd={false}
       />
       <Handle
         type="target"
@@ -45,9 +45,9 @@ function BidirectionalHandle({ position, id, isReadonly }: BidirectionalHandlePr
           width: 8,
           height: 8,
           opacity: 0,
-          pointerEvents: 'all',
         }}
         isConnectable={!isReadonly}
+        isConnectableStart={false}
       />
     </>
   );

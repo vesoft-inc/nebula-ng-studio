@@ -38,6 +38,8 @@ Build the two frontend hosts with the Vite commands above, then run `pnpm test:e
 
 Each browser test owns its HTTP fixture. Web exercises the deployed `/studio` base path and Studio Server envelopes. GUI exercises its native REST responses. Delay responses explicitly for cancellation and session switches. Verify persisted changes through a fresh read after navigation or reload.
 
+Explorer coverage exercises node, relationship, and path queries, plus saved filters and display properties. Schema canvas coverage drives drag and drop on rendered handles, checks the generated DDL, and verifies persisted coordinates after reopening. [Explorer panel tests](../../e2e/web/explorer-panels.spec.ts) · [Schema canvas tests](../../e2e/web/schema-canvas.spec.ts)
+
 Run `pnpm test:e2e:live` separately against English-language test deployments. Missing configuration reports the affected scenarios as skipped. Live tracing, screenshots and video are disabled.
 
 | Deployment | Configuration                                                                                                                                                                                          | Optional scenario                                                                                                                                                                            |
