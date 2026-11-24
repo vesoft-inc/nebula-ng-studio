@@ -1,6 +1,7 @@
 import { Tooltip } from '@mui/material';
 import { ScaleButton, ScalesBtnContainer } from './styles';
 import { AddFilled, Fullscreen, FullscreenExit, Minus, Pause, Play } from '@vesoft-inc/icons';
+import { useTranslation } from 'react-i18next';
 
 interface ZoomBtnsProps {
   onZoomIn?: () => void;
@@ -16,6 +17,7 @@ interface ZoomBtnsProps {
 }
 
 function ZoomBtns(props: ZoomBtnsProps) {
+  const { t } = useTranslation(['common', 'console']);
   const { onZoomIn, onZoomOut, onToggleScreen, isFullScreen, onToggleForce, isForceRunning, forceTooltip } = props;
 
   return (
@@ -23,6 +25,7 @@ function ZoomBtns(props: ZoomBtnsProps) {
       {onToggleForce && (
         <Tooltip title={isForceRunning ? forceTooltip?.stop : forceTooltip?.start} placement="left">
           <ScaleButton
+            aria-pressed={isForceRunning}
             variant="outlined"
             sx={{
               bgcolor: (theme) => theme.palette.vesoft.v2.bg1,
@@ -36,6 +39,7 @@ function ZoomBtns(props: ZoomBtnsProps) {
       )}
 
       <ScaleButton
+        aria-label={t('keyboardInfo.zoomIn')}
         variant="outlined"
         sx={{
           bgcolor: (theme) => theme.palette.vesoft.v2.bg1,
@@ -45,6 +49,7 @@ function ZoomBtns(props: ZoomBtnsProps) {
         <AddFilled fontSize="medium" />
       </ScaleButton>
       <ScaleButton
+        aria-label={t('keyboardInfo.zoomOut')}
         variant="outlined"
         sx={{
           bgcolor: (theme) => theme.palette.vesoft.v2.bg1,
@@ -54,6 +59,8 @@ function ZoomBtns(props: ZoomBtnsProps) {
         <Minus fontSize="medium" />
       </ScaleButton>
       <ScaleButton
+        aria-label={t('fullscreen', { ns: 'console' })}
+        aria-pressed={isFullScreen}
         variant="outlined"
         sx={{
           bgcolor: (theme) => theme.palette.vesoft.v2.bg1,

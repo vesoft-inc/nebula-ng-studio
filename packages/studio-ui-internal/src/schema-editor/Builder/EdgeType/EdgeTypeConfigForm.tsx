@@ -80,7 +80,11 @@ function MoreAction({ index, readonly }: { index: number; readonly: boolean }) {
     <PopupState variant="popper" popupId={`moreaction-${index}`}>
       {(popupState) => (
         <>
-          <IconButton size="small" {...bindTrigger(popupState)}>
+          <IconButton
+            size="small"
+            aria-label={t('propertySettings', { property: properties[index]?.name || index + 1 })}
+            {...bindTrigger(popupState)}
+          >
             <MoreVertFilled />
           </IconButton>
           <Popover

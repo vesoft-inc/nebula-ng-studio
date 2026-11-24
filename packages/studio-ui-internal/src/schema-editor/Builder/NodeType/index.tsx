@@ -85,7 +85,11 @@ function NodeTypeTable(props: NodeTypeTableProps) {
         header: t('operation', { ns: 'graphtype' }),
         Cell: ({ row }) => (
           <Box display="flex" alignItems="center">
-            <IconButton size="small" onClick={handleEditNodeType(row.original)}>
+            <IconButton
+              size="small"
+              aria-label={t('editNodeType', { ns: 'graphtype' })}
+              onClick={handleEditNodeType(row.original)}
+            >
               <EditFilled />
             </IconButton>
             <IconButton size="small" onClick={handleDeleteNodeType(row.original)} sx={{ marginLeft: 2 }}>

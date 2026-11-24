@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { test, type StudioApi } from '../support/web';
 import { failure, table, type Reply } from '../support/http';
+import { identifier, openTypeOnCanvas, serveSchemaType } from '../support/schema';
 
 const typeList = '/studio/schema-manager/graphtype';
 const layoutKey = 'studio-schema-layout-v1|graphd:9669|alice|~2finitial|People';
@@ -75,7 +76,7 @@ function setSavedLayout(api: StudioApi) {
 }
 
 async function drag(page: Page, from: Locator, to: { x: number; y: number }) {
-  await expect(from).toBeVisible();
+  await from.hover();
   const box = (await from.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -84,6 +85,7 @@ async function drag(page: Page, from: Locator, to: { x: number; y: number }) {
 }
 
 async function connect(page: Page, from: Locator, to: Locator) {
+  await from.hover();
   await expect(to).toBeVisible();
   const target = (await to.boundingBox())!;
   await drag(page, from, { x: target.x + target.width / 2, y: target.y + target.height / 2 });
@@ -244,6 +246,7 @@ test('moving a schema node retries layout persistence and restores its coordinat
   await expect.poll(() => position(person)).toEqual(savedPositions.Person);
 
   for (const status of [400, 200]) {
+    await person.hover();
     const persisting = page.waitForResponse(
       (response) => new URL(response.url()).pathname === '/api-studio/explorer/global-config/upsert'
     );
@@ -265,4 +268,110 @@ test('moving a schema node retries layout persistence and restores its coordinat
   await expect(company).toBeVisible();
   await expect.poll(async () => (await position(person)).y).toBeCloseTo(saved.Person.y, 2);
   expect((await position(company)).y).toBeCloseTo(saved.Company.y, 2);
+});
+
+test('canvas and table edits share labels, property constraints and the generated alteration', async ({
+  page,
+  api,
+}) => {
+  serveSchemaType(
+    api,
+    {
+      node: [
+        identifier,
+        { property_name: 'alias', data_type: 'STRING', nullable: true },
+        { property_name: 'score', data_type: 'INT16', nullable: true },
+        { property_name: 'legacy', data_type: 'BOOL', nullable: true },
+      ],
+      edge: [],
+    },
+    () => undefined
+  );
+  await page.goto(typeList + '/edit/People');
+  await openTypeOnCanvas(page, 'node');
+  await expect(page.getByRole('checkbox', { name: 'Primary Key: id' })).toBeDisabled();
+  const label = page.getByRole('combobox', { name: 'Label', exact: true });
+  await label.fill('Reviewed');
+  await label.press('Tab');
+  await expect(page.locator('.MuiChip-label').filter({ hasText: /^Reviewed$/ })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Prop Name' }).nth(1).fill('display_name');
+  await page.getByRole('button', { name: 'Delete: legacy' }).click();
+  await canvas(page)
+    .locator('.react-flow__pane')
+    .click({ position: { x: 105, y: 120 } });
+  await expect(page.getByRole('textbox', { name: 'Node type name' })).toHaveCount(0);
+  await openTypeOnCanvas(page, 'edge');
+  await label.fill('TeamLink');
+  await label.press('Tab');
+  await expect(page.locator('.MuiChip-label').filter({ hasText: /^TeamLink$/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Label', exact: true }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Reviewed' })).toContainText('Person');
+  await page.getByRole('tab', { name: 'Edge Type', exact: true }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'TeamLink' })).toContainText('WorksAt');
+  await page.getByRole('button', { name: 'Node Type', exact: true }).click();
+  await page.getByRole('row').filter({ hasText: 'Person' }).getByRole('button', { name: 'Edit Node Type' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit Node Type' });
+  await expect(dialog.getByRole('textbox', { name: 'Prop Name' }).nth(1)).toHaveValue('display_name');
+  await expect(dialog.getByRole('textbox', { name: 'Prop Name' })).toHaveCount(3);
+  await dialog.getByRole('combobox', { name: 'Prop Type' }).nth(2).fill('INT32');
+  await page.getByRole('option', { name: 'INT32', exact: true }).click();
+  await dialog.getByRole('button', { name: 'More settings: score' }).click();
+  await page.locator('input[name="properties.2.nullable"]').uncheck();
+  await page.locator('input[aria-label="Default Value"]').fill('42');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Escape');
+  await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: 'Visual Builder', exact: true }).click();
+  await openTypeOnCanvas(page, 'node');
+  await expect(page.getByRole('combobox', { name: 'Prop Type' }).nth(2)).toHaveValue('INT32');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  const ddl = page.locator('.monaco-editor .view-lines');
+  for (const clause of [
+    'ALTER NODE `Person`',
+    'ADD LABELS `Reviewed`',
+    'DROP PROPERTIES {`legacy`}',
+    'MODIFY PROPERTIES {`score` INT32 NOT NULL DEFAULT 42}',
+    'RENAME PROPERTIES {`alias` TO `display_name`}',
+    'ALTER EDGE `WorksAt` ADD LABELS `TeamLink`',
+  ]) {
+    await expect(ddl).toContainText(clause);
+  }
+});
+
+test('schema canvas zooms, pans, toggles force layout and returns from fullscreen', async ({ page, api }) => {
+  serveGraphType(api, 'People', ['Person', 'Company'], { name: 'WorksAt', pattern: '(Person)-[WorksAt]->(Company)' });
+  setSavedLayout(api);
+  await page.goto(typeList + '/view/People');
+  await expect(node(page, 'Person')).toBeVisible();
+  const zoomIn = page.getByRole('button', { name: 'Zoom In' });
+  const zoomOut = page.getByRole('button', { name: 'Zoom Out' });
+  const viewport = canvas(page).locator('.react-flow__viewport');
+  const scale = () => viewport.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a);
+  const zoomedOut = await scale();
+  await zoomIn.click();
+  await expect.poll(scale).toBeGreaterThan(zoomedOut);
+  const zoomedIn = await scale();
+  await zoomOut.click();
+  await expect.poll(scale).toBeLessThan(zoomedIn);
+  const before = await position(viewport);
+  const { x, y } = (await canvas(page).boundingBox())!;
+  await page.mouse.move(x + 95, y + 96);
+  await page.mouse.down();
+  await page.mouse.move(x + 148, y + 136, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => (await position(viewport)).x).toBeGreaterThan(before.x + 35);
+  const fullscreen = page.getByRole('button', { name: 'Fullscreen' });
+  await fullscreen.click();
+  await expect(fullscreen).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await canvas(page).boundingBox())!.width).toBeGreaterThan(1470);
+  await fullscreen.click();
+  await expect(fullscreen).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Start Force Layout' }).click();
+  const stop = page.getByRole('button', { name: 'Stop Force Layout' });
+  await expect(stop).toHaveAttribute('aria-pressed', 'true');
+  await stop.click();
+  await expect(page.getByRole('button', { name: 'Start Force Layout' })).toHaveAttribute('aria-pressed', 'false');
 });

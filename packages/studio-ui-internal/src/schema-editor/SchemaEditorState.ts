@@ -98,6 +98,8 @@ class SchemaStore {
   };
 
   get nodeTypeLabeMap() {
+    // The shallow arrays do not track mutations to individual type models.
+    void this.canvasRevision;
     const labelMap = new Map<string, string[]>();
     this.nodeTypeList.forEach((node) => {
       node.labels.forEach((label) => {
@@ -112,6 +114,7 @@ class SchemaStore {
   }
 
   get edgeTypeLabelMap() {
+    void this.canvasRevision;
     const labelMap = new Map<string, string[]>();
     this.edgeTypeList.forEach((edge) => {
       edge.labels?.forEach((label) => {
