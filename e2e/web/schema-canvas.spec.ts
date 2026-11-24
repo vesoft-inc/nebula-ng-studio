@@ -16,11 +16,13 @@ import {
 const layoutKey = 'studio-schema-layout-v1|graphd:9669|alice|~2finitial|People';
 const savedPositions = { Person: { x: 150, y: 150 }, Company: { x: 450, y: 180 } };
 
+type EdgeFixture = { name: string; pattern: string; key?: string };
+
 function serveGraphType(
   api: StudioApi,
   name: string,
   nodes: string[],
-  edge?: { name: string; pattern: string },
+  edge?: EdgeFixture,
   write?: (gql: string) => Reply | undefined
 ) {
   api.override = async (path, request) => {
@@ -42,9 +44,9 @@ function serveGraphType(
                 type_name: edge.name,
                 entity_type: 'Edge',
                 labels: [],
-                properties: [],
+                properties: edge.key ? [edge.key] : [],
                 type_pattern: edge.pattern,
-                'primary_key/multiedge_key': 'Unique',
+                'primary_key/multiedge_key': edge.key ? [edge.key] : 'Unique',
               },
             ]
           : rows
@@ -61,19 +63,26 @@ function serveGraphType(
         }))
       );
     }
+    if (
+      edge?.key &&
+      gql.includes('CALL describe_edge_type(gtn, type_name)') &&
+      gql.startsWith('LET gtn = "' + name + '"')
+    ) {
+      return table([{ type_name: edge.name, property_name: edge.key, data_type: 'STRING', multi_edge_key: 'Y' }]);
+    }
     return write?.(gql);
   };
 }
 
-function setSavedLayout(api: StudioApi) {
+function setSavedLayout(api: StudioApi, graphTypeName = 'People') {
   api.config.set(
-    layoutKey,
+    layoutKey.replace(/People$/, graphTypeName),
     JSON.stringify({
       version: 1,
       address: 'graphd:9669',
       username: 'alice',
       schemaPath: '/initial',
-      graphTypeName: 'People',
+      graphTypeName,
       nodes: savedPositions,
     })
   );
@@ -92,16 +101,18 @@ test('a GraphType created by dragging nodes and connecting handles survives a DD
 }) => {
   const graphType = 'VisualPeople';
   const createdNodes: string[] = [];
-  let createdEdge: { name: string; pattern: string } | undefined;
+  let createdEdge: EdgeFixture | undefined;
   let submitted = '';
   serveGraphType(api, graphType, createdNodes, undefined, (gql) => {
     if (!gql.startsWith('CREATE GRAPH TYPE ')) return;
     submitted = gql;
     createdNodes.push(...Array.from(gql.matchAll(/NODE `([^`]+)`/g), (match) => match[1]));
-    const relationship = gql.match(/EDGE `([^`]+)` \(`([^`]+)`\)-\[[^\]]*\]->\(`([^`]+)`\)/);
+    const relationship = gql.match(
+      /EDGE `([^`]+)` \(`([^`]+)`\)<-\[[^\]]*MULTIEDGE KEY\(`([^`]+)`\)\}\]-\(`([^`]+)`\)/
+    );
     if (relationship) {
-      const [, name, source, target] = relationship;
-      createdEdge = { name, pattern: '(' + source + ')-[' + name + ']->(' + target + ')' };
+      const [, name, source, key, target] = relationship;
+      createdEdge = { name, pattern: '(' + source + ')<-[' + name + ']-(' + target + ')', key };
     }
     api.types.push(graphType);
     return table([]);
@@ -136,23 +147,34 @@ test('a GraphType created by dragging nodes and connecting handles survives a DD
   await direction.click();
   await page.getByRole('option', { name: 'Person <- Company', exact: true }).click();
   await expect(canvas(page).locator('.react-flow__edge-path')).toHaveAttribute('marker-start', 'url(#arrow-backward)');
-  await direction.click();
-  await page.getByRole('option', { name: 'Person -> Company', exact: true }).click();
-  await expect(canvas(page).locator('.react-flow__edge-path')).toHaveAttribute('marker-end', 'url(#arrow-forward)');
+  await page.getByRole('button', { name: 'Add Property', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Prop Name' }).fill('seq');
+  await page.getByRole('combobox', { name: 'Multi Edge Key Mode' }).click();
+  await page.getByRole('option', { name: 'Customize', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Multi Edge Key', exact: true }).check();
 
   await next.click();
   await expect(page.locator('.monaco-editor .view-lines')).toContainText('WorksAt');
   await page.getByRole('button', { name: 'Create Graph Type', exact: true }).last().click();
   await expect(page).toHaveURL(new RegExp(typeList + '/?$'));
   expect(submitted).toContain('PRIMARY KEY(`id`)');
+  expect(submitted).toContain('`seq` STRING');
   expect(createdNodes).toEqual(['Person', 'Company']);
-  expect(createdEdge).toEqual({ name: 'WorksAt', pattern: '(Person)-[WorksAt]->(Company)' });
+  expect(createdEdge).toEqual({ name: 'WorksAt', pattern: '(Person)<-[WorksAt]-(Company)', key: 'seq' });
   serveGraphType(api, graphType, createdNodes, createdEdge);
+  setSavedLayout(api, graphType);
   await page.getByText(graphType, { exact: true }).last().click();
   await expect(page).toHaveURL(typeList + '/view/' + graphType);
   await expect(node(page, 'Person')).toBeVisible();
   await expect(node(page, 'Company')).toBeVisible();
   await expect(canvas(page).getByText('WorksAt', { exact: true })).toBeVisible();
+  await expect(canvas(page).locator('.react-flow__edge-path')).toHaveAttribute('marker-start', 'url(#arrow-backward)');
+  await page.getByRole('button', { name: 'Edit Graph Type' }).click();
+  await openTypeOnCanvas(page, 'edge');
+  await expect(direction).toHaveText('Person <- Company');
+  await expect(page.getByRole('combobox', { name: 'Multi Edge Key Mode' })).toHaveText('Customize');
+  await expect(page.getByRole('textbox', { name: 'Prop Name' })).toHaveValue('seq');
+  await expect(page.getByRole('checkbox', { name: 'Multi Edge Key', exact: true })).toBeChecked();
 });
 
 test('canvas duplication is local to the new node and deleting an endpoint drops its connected edge', async ({
@@ -189,11 +211,23 @@ test('canvas duplication is local to the new node and deleting an endpoint drops
   await expect(ddl).toContainText('DROP EDGE `WorksAt`');
 });
 
-test('moving a schema node retries layout persistence and restores its coordinates in a fresh view', async ({
+test('retries saving a canvas layout, carries it to a renamed GraphType and removes the deleted type', async ({
   page,
   api,
 }) => {
-  serveGraphType(api, 'People', ['Person', 'Company']);
+  const renamed = 'RenamedPeople';
+  const nodes = ['Person', 'Company'];
+  api.types.push('UnrelatedType');
+  serveGraphType(api, 'People', nodes, undefined, (gql) => {
+    if (gql.trim() !== 'RENAME GRAPH TYPE `People` TO `RenamedPeople`') return;
+    api.types = api.types.map((name) => (name === 'People' ? renamed : name));
+    serveGraphType(api, renamed, nodes, undefined, (command) => {
+      if (command !== 'DROP GRAPH TYPE IF EXISTS `RenamedPeople`') return;
+      api.types = api.types.filter((name) => name !== renamed);
+      return table([]);
+    });
+    return table([]);
+  });
   setSavedLayout(api);
   const readGraphType = api.override;
   let writes = 0;
@@ -238,6 +272,39 @@ test('moving a schema node retries layout persistence and restores its coordinat
   await expect(company).toBeVisible();
   await expect.poll(async () => (await position(person)).y).toBeCloseTo(saved.Person.y, 2);
   expect((await position(company)).y).toBeCloseTo(saved.Company.y, 2);
+
+  await page.getByRole('button', { name: 'Edit Graph Type' }).click();
+  await expect.poll(async () => (await position(person)).y).toBeCloseTo(saved.Person.y, 2);
+  await page.getByRole('textbox', { name: 'Graph Type Name' }).fill(renamed);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Commit Edit', exact: true }).click();
+  await expect(page).toHaveURL(typeList);
+  const renamedKey = layoutKey.replace(/People$/, renamed);
+  await expect.poll(() => api.config.get(renamedKey)).toBeTruthy();
+  expect(JSON.parse(api.config.get(renamedKey)!).nodes).toEqual(saved);
+
+  await page.goto(typeList + '/view/' + renamed);
+  for (const [entity, expected] of [
+    [person, saved.Person],
+    [company, saved.Company],
+  ] as const) {
+    await expect
+      .poll(async () => {
+        const { x, y } = await position(entity);
+        return Math.hypot(x - expected.x, y - expected.y);
+      })
+      .toBeLessThan(0.02);
+  }
+  await page.goto(typeList);
+  const renamedCard = page.locator('.MuiCard-root').filter({ hasText: renamed });
+  await renamedCard.getByRole('button', { name: '', exact: true }).click();
+  await page.getByText('Delete', { exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.reload();
+  await expect(page.locator('.MuiCard-root').filter({ hasText: 'UnrelatedType' })).toBeVisible();
+  await expect(renamedCard).toHaveCount(0);
 });
 
 test('canvas and table edits share labels, property constraints and the generated alteration', async ({

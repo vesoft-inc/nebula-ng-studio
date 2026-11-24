@@ -5,6 +5,7 @@ export class StudioApi {
   user: string | null = 'alice';
   loginAs = 'alice';
   schema = '/initial';
+  schemaPaths = ['/initial', '/other'];
   graphs = ['people-demo'];
   types = ['People'];
   consoleRequests: string[] = [];
@@ -53,7 +54,7 @@ export class StudioApi {
         return this.query?.(body.gql, request);
       case 'POST /gql/exec': {
         const gql = body.gql as string;
-        const rows = ['/initial', '/other'].map((path) => ({ name: path.slice(1), path, owner: 'alice' }));
+        const rows = this.schemaPaths.map((path) => ({ name: path.slice(1), path, owner: 'alice' }));
         if (gql === 'SHOW SCHEMAS') return table(rows);
         if (gql === 'SHOW CURRENT_SCHEMA') return table(rows.filter((item) => item.path === this.schema));
         if (gql === 'SHOW GRAPH TYPES') return table(this.types.map((graph_type) => ({ graph_type, owner: 'alice' })));
@@ -117,11 +118,17 @@ export class StudioApi {
         return ok({ id });
       }
     }
-    if (method === 'GET' && path.startsWith('/explorer/global-config/')) {
+    if (path.startsWith('/explorer/global-config/')) {
       const key = decodeURIComponent(path.slice('/explorer/global-config/'.length));
-      return this.config.has(key)
-        ? ok({ key, value: this.config.get(key) })
-        : failure('No saved settings', 40404000, 404);
+      if (method === 'GET') {
+        return this.config.has(key)
+          ? ok({ key, value: this.config.get(key) })
+          : failure('No saved settings', 40404000, 404);
+      }
+      if (method === 'DELETE') {
+        this.config.delete(key);
+        return ok();
+      }
     }
     if (path.startsWith('/explorer/snapshots/')) {
       const id = decodeURIComponent(path.slice('/explorer/snapshots/'.length));
