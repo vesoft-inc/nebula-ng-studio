@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { PropertyDataType } from '../../packages/studio-core/src/contracts/constants';
-import { graphTypes, identifier, openTypeOnCanvas, serveSchemaType } from '../support/schema';
-import { table } from '../support/http';
+import { graphTypes, identifier, openTypeOnCanvas, serveSchemaTypes, type SchemaTypeFixture } from '../support/schema';
+import { failure, table } from '../support/http';
 import { test } from '../support/web';
 
 type Field = {
@@ -80,30 +80,46 @@ for (const entity of ['node', 'edge'] as const) {
   for (const [family, properties] of Object.entries(groups)) {
     test(`${entity} properties round-trip through the canvas and DDL · ${family}`, async ({ page, api }) => {
       test.setTimeout(60000);
-      const rows: Parameters<typeof serveSchemaType>[1] = { node: [identifier], edge: [] };
+      const people: SchemaTypeFixture = { schemaPath: '/initial', name: 'People', node: [identifier], edge: [] };
+      const sentinel = { property_name: 'neighbor_only', data_type: 'STRING', nullable: true };
+      const neighbor: SchemaTypeFixture = {
+        schemaPath: '/initial',
+        name: 'AnotherType',
+        node: [identifier, sentinel],
+        edge: [sentinel],
+      };
       const target = entity === 'node' ? 'NODE `Person`' : 'EDGE `WorksAt`';
-      let submitted = '';
-      serveSchemaType(api, rows, (gql) => {
-        if (!gql.startsWith('ALTER GRAPH TYPE ')) return;
-        expect(gql).toContain('ALTER ' + target + ' ADD PROPERTIES');
-        for (const property of properties) {
-          const segment = gql.match(new RegExp('`' + property.name + '` ([^}]*?)(?=,`|})'))?.[1];
-          expect(segment).toBe(property.ddl);
-          rows[entity].push({ property_name: property.name, data_type: segment!, nullable: true });
+      const additions = 'ALTER ' + target + ' ADD PROPERTIES';
+      serveSchemaTypes(api, [people, neighbor], (type, gql) => {
+        const command = gql.match(/\{\s+ALTER (NODE `Person`|EDGE `WorksAt`) ADD PROPERTIES \{([^}]+)\}\s*\}$/);
+        if (!command) return failure('Unsupported ALTER statement in property fixture');
+        const rows = type[command[1] === 'NODE `Person`' ? 'node' : 'edge'];
+        for (const [, name, dataType] of command[2].matchAll(/`([^`]+)` ([^`]+?)(?=,`|$)/g)) {
+          rows.push({ property_name: name, data_type: dataType, nullable: true });
         }
-        submitted = gql;
         return table([]);
       });
 
-      const edit = graphTypes + '/edit/People';
+      const edit = graphTypes + '/edit/' + people.name;
       await page.goto(edit);
       await openTypeOnCanvas(page, entity);
       for (const property of properties) await addProperty(page, property);
       await page.getByRole('button', { name: 'Next', exact: true }).click();
-      await expect(page.locator('.monaco-editor .view-lines')).toContainText('ALTER ' + target + ' ADD PROPERTIES');
+      await expect(page.locator('.monaco-editor .view-lines')).toContainText(additions);
+      const submitted = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api-studio/gql/exec' &&
+          response.request().method() === 'POST' &&
+          response.request().postDataJSON()?.gql?.startsWith('ALTER GRAPH TYPE ')
+      );
       await page.getByRole('button', { name: 'Commit Edit', exact: true }).click();
+      const response = await submitted;
+      const columns = properties.map(({ name, ddl }) => '`' + name + '` ' + ddl).join(',');
+      expect(response.request().postDataJSON().gql).toBe(
+        'ALTER GRAPH TYPE `' + people.name + '` {\n  ' + additions + ' {' + columns + '}\n}'
+      );
+      expect(await response.json()).toMatchObject({ code: 0 });
       await expect(page).toHaveURL(new RegExp(graphTypes + '/?$'));
-      expect(submitted).toBeTruthy();
 
       await page.goto(edit);
       await openTypeOnCanvas(page, entity);
@@ -126,6 +142,13 @@ for (const entity of ['node', 'edge'] as const) {
         await expect(page.getByRole('combobox', { name: 'Key Type' })).toHaveValue('UINT16');
         await expect(page.getByRole('combobox', { name: 'Value Type' })).toHaveValue('BOOL');
       }
+
+      await page.goto(graphTypes + '/edit/' + neighbor.name);
+      await openTypeOnCanvas(page, entity);
+      const neighborProperties = page.getByRole('textbox', { name: 'Prop Name' });
+      await expect(neighborProperties).toHaveCount(entity === 'node' ? 2 : 1);
+      await expect(neighborProperties.last()).toHaveValue(sentinel.property_name);
+      await expect(page.getByRole('combobox', { name: 'Prop Type' }).last()).toHaveValue(sentinel.data_type);
     });
   }
 }

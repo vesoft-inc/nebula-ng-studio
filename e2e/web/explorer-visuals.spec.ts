@@ -25,9 +25,74 @@ const layoutLabels: Record<GraphLayoutType, string> = {
   neural: 'Neural Network',
 };
 
-for (const layout of Object.values(layoutLabels)) {
-  test('applies and persists the ' + layout + ' graph layout', async ({ page, api }) => {
-    if (layout === layoutLabels.force) {
+type Point = { x: number; y: number };
+type SavedPosition = Point & { fx?: number; fy?: number };
+const distance = (from: Point, to: Point) => Math.hypot(from.x - to.x, from.y - to.y);
+const connectedGraph = [alex, neha, acme] as const;
+
+function assertLayout(layout: GraphLayoutType, [source, isolated, target]: SavedPosition[]) {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const isolatedDx = isolated.x - source.x;
+  const isolatedDy = isolated.y - source.y;
+  const distances = [distance(source, target), distance(source, isolated), distance(target, isolated)];
+  expect(Math.min(...distances)).toBeGreaterThan(10);
+
+  switch (layout) {
+    case GraphLayoutType.Force:
+      // The simulation leaves the vertices unpinned. Fixed layouts persist fx/fy.
+      for (const point of [source, isolated, target]) {
+        expect(point.fx).toBeUndefined();
+        expect(point.fy).toBeUndefined();
+      }
+      break;
+    case GraphLayoutType.Dagre:
+      expect(dx).toBeCloseTo(0, 1);
+      expect(dy).toBeGreaterThan(10);
+      expect(isolatedDx).toBeGreaterThan(10);
+      expect(isolatedDy).toBeCloseTo(0, 1);
+      break;
+    case GraphLayoutType.DagreLR:
+      expect(dy).toBeCloseTo(0, 1);
+      expect(isolatedDx).toBeCloseTo(0, 1);
+      expect(isolatedDy).toBeGreaterThan(10);
+      expect(dx / isolatedDy).toBeGreaterThan(1.4);
+      break;
+    case GraphLayoutType.Circular:
+      expect(Math.max(...distances) / Math.min(...distances)).toBeLessThan(1.05);
+      break;
+    case GraphLayoutType.Grid:
+      expect(dy).toBeCloseTo(0, 1);
+      expect(isolatedDx).toBeCloseTo(0, 1);
+      expect(dx).toBeGreaterThan(10);
+      expect(dx / isolatedDy).toBeCloseTo(1, 1);
+      break;
+    case GraphLayoutType.Radial:
+      expect(distances[0] / distances[2]).toBeCloseTo(1, 1);
+      expect((distances[0] + distances[2]) / distances[1]).toBeCloseTo(1, 1);
+      break;
+    case GraphLayoutType.Concentric:
+      expect(distances[0] / distances[1]).toBeCloseTo(1, 1);
+      expect((distances[0] + distances[1]) / distances[2]).toBeCloseTo(1, 1);
+      break;
+    case GraphLayoutType.Neural:
+      expect(isolatedDy).toBeCloseTo(0, 1);
+      expect(isolatedDx).toBeGreaterThan(10);
+      expect(dx / isolatedDx).toBeCloseTo(0.5, 1);
+      expect(dy).toBeGreaterThan(10);
+      break;
+  }
+}
+
+function relativeOffsets([anchor, ...points]: Point[]) {
+  const scale = Math.max(...points.map((point) => distance(point, anchor)));
+  return points.flatMap(({ x, y }) => [(x - anchor.x) / scale, (y - anchor.y) / scale]);
+}
+
+for (const layout of Object.values(GraphLayoutType)) {
+  const label = layoutLabels[layout];
+  test('applies and persists the ' + label + ' graph layout', async ({ page, api }) => {
+    if (layout === GraphLayoutType.Force) {
       await page.addInitScript(() => {
         const getContext = HTMLCanvasElement.prototype.getContext;
         // Browsers can expose WebGLRenderingContext while context creation fails.
@@ -43,8 +108,8 @@ for (const layout of Object.values(layoutLabels)) {
     await page.goto(seedGraph(api, 'layout'));
     const before = await locateNode(page, alex);
     await page.getByRole('button', { name: 'Graph Layout' }).click();
-    await page.getByText(layout, { exact: true }).click();
-    await expect(page.getByText(layout, { exact: true })).toBeHidden();
+    await page.getByText(label, { exact: true }).click();
+    await expect(page.getByText(label, { exact: true })).toBeHidden();
     await expect
       .poll(async () => {
         const point = await paintedColor(graphCanvas(page), alex.color);
@@ -55,15 +120,33 @@ for (const layout of Object.values(layoutLabels)) {
     const saved = JSON.parse(api.snapshots.get('layout')!.data);
     expect(saved.nodes.sort()).toEqual(['11', '12', '13']);
     expect(saved.links).toEqual([edgeId]);
-    for (const node of [alex, neha, acme]) {
-      const position = saved.nowDataMap[node.id];
-      expect(Number.isFinite(position.x) && Number.isFinite(position.y)).toBe(true);
+    const positions: SavedPosition[] = connectedGraph.map(({ id }) => saved.nowDataMap[id]);
+    for (const { x, y } of positions) {
+      expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true);
     }
-    expect(saved.nowDataMap[alex.id]).not.toMatchObject({ x: alex.x, y: alex.y });
+    expect(distance(positions[0], alex)).toBeGreaterThan(10);
+    assertLayout(layout, positions);
+
     await page.reload();
-    await locateNode(page, alex);
-    await locateNode(page, neha);
-    await locateNode(page, acme);
+    if (layout === GraphLayoutType.Force) {
+      // Restored vertices can keep moving under the simulation.
+      for (const node of connectedGraph) await locateNode(page, node);
+    } else {
+      const expected = relativeOffsets(positions);
+      await expect
+        .poll(
+          async () => {
+            const painted = await Promise.all(
+              connectedGraph.map(({ color }) => paintedColor(graphCanvas(page), color))
+            );
+            if (!painted.every((point) => point && point.count > 6)) return Infinity;
+            const offsets = relativeOffsets(painted as Point[]);
+            return Math.max(...offsets.map((offset, index) => Math.abs(offset - expected[index])));
+          },
+          { message: 'Reload preserves the layout up to pan and zoom' }
+        )
+        .toBeLessThan(0.08);
+    }
   });
 }
 
@@ -88,6 +171,7 @@ test('a filter changes rendered visibility and removing it restores the graph', 
   await apply.press('Space');
   await expect(apply).toBeChecked();
   await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await expect.poll(() => paintedColor(surface, neha.color, 0.2)).toBeNull();
   await locateNode(page, alex);
   await locateNode(page, acme);
   await saveGraph(page, 'visibility');
@@ -101,6 +185,12 @@ test('a filter changes rendered visibility and removing it restores the graph', 
   await page.getByRole('radio', { name: 'Dismiss', exact: true }).click();
   await apply.press('Space');
   await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await expect
+    .poll(async () => (await paintedColor(surface, neha.color, 0.2))?.count ?? 0, {
+      message: 'Dismiss keeps the node visible with a translucent fill',
+    })
+    .toBeGreaterThan(6);
+  await locateNode(page, alex);
   await apply.press('Space');
   await locateNode(page, neha);
 });

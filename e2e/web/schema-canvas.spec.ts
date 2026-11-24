@@ -1,16 +1,20 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 import { test, type StudioApi } from '../support/web';
 import { failure, table, type Reply } from '../support/http';
-import { identifier, openTypeOnCanvas, serveSchemaType } from '../support/schema';
+import {
+  addCanvasNode,
+  connectNodes,
+  drag,
+  graphTypes as typeList,
+  identifier,
+  openTypeOnCanvas,
+  schemaCanvas as canvas,
+  schemaNode as node,
+  serveSchemaTypes,
+} from '../support/schema';
 
-const typeList = '/studio/schema-manager/graphtype';
 const layoutKey = 'studio-schema-layout-v1|graphd:9669|alice|~2finitial|People';
 const savedPositions = { Person: { x: 150, y: 150 }, Company: { x: 450, y: 180 } };
-const canvas = (page: Page) => page.locator('.react-flow');
-const node = (page: Page, name: string) =>
-  canvas(page)
-    .locator('.react-flow__node')
-    .filter({ has: page.getByText(name, { exact: true }) });
 
 function serveGraphType(
   api: StudioApi,
@@ -75,40 +79,6 @@ function setSavedLayout(api: StudioApi) {
   );
 }
 
-async function drag(page: Page, from: Locator, to: { x: number; y: number }) {
-  await from.hover();
-  const box = (await from.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(to.x, to.y, { steps: 12 });
-  await page.mouse.up();
-}
-
-async function connect(page: Page, from: Locator, to: Locator) {
-  await from.hover();
-  await expect(to).toBeVisible();
-  const target = (await to.boundingBox())!;
-  await drag(page, from, { x: target.x + target.width / 2, y: target.y + target.height / 2 });
-}
-
-async function addCanvasNode(page: Page, name: string, horizontal: number) {
-  const pane = canvas(page).locator('.react-flow__pane');
-  await expect(pane).toBeVisible();
-  const { width, height } = (await pane.boundingBox())!;
-  await page
-    .locator('[draggable="true"]')
-    .filter({ hasText: /^Add$/ })
-    .dragTo(pane, {
-      targetPosition: { x: Math.round(width * horizontal), y: Math.round(height * 0.42) },
-    });
-  const nodeName = page.getByRole('textbox', { name: 'Node type name' });
-  await expect(nodeName).toHaveValue('');
-  await nodeName.fill(name);
-  await expect(node(page, name)).toBeVisible();
-  await page.getByRole('button', { name: 'Add Property', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Prop Name' }).fill('id');
-}
-
 async function position(entity: Locator) {
   return entity.evaluate((element) => {
     const transform = new DOMMatrix(getComputedStyle(element).transform);
@@ -158,7 +128,7 @@ test('a GraphType created by dragging nodes and connecting handles survives a DD
 
   const source = node(page, 'Person').locator('.react-flow__handle.source[data-handlepos="right"]');
   const target = node(page, 'Company').locator('.react-flow__handle.target[data-handlepos="left"]');
-  await connect(page, source, target);
+  await connectNodes(page, source, target);
   await page.getByRole('textbox', { name: 'Edge Type Name' }).fill('WorksAt');
   await expect(canvas(page).getByText('WorksAt', { exact: true })).toBeVisible();
   const direction = page.getByRole('combobox', { name: 'Direction' });
@@ -193,7 +163,7 @@ test('canvas duplication is local to the new node and deleting an endpoint drops
   setSavedLayout(api);
   await page.goto(typeList + '/edit/People');
   const person = node(page, 'Person');
-  await connect(
+  await connectNodes(
     page,
     person.locator('.react-flow__handle.source[data-handlepos="top"]'),
     person.locator('.react-flow__handle.target[data-handlepos="left"]')
@@ -274,9 +244,10 @@ test('canvas and table edits share labels, property constraints and the generate
   page,
   api,
 }) => {
-  serveSchemaType(
-    api,
+  serveSchemaTypes(api, [
     {
+      schemaPath: '/initial',
+      name: 'People',
       node: [
         identifier,
         { property_name: 'alias', data_type: 'STRING', nullable: true },
@@ -285,8 +256,7 @@ test('canvas and table edits share labels, property constraints and the generate
       ],
       edge: [],
     },
-    () => undefined
-  );
+  ]);
   await page.goto(typeList + '/edit/People');
   await openTypeOnCanvas(page, 'node');
   await expect(page.getByRole('checkbox', { name: 'Primary Key: id' })).toBeDisabled();

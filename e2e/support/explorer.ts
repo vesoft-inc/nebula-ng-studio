@@ -137,31 +137,42 @@ export const selected = (page: Page, nodes: number, edges: number) =>
   page.getByRole('button', { name: new RegExp('Selected Nodes\\s*' + nodes + '\\s*Selected Edges\\s*' + edges + '$') });
 export const selectedEntities = (page: Page) => page.getByRole('button', { name: /Selected Nodes.*Selected Edges/ });
 
-export async function paintedColor(surface: Locator, hex: string) {
-  return surface.evaluate((element, color) => {
-    const canvas = element as HTMLCanvasElement;
-    if (!canvas.width || !canvas.height) return null;
-    const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
-    const rgb = Number.parseInt(color.slice(1), 16);
-    let count = 0;
-    let sumX = 0;
-    let sumY = 0;
-    for (let index = 0; index < pixels.length; index += 4) {
-      if (pixels[index + 3] < 250) continue;
-      if (((pixels[index] << 16) | (pixels[index + 1] << 8) | pixels[index + 2]) !== rgb) continue;
-      const pixel = index / 4;
-      sumX += pixel % canvas.width;
-      sumY += Math.floor(pixel / canvas.width);
-      count++;
-    }
-    if (!count) return null;
-    const box = canvas.getBoundingClientRect();
-    return {
-      x: box.left + ((sumX / count) * box.width) / canvas.width,
-      y: box.top + ((sumY / count) * box.height) / canvas.height,
-      count,
-    };
-  }, hex);
+export async function paintedColor(surface: Locator, hex: string, opacity = 1) {
+  return surface.evaluate(
+    (element, { color, opacity }) => {
+      const canvas = element as HTMLCanvasElement;
+      if (!canvas.width || !canvas.height) return null;
+      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+      const rgb = Number.parseInt(color.slice(1), 16);
+      const alpha = Math.round(opacity * 255);
+      // Reading translucent pixels can round channels during premultiplication.
+      const channelTolerance = opacity === 1 ? 0 : 4;
+      let count = 0;
+      let sumX = 0;
+      let sumY = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (Math.abs(pixels[index + 3] - alpha) > 5) continue;
+        if (
+          Math.abs(pixels[index] - (rgb >> 16)) > channelTolerance ||
+          Math.abs(pixels[index + 1] - ((rgb >> 8) & 255)) > channelTolerance ||
+          Math.abs(pixels[index + 2] - (rgb & 255)) > channelTolerance
+        )
+          continue;
+        const pixel = index / 4;
+        sumX += pixel % canvas.width;
+        sumY += Math.floor(pixel / canvas.width);
+        count++;
+      }
+      if (!count) return null;
+      const box = canvas.getBoundingClientRect();
+      return {
+        x: box.left + ((sumX / count) * box.width) / canvas.width,
+        y: box.top + ((sumY / count) * box.height) / canvas.height,
+        count,
+      };
+    },
+    { color: hex, opacity }
+  );
 }
 
 export async function locateNode(page: Page, node: { color: string }) {

@@ -1,24 +1,30 @@
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { test, guiRows } from '../support/gui';
 import { signIn, readResult, runQuery, runButton, gate } from '../support/browser';
+async function openConsole(page: Page) {
+  await page.goto('/ui/console');
+  await signIn(page, 'alice', 'correct');
+  await expect(page.getByRole('dialog')).toBeHidden();
+}
+
 test('signs in through the dialog, recovers from 401 and uses the new identity', async ({ page, api }) => {
-  api.authorized = false;
   await page.goto('/');
   await expect(page).toHaveURL(/\/ui\/console$/);
   await signIn(page, 'alice', 'wrong');
   await expect(page.getByText('Login failed, please check your username and password')).toBeVisible();
   await signIn(page, 'alice', 'correct');
   await expect(page.getByRole('dialog')).toBeHidden();
-  api.authorized = false;
-  await runQuery(page, 'RETURN expired');
+  await runQuery(page, 'SHOW CURRENT_USER');
+  await expect(page.getByRole('cell', { name: /^"?alice"?$/ })).toBeVisible();
+
+  api.expireSession();
+  await runQuery(page, 'SHOW CURRENT_USER');
+  await expect(page.getByRole('dialog')).toBeVisible();
   await signIn(page, 'bob', 'correct');
-  api.query = async (gql, req) => {
-    if (!gql.includes('RETURN')) return;
-    expect(req.headers().authorization).toBe('Bearer fixture-token');
-    return guiRows([{ answer: 'bob-result' }]);
-  };
-  await runQuery(page, 'RETURN 7');
-  await readResult(page, 'bob-result');
+  await expect(page.getByRole('button', { name: 'bob', exact: true })).toBeVisible();
+  await runQuery(page, 'SHOW CURRENT_USER');
+  await expect(page.getByRole('cell', { name: /^"?bob"?$/ })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^"?alice"?$/ })).toHaveCount(0);
 });
 test('waits for a session ID and cancels only the old query', async ({ page, api }) => {
   const session = gate();
@@ -39,7 +45,7 @@ test('waits for a session ID and cancels only the old query', async ({ page, api
     if (gql.includes('next')) return guiRows([{ answer: 'next-result' }]);
     return undefined;
   };
-  await page.goto('/ui/console');
+  await openConsole(page);
   await runQuery(page, 'RETURN long');
   await expect(runButton(page)).toBeDisabled();
   session.release();
@@ -65,7 +71,7 @@ test('a missing session ID leaves the running query locked and allows the next r
     if (gql.includes('next')) return guiRows([{ answer: 'follow-up' }]);
     return undefined;
   };
-  await page.goto('/ui/console');
+  await openConsole(page);
   await runQuery(page, 'RETURN slow');
   await started.pending;
   await expect(runButton(page)).toBeDisabled();
@@ -77,9 +83,7 @@ test('a missing session ID leaves the running query locked and allows the next r
   expect(api.cancelIds).toEqual([]);
 });
 test('persists query settings across reload and omits the timeout header at zero', async ({ page, api }) => {
-  api.authorized = false;
-  await page.goto('/ui/console');
-  await signIn(page, 'alice', 'correct');
+  await openConsole(page);
   const headers: (string | undefined)[] = [];
   api.query = async (gql, req) => {
     if (gql.includes('RETURN')) {

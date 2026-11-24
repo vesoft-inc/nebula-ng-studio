@@ -148,7 +148,7 @@ export const test = base.extend<{ api: StudioApi }>({
       (url) => url.pathname.startsWith('/studio/'),
       async (route) => {
         if (!route.request().isNavigationRequest()) return route.fallback();
-        const response = await route.fetch();
+        const response = await route.fetch({ maxRetries: 1 });
         const html = (await response.text())
           .replaceAll('{{.basePath}}', '/studio')
           .replaceAll('{{.defaultHost}}', 'graphd')
