@@ -30,7 +30,7 @@ export const worksAt = {
   labels: [],
   properties: { since: 2021 },
 };
-const edgeColor = '#bb6219';
+export const edgeColor = '#bb6219';
 export const edgeId = JSON.stringify(['EDGE', graph, 'WorksAt', 'DIRECTED', '11', '13', '0']);
 
 export function seedGraph(api: StudioApi, id: string, options: { edge?: boolean; schemaPath?: string } = {}) {

@@ -3,6 +3,8 @@ import { GraphLayoutType } from '../../packages/studio-ui-internal/src/graph/con
 import {
   acme,
   alex,
+  asNode,
+  clickNode,
   edgeId,
   graphCanvas,
   locateNode,
@@ -10,9 +12,11 @@ import {
   paintedColor,
   saveGraph,
   seedGraph,
+  selected,
   serveGraph,
 } from '../support/explorer';
 import { test } from '../support/web';
+import { table } from '../support/http';
 
 const layoutLabels: Record<GraphLayoutType, string> = {
   force: 'Force',
@@ -150,8 +154,16 @@ for (const layout of Object.values(GraphLayoutType)) {
   });
 }
 
-test('a filter changes rendered visibility and removing it restores the graph', async ({ page, api }) => {
-  serveGraph(api);
+test('an active filter follows display mode, refreshed query results and changed properties', async ({ page, api }) => {
+  const youngerAlex = asNode({ ...alex, properties: { ...alex.properties, age: 24 } });
+  const olderNeha = asNode({ ...neha, properties: { ...neha.properties, age: 36 } });
+  const rory = asNode({ id: 14, type: 'Person', properties: { name: 'Rory', age: 20 } });
+  serveGraph(api, (gql) => {
+    if (gql.includes('LIST["Alex","Neha"]')) return table([{ v: youngerAlex }, { v: olderNeha }]);
+    if (gql.includes('LIST["Rory"]')) return table([{ v: rory }]);
+    if (gql.includes('element_id(v) = 12) SET v.`age` = 20')) return table([]);
+    return undefined;
+  });
   await page.goto(seedGraph(api, 'visibility'));
   const surface = graphCanvas(page);
   await locateNode(page, neha);
@@ -180,10 +192,8 @@ test('a filter changes rendered visibility and removing it restores the graph', 
   await locateNode(page, alex);
   await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
   await filter.click();
-  await apply.press('Space');
-  await locateNode(page, neha);
-  await page.getByRole('radio', { name: 'Dismiss', exact: true }).click();
-  await apply.press('Space');
+  await page.getByRole('radio', { name: 'Dismiss', exact: true }).press('Space');
+  await expect(apply).toBeChecked();
   await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
   await expect
     .poll(async () => (await paintedColor(surface, neha.color, 0.2))?.count ?? 0, {
@@ -191,7 +201,43 @@ test('a filter changes rendered visibility and removing it restores the graph', 
     })
     .toBeGreaterThan(6);
   await locateNode(page, alex);
+  await page.getByRole('radio', { name: 'Hide', exact: true }).press('Space');
+  await expect.poll(() => paintedColor(surface, neha.color, 0.2)).toBeNull();
+
+  await page.getByRole('button', { name: 'Graph Query', exact: true }).click();
+  await page.getByRole('button', { name: 'Query Node', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Node Type' }).click();
+  await page.getByRole('option', { name: 'Person', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Property' }).click();
+  await page.getByRole('option', { name: /^name/ }).click();
+  const value = page.getByRole('textbox', { name: 'Value', exact: true });
+  const query = page.getByRole('button', { name: 'Query', exact: true });
+  await value.fill('Alex\nNeha');
+  await query.click();
+  await locateNode(page, neha);
+  await expect.poll(() => paintedColor(surface, alex.color)).toBeNull();
+  await expect(selected(page, 1, 0)).toBeVisible();
+
+  await value.fill('Rory');
+  await query.click();
+  await saveGraph(page, 'visibility');
+  const saved = JSON.parse(api.snapshots.get('visibility')!.data);
+  expect(saved.nodes.sort()).toEqual(['11', '12', '13', '14']);
+  // New Person nodes use the existing Person color. Both Alex and Rory are hidden.
+  await expect.poll(() => paintedColor(surface, alex.color)).toBeNull();
+
+  await page.getByRole('button', { name: 'edit-mode' }).click();
+  await clickNode(page, neha, 'right');
+  await page.getByRole('menuitem', { name: 'Edit Properties' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: /age/i }).fill('20');
+  await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => paintedColor(surface, neha.color)).toBeNull();
+  await locateNode(page, acme);
+  await filter.click();
   await apply.press('Space');
+  await locateNode(page, alex);
   await locateNode(page, neha);
 });
 

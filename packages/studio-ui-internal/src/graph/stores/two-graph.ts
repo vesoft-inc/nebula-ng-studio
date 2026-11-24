@@ -283,12 +283,16 @@ export class TwoGraphStore {
       })
       .zoom(1.001);
     this.instance = Graph;
+    const filters = graph.vertexFilterStore;
     this.autorunDisposer = reaction(
       () =>
         [
           graph.nodes.toJSON(), // 使用 toJS 以确保只在数据实际变化时进行计算
           graph.links.toJSON(),
-          graph.vertexFilterStore.filteredInfoSize,
+          filters.entityIdsHideSet.toJSON(),
+          filters.entityIdsGreyScaledSet.toJSON(),
+          filters.nodeTypeGreyScaledSet.toJSON(),
+          filters.edgeTypeGreyScaledSet.toJSON(),
           graph.displayedNodePropertyItems.length,
           graph.displayedEdgePropertyItems.length,
           this.theme.palette.mode,
@@ -303,8 +307,14 @@ export class TwoGraphStore {
           nodes: res.nodes,
           links: res.links,
         });
-        // reset node's v
-        this.handleSelectedEntitiesAfterFilter();
+        if (filterRes.nodes.length < nodes.length && graph.nodesSelected.size > 0) {
+          const visibleNodes = new Set(filterRes.nodes);
+          graph.unselectNodes(graph.nodesSelected.toJSON().filter((node) => !visibleNodes.has(node)));
+        }
+        if (filterRes.links.length < links.length && graph.linksSelected.size > 0) {
+          const visibleLinks = new Set(filterRes.links);
+          graph.unselectLinks(graph.linksSelected.toJSON().filter((link) => !visibleLinks.has(link)));
+        }
         Graph.graphData({ nodes: filterRes.nodes, links: filterRes.links });
       }
     );
@@ -318,22 +328,6 @@ export class TwoGraphStore {
     );
   };
 
-  handleSelectedEntitiesAfterFilter = () => {
-    const { graph } = this;
-    const { vertexFilterStore } = this.graph;
-    const { entityIdsHideSet, nodeTypeHideSet, edgeTypeHideSet } = vertexFilterStore;
-    const selectedFilterNodes = graph.nodesSelected
-      .toJSON()
-      .filter((n: NodeObject) => entityIdsHideSet.has(n.id!))
-      .filter((n: NodeObject) => nodeTypeHideSet.has(n.data.value.type));
-    const selectedFilterEdges = graph.linksSelected
-      .toJSON()
-      .filter((l: LinkObject) => entityIdsHideSet.has(l.id!))
-      .filter((l: LinkObject) => edgeTypeHideSet.has(l.id!));
-    graph.unselectNodes(selectedFilterNodes);
-    graph.unselectLinks(selectedFilterEdges);
-  };
-
   applyFilters = (payload: { nodes: NodeObject[]; links: LinkObject[] }) => {
     const { nodes, links } = payload;
     const { entityIdsHideSet } = this.graph.vertexFilterStore;
@@ -341,9 +335,9 @@ export class TwoGraphStore {
     const filteredLinks = links
       .filter((l) => !entityIdsHideSet.has(l.id!))
       .filter((l) => {
-        const sourceId = (l.source as NodeObject).id!;
-        const targetId = (l.target as NodeObject).id!;
-        return !entityIdsHideSet.has(sourceId) && !entityIdsHideSet.has(targetId);
+        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+        return !entityIdsHideSet.has(String(sourceId)) && !entityIdsHideSet.has(String(targetId));
       });
     return { nodes: filteredNodes, links: filteredLinks };
   };

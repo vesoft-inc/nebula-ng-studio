@@ -7,6 +7,7 @@ import {
   alex,
   asNode,
   clickNode,
+  edgeColor,
   edgeId,
   graphCanvas,
   locateNode,
@@ -163,10 +164,14 @@ test('exports the graph as JSON, CSV and a valid PNG download', async ({ page, a
   await page.goto(seedGraph(api, 'exports'));
   await locateNode(page, acme);
   async function download(format: string) {
-    await page.getByRole('button', { name: 'Export', exact: true }).click();
-    const pending = page.waitForEvent('download');
-    await page.getByText('Export as ' + format, { exact: true }).click();
-    const result = await pending;
+    await page.getByRole('button', { name: 'Export', exact: true }).hover();
+    const menu = page.getByRole('menu');
+    const [result] = await Promise.all([
+      page.waitForEvent('download'),
+      menu.getByRole('menuitem', { name: 'Export as ' + format, exact: true }).click(),
+    ]);
+    await page.mouse.move(0, 0);
+    await expect(menu).toBeHidden();
     expect(result.suggestedFilename()).toMatch(new RegExp('\\.' + format.toLowerCase() + '$'));
     return readFile(await result.path());
   }
@@ -178,9 +183,30 @@ test('exports the graph as JSON, CSV and a valid PNG download', async ({ page, a
   expect(csv).toContain('Alex');
   expect(csv).toContain('WorksAt');
   const png = await download('PNG');
-  expect(png.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  expect(png.readUInt32BE(16)).toBeGreaterThan(40);
-  expect(png.readUInt32BE(20)).toBeGreaterThan(40);
+  const colors = [alex.color, acme.color, edgeColor];
+  const painted = await page.evaluate(
+    async ({ png, colors }) => {
+      const response = await fetch('data:image/png;base64,' + png);
+      const image = await createImageBitmap(await response.blob());
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      image.close();
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const wanted = new Set(colors.map((color) => Number.parseInt(color.slice(1), 16)));
+      const seen = new Set<number>();
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index + 3] < 250) continue;
+        const rgb = (pixels[index] << 16) | (pixels[index + 1] << 8) | pixels[index + 2];
+        if (wanted.has(rgb)) seen.add(rgb);
+      }
+      return colors.filter((color) => seen.has(Number.parseInt(color.slice(1), 16)));
+    },
+    { png: png.toString('base64'), colors }
+  );
+  expect(painted, 'export contains both connected nodes and their edge').toEqual(colors);
 });
 
 test('an empty canvas retries a sample query and finds neighbors from its node context menu', async ({ page, api }) => {

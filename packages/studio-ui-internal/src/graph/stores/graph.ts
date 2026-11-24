@@ -302,6 +302,7 @@ export class GraphStore {
       store.nodesSelected.replace(Array.from(data.nodesSelected));
       store.linksSelected.replace(Array.from(data.linksSelected));
       store.nowDataMap = data.nowDataMap;
+      store.vertexFilterStore.handleGraphFilter({ dataChanged: true });
     });
   };
 
@@ -627,6 +628,7 @@ export class GraphStore {
         .join(' ');
     }
     this.updateShouldBlockRouter(true);
+    this.vertexFilterStore.handleGraphFilter({ dataChanged: true });
     this.twoGraph?.render();
     this.explorerStore.minimap.refresh();
   };
@@ -929,6 +931,7 @@ export class GraphStore {
     if (shouldLinkSelected && edges.length) {
       this.linksSelected.replace([...edges.map((edge) => (nowDataMap.get(edge.id!) as LinkObject) || edge)]);
     }
+    this.vertexFilterStore.handleGraphFilter({ dataChanged: true });
     // triggered manually to update the properties of existing nodes or edges
     hasExistedData && this.twoGraph?.render();
     if (hasExistedData || nowDataMap.size !== this.nowDataMap.size) this.updateShouldBlockRouter(true);

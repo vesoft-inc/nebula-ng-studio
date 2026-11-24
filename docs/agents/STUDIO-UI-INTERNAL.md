@@ -31,6 +31,8 @@ Codecs create no images, observables, or canvases. Decode migrates legacy edge I
 
 `openSnapshot()` reads, verifies/switches Schema, decodes, restores, and loads metadata. `restoreSnapshot()` only applies state/history; `loadGraphTypeDetails()` queries explicitly. Legacy `initSnapShot()` still combines them. Switching or disposal invalidates old metadata. Ownership rules are in the [public contract](STUDIO-UI.md).
 
+The renderer observes the identities of hidden and dimmed entities. Graph queries, property edits and history restores re-evaluate active rules while retaining unrelated manual dismissals. Edges disappear when an endpoint is hidden, including before the renderer resolves endpoint IDs into objects.
+
 GUI Console sends a positive query deadline in milliseconds through `X-Request-Timeout`. Its `/gql` body contains only `gql`. Axios uses the host transport timeout. Web sends the query deadline in the Studio Server request body.
 
 ## Console → Explorer

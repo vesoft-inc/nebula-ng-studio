@@ -1,12 +1,13 @@
 import { makeAutoObservable, observable, ObservableSet } from 'mobx';
 import type { GraphStore } from './graph';
-import { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
+import type { LinkObject, NodeObject } from '@vesoft-inc/force-graph';
 
 import { VertexFilterDisplay } from '../../contracts/filter';
 export { VertexFilterDisplay } from '../../contracts/filter';
 class VertexFilterStore {
   graph: GraphStore;
   filterType: VertexFilterDisplay = VertexFilterDisplay.Grayscale;
+  private ruleDimmedIds = new Set<string>();
 
   entityIdsFilterInfo = observable.map<VertexFilterDisplay, ObservableSet<string>>(
     new Map([
@@ -29,15 +30,6 @@ class VertexFilterStore {
       [VertexFilterDisplay.Grayscale, observable.set<string>([])],
     ])
   );
-
-  get filteredInfoSize() {
-    const filterType = this.filterType;
-    return (
-      this.entityIdsFilterInfo.get(filterType)!.size +
-      this.nodeTypeFilterInfo.get(filterType)!.size +
-      this.edgeTypeFilterInfo.get(filterType)!.size
-    );
-  }
 
   get entityIdsHideSet() {
     return this.entityIdsFilterInfo.get(VertexFilterDisplay.Hide)!;
@@ -64,7 +56,7 @@ class VertexFilterStore {
   }
 
   constructor(graphStore: GraphStore) {
-    makeAutoObservable(this, {});
+    makeAutoObservable<VertexFilterStore, 'ruleDimmedIds'>(this, { ruleDimmedIds: false });
     this.graph = graphStore;
   }
 
@@ -98,51 +90,30 @@ class VertexFilterStore {
     this.entityIdsGreyScaledSet.replace(entityIds);
   };
 
-  // 过滤具体的点
-  handleGraphFilter = () => {
+  handleGraphFilter = ({ dataChanged = false } = {}) => {
     const validFilters = this.graph.filterList.filter((item) => item.enable);
-    const entityIdsSet = new Set<string>();
-    const nodesSelected: NodeObject[] = [];
-    const unselectLinks: LinkObject[] = [];
-    if (!validFilters.length) {
-      this.updateEntityIdsFilterSet(entityIdsSet);
-      this.updateEntityIdsGreyScaledSet(entityIdsSet);
-      return;
+    if (dataChanged && validFilters.length === 0) return;
+
+    const excluded = new Set<string>();
+    if (validFilters.length > 0) {
+      const collect = (entity: NodeObject | LinkObject) => {
+        if (validFilters.some((filter) => filter.isSameType(entity) && !filter.isMeetCondition(entity))) {
+          excluded.add(entity.id!);
+        }
+      };
+      this.graph.nodes.forEach(collect);
+      this.graph.links.forEach(collect);
     }
 
-    const shouldAddToEntityIdsSet = (entity: NodeObject | LinkObject) => {
-      const result = validFilters.some((filter) => {
-        if (!filter.isSameType(entity)) {
-          return false;
-        }
-        if (filter.isMeetCondition(entity)) {
-          return false;
-        }
-        return true;
-      });
-      return result;
-    };
-
-    this.graph.nodes.forEach((vertex) => {
-      if (shouldAddToEntityIdsSet(vertex)) {
-        entityIdsSet.add(vertex.id!);
-      }
-    });
-
-    this.graph.links.forEach((link) => {
-      if (shouldAddToEntityIdsSet(link)) {
-        entityIdsSet.add(link.id!);
-      }
-    });
-    if (this.filterType === VertexFilterDisplay.Hide) {
-      this.updateEntityIdsFilterSet(entityIdsSet);
-      this.updateEntityIdsGreyScaledSet(new Set());
-    } else if (this.filterType === VertexFilterDisplay.Grayscale) {
-      this.updateEntityIdsGreyScaledSet(entityIdsSet);
-      this.updateEntityIdsFilterSet(new Set());
-    }
-    this.graph.replaceNodeSelected(nodesSelected);
-    this.graph.unselectLinks(unselectLinks);
+    // Data refreshes leave nodes dismissed through the context menu alone.
+    const manuallyDimmed = dataChanged
+      ? this.entityIdsGreyScaledSet.toJSON().filter((id) => !this.ruleDimmedIds.has(id))
+      : [];
+    const hide = this.filterType === VertexFilterDisplay.Hide;
+    this.ruleDimmedIds = hide ? new Set() : excluded;
+    this.updateEntityIdsFilterSet(hide ? excluded : new Set());
+    this.updateEntityIdsGreyScaledSet(new Set([...manuallyDimmed, ...this.ruleDimmedIds]));
+    if (!dataChanged && validFilters.length > 0) this.graph.clearNodesSelected();
   };
 }
 
