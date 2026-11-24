@@ -1,0 +1,72 @@
+name: Browser regression
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: Release candidate commit to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-regression-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.checkout_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Web and GUI E2E (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    env:
+      HUSKY: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Web and GUI for Playwright
+        run: |
+          pnpm --filter nebula-studio exec vite build
+          pnpm --filter nebula-gui exec vite build
+
+      - name: Install E2E browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Web and GUI browser regression tests
+        run: |
+          pnpm test:e2e:types
+          pnpm test:e2e
+
+      - name: Report advisory failure
+        if: failure()
+        run: |
+          echo "::warning::Web and GUI E2E failed. See the failed step and any available browser-regression artifacts."
+          echo "Web and GUI E2E failed. See the failed step and any available browser-regression artifacts." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-regression
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore

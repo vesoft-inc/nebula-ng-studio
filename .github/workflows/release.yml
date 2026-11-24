@@ -210,6 +210,14 @@ jobs:
     permissions:
       contents: read
 
+  browser-regression:
+    needs: preflight
+    uses: ./.github/workflows/browser-regression.yml
+    with:
+      checkout_ref: ${{ needs.preflight.outputs.target_sha }}
+    permissions:
+      contents: read
+
   release-candidate:
     name: Review release candidate
     needs:

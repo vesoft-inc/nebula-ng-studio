@@ -35,7 +35,9 @@ Web/GUI each maintain their own generated `routeTree.gen.ts`. Generate them with
 
 ## Browser regression
 
-Build Web and GUI with Vite, then run `pnpm test:e2e:install`, `pnpm test:e2e:types` and `pnpm test:e2e`. Playwright serves the built apps on loopback with mocked HTTP. Web exercises the `/studio` deployment prefix and Studio Server responses. GUI exercises its native Console protocol. Use `--project=web` or `--project=gui` to select a host, and `pnpm test:e2e --list` to list current scenarios. CI retains failure traces in `test-results/`.
+Build Web and GUI with Vite, then run `pnpm test:e2e:install`, `pnpm test:e2e:types` and `pnpm test:e2e`. Playwright serves the built apps on loopback with mocked HTTP. Web exercises the `/studio` deployment prefix and Studio Server responses. GUI exercises its native Console protocol. Use `--project=web` or `--project=gui` to select a host, and `pnpm test:e2e --list` to list current scenarios.
+
+The [advisory browser workflow](../../.github/workflows/browser-regression.yml) runs on pull requests, pushes to `main`, and the exact commit selected for release. The public CI gate and release candidate can proceed while it runs. Failures produce a warning and job summary, with available screenshots and traces retained in the `browser-regression` artifact for seven days. Keep the advisory job outside the branch's required status checks.
 
 - Match fixture responses to the identity and resource in the actual request. Delay selected responses to exercise cancellation, session changes and recovery.
 - Verify saved data through a fresh read after navigation or reload. Use the live suite to check real persistence independently of the fixture.
