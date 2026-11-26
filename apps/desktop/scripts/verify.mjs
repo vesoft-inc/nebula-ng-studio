@@ -203,6 +203,10 @@ function canRunOnHost(arch) {
   if (PLATFORM === 'darwin') {
     if (arch === (process.arch === 'arm64' ? 'arm64' : 'x64')) return true;
     if (arch === 'x64' && process.arch === 'arm64') {
+      // Rosetta can translate the x64 app locally, but on headless CI runners
+      // the translated Electron process can hang. The x64 bundle is still
+      // architecture/Info.plist/artifact checked; only the smoke is skipped.
+      if (process.env.CI === 'true') return false;
       try {
         execFileSync('arch', ['-x86_64', '/usr/bin/true'], { stdio: 'ignore' });
         return true;
