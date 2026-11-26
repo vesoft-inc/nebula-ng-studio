@@ -72,5 +72,11 @@ linux:
     - tar.gz
   artifactName: NebulaGraph-Studio-${version}-linux-${arch}.${ext}
 
+# AppImage and deb use their own arch spellings (x86_64/amd64). Normalize the
+# artifact names to the x64 suffix used by the rest of the release outputs.
+appImage:
+  artifactName: NebulaGraph-Studio-${version}-linux-x64.${ext}
+
 deb:
   maintainer: Vesoft Inc. <support@vesoft.com>
+  artifactName: NebulaGraph-Studio-${version}-linux-x64.${ext}

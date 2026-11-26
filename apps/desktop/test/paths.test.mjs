@@ -21,7 +21,7 @@ test('resolveServerLayout returns bundle paths for a packaged app', () => {
     appPath: path.join(resources, 'app.asar'),
   });
   assert.equal(layout.kind, 'packaged');
-  assert.equal(layout.binary, path.join(resources, 'server', 'studio'));
+  assert.equal(layout.binary, path.join(resources, 'server', serverBinaryName()));
   assert.equal(layout.assetsDir, path.join(resources, 'server', 'assets', 'public'));
   assert.equal(layout.configTemplate, path.join(resources, 'server', 'config.yaml'));
 });
@@ -50,15 +50,16 @@ test('resolveServerLayout prefers the built server in development', () => {
 
 test('resolveServerLayout falls back to apps/server when no build exists', () => {
   const appPath = path.join('/repo', 'apps', 'desktop');
+  const sourceDir = path.resolve(appPath, '..', 'server');
   const layout = resolveServerLayout({
     isPackaged: false,
     appPath,
     exists: () => false,
   });
   assert.equal(layout.kind, 'dev-source');
-  assert.equal(layout.dir, path.join('/repo', 'apps', 'server'));
-  assert.equal(layout.binary, path.join('/repo', 'apps', 'server', 'bin', 'studio'));
-  assert.equal(layout.assetsDir, path.join('/repo', 'apps', 'server', 'assets', 'public'));
+  assert.equal(layout.dir, sourceDir);
+  assert.equal(layout.binary, path.join(sourceDir, 'bin', serverBinaryName()));
+  assert.equal(layout.assetsDir, path.join(sourceDir, 'assets', 'public'));
 });
 
 test('validateServerLayout reports missing and non-executable files', () => {
