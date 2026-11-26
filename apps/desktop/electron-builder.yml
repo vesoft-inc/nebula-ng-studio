@@ -1,0 +1,42 @@
+appId: com.vesoft.nebula.studio
+productName: NebulaGraph Studio
+copyright: Copyright © Vesoft Inc.
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - src/**/*
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: build/server
+    to: server
+
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icon.png
+  # Ad-hoc signing keeps the arm64 app launchable locally without an Apple
+  # Developer ID. It is not notarized and does not authorize Gatekeeper-protected
+  # distribution; switch identity/CSC_* for a Developer ID release build.
+  identity: '-'
+  hardenedRuntime: true
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  artifactName: NebulaGraph-Studio-${version}-mac-${arch}.${ext}
+  # The bundled Go server is a nested Mach-O binary. It is linker-signed
+  # (ad-hoc) by the Go toolchain, and must be re-signed with the Developer ID
+  # when release signing is enabled.
+  binaries:
+    - Contents/Resources/server/studio

@@ -47,6 +47,18 @@ DEB, RPM, and Linux tar archives are available from [GitHub Releases](https://gi
 
 See [`deploy/linux-packages.md`](deploy/linux-packages.md) for native package installation and upgrades, [`deploy/linux-tar.md`](deploy/linux-tar.md) for self-contained archives, and [`deploy/docker.md`](deploy/docker.md) for containers.
 
+### macOS desktop (Apple Silicon)
+
+Studio can also be packaged as a self-contained macOS app that runs the Studio server locally:
+
+```bash
+pnpm install
+pnpm desktop:build
+open "apps/desktop/release/mac-arm64/NebulaGraph Studio.app"
+```
+
+The build produces an `.app`, a `.dmg`, and a `.zip` under `apps/desktop/release/`. The app is ad-hoc signed but not notarized; see [`apps/desktop/README.md`](apps/desktop/README.md) for prerequisites, data locations, port conflicts, and distribution notes.
+
 ## ⚙️ Configuration
 
 Studio reads a YAML configuration file. Its location depends on the deployment:
@@ -67,6 +79,7 @@ Configuration values may reference environment variables with `$VAR` or `${VAR}`
 | Native DEB/RPM     | Ubuntu 22.04/24.04, Debian 12/13, Rocky Linux 9/10 on amd64/arm64            | Ubuntu 20.04, CentOS 7, RHEL and AlmaLinux are not fully tested.                             |
 | Native tar         | Linux amd64/arm64 with glibc 2.17+                                           | Alpine and other musl-based systems require the container image.                             |
 | Container          | Linux containers on amd64/arm64, Docker Engine 20.10+, Docker Compose v2.20+ | macOS and Windows are supported through Docker Desktop or WSL2. Compose v1 is not supported. |
+| macOS desktop      | macOS 13+ on Apple Silicon (arm64)                                           | Ad-hoc signed, not notarized; local build only in this release.                                |
 
 ## 🛠️ Troubleshooting
 

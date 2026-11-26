@@ -1,0 +1,25 @@
+{
+  "name": "nebula-studio-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NebulaGraph Studio desktop application",
+  "license": "Apache-2.0",
+  "author": "Vesoft Inc.",
+  "type": "module",
+  "main": "src/main.mjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/ensure-electron.mjs",
+    "dev": "node scripts/ensure-electron.mjs && electron .",
+    "pack": "node scripts/build.mjs --dir",
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.5.0",
+    "electron-builder": "26.18.1"
+  }
+}

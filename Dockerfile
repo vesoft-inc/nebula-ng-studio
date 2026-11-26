@@ -26,6 +26,9 @@ ARG STUDIO_DEFAULT_LANGUAGE
 WORKDIR /workspace
 
 ENV HUSKY=0
+# The desktop workspace is not part of the image build; skip its Electron binary
+# download while still keeping the pnpm lockfile consistent.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
 RUN corepack enable \
     && corepack prepare pnpm@9.12.2 --activate
@@ -33,6 +36,8 @@ RUN corepack enable \
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tailwind.config.mjs postcss.config.mjs .npmrc ./
 COPY apps/gui/package.json ./apps/gui/package.json
 COPY apps/web/package.json ./apps/web/package.json
+COPY apps/desktop/package.json ./apps/desktop/package.json
+COPY apps/desktop/scripts/ensure-electron.mjs ./apps/desktop/scripts/ensure-electron.mjs
 COPY packages/force-graph/package.json ./packages/force-graph/package.json
 COPY packages/ui-components/package.json ./packages/ui-components/package.json
 COPY packages/utils/package.json ./packages/utils/package.json

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NebulaGraph Studio</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #121826;
+        --muted: #5c667a;
+        --ring: #0d8bff;
+        --track: rgba(13, 139, 255, 0.18);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101418;
+          --fg: #f2f5f9;
+          --muted: #9aa6b8;
+          --track: rgba(13, 139, 255, 0.24);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 32px;
+        text-align: center;
+      }
+
+      .logo {
+        width: 112px;
+        height: 112px;
+        filter: drop-shadow(0 12px 24px rgba(13, 139, 255, 0.22));
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .spinner {
+        width: 22px;
+        height: 22px;
+        margin-top: 4px;
+        border: 2.5px solid var(--track);
+        border-top-color: var(--ring);
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="logo" viewBox="0 0 38 38" aria-hidden="true">
+        <path
+          fill-rule="evenodd"
+          clip-rule="evenodd"
+          d="M19 0C8.50662 0 0 8.50662 0 19V19C0 29.4934 8.50662 38 19 38V38C29.4934 38 38 29.4934 38 19V19C38 8.50662 29.4934 0 19 0Z"
+          fill="#0D8BFF"
+        />
+        <path
+          d="M25.0421 10.4756C25.3689 10.2368 25.8261 10.291 26.1222 10.5674C26.3371 10.7681 26.551 10.9758 26.7589 11.1846C29.7633 14.2027 31.813 17.8356 32.5294 21.4131C33.2707 25.1148 32.5077 28.3295 30.3819 30.4649C28.7522 32.1022 26.5073 32.9022 23.9942 32.9024C21.1021 32.9024 17.8536 31.8429 14.7735 29.7823C14.5431 29.6279 13.7673 29.0034 12.7472 28.7432C11.2791 28.369 10.8258 27.5536 10.8067 26.8165C10.7736 25.5381 11.7603 24.8721 12.8712 24.9229C13.5518 24.9541 14.2786 25.6035 14.4649 26.3839C14.6568 27.1874 15.0369 27.9364 15.7227 28.3926C17.9646 29.8839 20.3639 30.8412 22.627 31.126C25.3385 31.467 27.6725 30.8102 29.1993 29.2764C30.916 27.5518 31.5159 24.8765 30.8888 21.7442C30.2365 18.488 28.3496 15.1604 25.5763 12.3741C25.3749 12.1718 25.1669 11.9711 24.9591 11.7774C24.5795 11.424 24.6002 10.7989 25.0421 10.4756ZM10.9991 10.6944C13.7434 7.951 19.5888 9.34812 24.0558 13.8145C28.5229 18.2809 29.9199 24.1256 27.1759 26.8692C24.4318 29.6126 18.5863 28.2162 14.1192 23.7501C9.65206 19.2837 8.25515 13.438 10.9991 10.6944ZM7.56747 7.54499C10.44 4.65942 15.3244 4.34061 20.2979 6.61823C20.9696 6.92567 21.7065 7.06509 22.4434 7.02545C22.4648 7.02429 22.4865 7.02326 22.5079 7.02252C24.0539 6.96774 25.1083 8.80345 23.8077 10.1104C22.7651 11.1582 21.3674 10.5287 20.9102 9.58112L20.9093 9.57917C20.589 8.89049 20.0342 8.33473 19.3409 8.03034C15.1111 6.17284 11.0705 6.40393 8.75107 8.73346C5.59443 11.9046 6.35504 18.1461 10.5597 23.5743C10.8433 23.9405 10.7776 24.4689 10.4132 24.754C10.2605 24.8735 10.079 24.9317 9.8995 24.9317C9.65023 24.9317 9.40348 24.8203 9.23837 24.6075C4.50812 18.5005 3.8054 11.3243 7.56747 7.54499ZM15.294 14.8936V22.67H17.3165V17.9073L21.0372 22.67H23.0597V14.8936H21.0372V19.6505L17.3165 14.8936H15.294Z"
+          fill="#ffffff"
+        />
+      </svg>
+      <h1>NebulaGraph Studio</h1>
+      <p>Starting the local Studio service…</p>
+      <div class="spinner" role="status" aria-label="Loading"></div>
+    </main>
+  </body>
+</html>
