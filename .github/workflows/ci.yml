@@ -28,6 +28,9 @@ concurrency:
 env:
   CI: true
   HUSKY: 0
+  # Existing CI jobs do not package the desktop app; the desktop workflow
+  # downloads the Electron binary when it needs it.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
   NODE_VERSION: '24.21.0'
   SOURCE_SHA: ${{ inputs.checkout_ref || github.sha }}
   SOURCE_REF: ${{ inputs.release_version && format('v{0}', inputs.release_version) || inputs.checkout_ref || github.ref_name }}

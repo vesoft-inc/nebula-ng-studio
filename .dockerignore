@@ -26,6 +26,9 @@ apps/server/vendor
 apps/server/**/*.crt
 apps/server/**/*.pem
 packages/utils/types
+apps/desktop/build
+apps/desktop/release
+apps/desktop/.smoke
 
 # Host bind mounts from the Docker deployment examples.
 studio/data

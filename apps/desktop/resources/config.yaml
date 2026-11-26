@@ -1,0 +1,44 @@
+# Desktop server configuration template.
+#
+# This file is copied into the app bundle and rendered at launch by
+# apps/desktop/src/server/config.mjs. Do not edit the generated copy in
+# ~/Library/Application Support/NebulaGraph Studio/config.yaml directly: it is
+# rewritten on every launch.
+Name: studio-api
+Host: 127.0.0.1
+Port: __PORT__
+Timeout: 30000
+DefaultHost: ''
+DefaultPort: ''
+Log:
+  Mode: file
+  Path: __LOG_DIR__
+  Level: info
+  KeepDays: 7
+Assets:
+  Gzip: true
+Auth:
+  # TokenSecret and EncryptPassphrase are injected through the environment as
+  # STUDIO_TOKEN_SECRET / STUDIO_ENCRYPT_PASSPHRASE so they never reach disk.
+  TokenName: studio_token
+  TokenMaxAge: 86400
+
+SSO:
+  Oauth2:
+    Enable: false
+
+Database:
+  Enable: true
+  Dialect: sqlite3
+  AutoMigrate: true
+  LogLevel: 2
+  SqliteFilePath: __DB_PATH__
+
+Nebula:
+  ClientMaxNum: 20
+  ClientPoolConnsMaxOpen: 10
+  ClientPoolConnsMinOpen: 1
+  ClientPoolMaxWait: 10
+  ClientMaxIdleConns: 5
+  ClientExpiredDuration: 14400
+  ClientRequestTimeout: 10

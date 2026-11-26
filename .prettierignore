@@ -1,5 +1,7 @@
 pnpm-lock.yaml
 .turbo
+.pnpm-store/**
+.cache/**
 apps/web/index.html
 **/*.md
 **/*.mdx
@@ -7,3 +9,6 @@ docs/local/**
 **/dist/**
 apps/server/assets/public/**
 packages/utils/types/**
+apps/desktop/build/**
+apps/desktop/release/**
+apps/desktop/.smoke/**

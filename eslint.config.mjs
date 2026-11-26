@@ -7,7 +7,16 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['**/dist/**', 'apps/server/assets/public/**', 'packages/utils/types/**', 'packages/force-graph/src/**'],
+    ignores: [
+      '**/dist/**',
+      'apps/server/assets/public/**',
+      'packages/utils/types/**',
+      'packages/force-graph/src/**',
+      'apps/desktop/build/**',
+      'apps/desktop/release/**',
+      'apps/desktop/.smoke/**',
+      '.cache/**',
+    ],
   },
   {
     files: ['**/*.{js,cjs,mjs,jsx,ts,tsx,mts,cts}'],
