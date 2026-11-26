@@ -47,17 +47,26 @@ DEB, RPM, and Linux tar archives are available from [GitHub Releases](https://gi
 
 See [`deploy/linux-packages.md`](deploy/linux-packages.md) for native package installation and upgrades, [`deploy/linux-tar.md`](deploy/linux-tar.md) for self-contained archives, and [`deploy/docker.md`](deploy/docker.md) for containers.
 
-### macOS desktop (Apple Silicon)
+### Desktop app
 
-Studio can also be packaged as a self-contained macOS app that runs the Studio server locally:
+Studio can also be packaged as a self-contained desktop app that runs the Studio server locally:
 
 ```bash
 pnpm install
 pnpm desktop:build
-open "apps/desktop/release/mac-arm64/NebulaGraph Studio.app"
 ```
 
-The build produces an `.app`, a `.dmg`, and a `.zip` under `apps/desktop/release/`. The app is ad-hoc signed but not notarized; see [`apps/desktop/README.md`](apps/desktop/README.md) for prerequisites, data locations, port conflicts, and distribution notes.
+The build produces platform installers under `apps/desktop/release/`:
+
+- macOS arm64/x64: `.app`, `.dmg`, `.zip`
+- Windows x64: NSIS `.exe`, `.zip`
+- Linux x64: `.AppImage`, `.deb`, `.tar.gz`
+
+Windows and Linux builds run natively because the bundled Go server uses CGO; the
+[desktop workflow](.github/workflows/desktop.yml) builds all targets on a CI matrix.
+macOS builds are ad-hoc signed but not notarized, Windows is unsigned, and Linux
+artifacts are unsigned; see [`apps/desktop/README.md`](apps/desktop/README.md) for
+prerequisites, data locations, signing, and distribution notes.
 
 ## ⚙️ Configuration
 
@@ -79,7 +88,9 @@ Configuration values may reference environment variables with `$VAR` or `${VAR}`
 | Native DEB/RPM     | Ubuntu 22.04/24.04, Debian 12/13, Rocky Linux 9/10 on amd64/arm64            | Ubuntu 20.04, CentOS 7, RHEL and AlmaLinux are not fully tested.                             |
 | Native tar         | Linux amd64/arm64 with glibc 2.17+                                           | Alpine and other musl-based systems require the container image.                             |
 | Container          | Linux containers on amd64/arm64, Docker Engine 20.10+, Docker Compose v2.20+ | macOS and Windows are supported through Docker Desktop or WSL2. Compose v1 is not supported. |
-| macOS desktop      | macOS 13+ on Apple Silicon (arm64)                                           | Ad-hoc signed, not notarized; local build only in this release.                                |
+| macOS desktop      | macOS 13+ on Apple Silicon (arm64) or Intel (x64)                            | Ad-hoc signed, not notarized.                                                                 |
+| Windows desktop    | Windows 10+ x64                                                             | Unsigned NSIS installer; SmartScreen may warn.                                                |
+| Linux desktop      | Linux x64 (AppImage, deb, tar.gz)                                            | Unsigned; requires the usual Electron desktop libraries.                                      |
 
 ## 🛠️ Troubleshooting
 

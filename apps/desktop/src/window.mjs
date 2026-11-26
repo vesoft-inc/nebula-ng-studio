@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, nativeTheme, screen } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -65,6 +65,14 @@ export function saveWindowState(window, userDataDir) {
   }
 }
 
+function linuxWindowIcon() {
+  if (process.platform !== 'linux') return undefined;
+  const candidate = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'resources', 'icon.png');
+  return fs.existsSync(candidate) ? candidate : undefined;
+}
+
 export function createMainWindow({ userDataDir, show = true }) {
   const saved = readWindowState(userDataDir);
   const bounds =
@@ -78,6 +86,7 @@ export function createMainWindow({ userDataDir, show = true }) {
     minHeight: MIN_HEIGHT,
     show: false,
     title: 'NebulaGraph Studio',
+    icon: linuxWindowIcon(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#101418' : '#ffffff',
     webPreferences: {
       partition: 'persist:studio',

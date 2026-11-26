@@ -15,28 +15,62 @@ asar: true
 extraResources:
   - from: build/server
     to: server
+  # Linux window/desktop icon. macOS uses the bundle icon and Windows uses the
+  # executable icon.
+  - from: resources/icon.png
+    to: icon.png
 
 mac:
   category: public.app-category.developer-tools
   icon: resources/icon.png
-  # Ad-hoc signing keeps the arm64 app launchable locally without an Apple
-  # Developer ID. It is not notarized and does not authorize Gatekeeper-protected
+  # Ad-hoc signing keeps the app launchable locally without an Apple Developer
+  # ID. It is not notarized and does not authorize Gatekeeper-protected
   # distribution; switch identity/CSC_* for a Developer ID release build.
   identity: '-'
   hardenedRuntime: true
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
   gatekeeperAssess: false
+  darkModeSupport: true
   target:
-    - target: dmg
-      arch:
-        - arm64
-    - target: zip
-      arch:
-        - arm64
+    - dmg
+    - zip
   artifactName: NebulaGraph-Studio-${version}-mac-${arch}.${ext}
   # The bundled Go server is a nested Mach-O binary. It is linker-signed
   # (ad-hoc) by the Go toolchain, and must be re-signed with the Developer ID
   # when release signing is enabled.
   binaries:
     - Contents/Resources/server/studio
+
+win:
+  icon: resources/icon.ico
+  target:
+    - nsis
+    - zip
+  artifactName: NebulaGraph-Studio-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: NebulaGraph Studio
+
+linux:
+  icon: resources/icon.png
+  executableName: nebula-studio
+  category: Development
+  maintainer: Vesoft Inc. <support@vesoft.com>
+  vendor: Vesoft Inc.
+  synopsis: NebulaGraph Studio desktop application
+  description: >-
+    NebulaGraph Studio desktop application. It runs the Studio server locally and
+    provides a browser-based visualization and querying interface for NebulaGraph.
+  target:
+    - AppImage
+    - deb
+    - tar.gz
+  artifactName: NebulaGraph-Studio-${version}-linux-${arch}.${ext}
+
+deb:
+  maintainer: Vesoft Inc. <support@vesoft.com>

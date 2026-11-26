@@ -17,7 +17,6 @@ function skip(reason) {
 }
 
 if (process.env.ELECTRON_SKIP_BINARY_DOWNLOAD === '1') skip('ELECTRON_SKIP_BINARY_DOWNLOAD=1');
-if (process.platform !== 'darwin') skip(`not building on macOS (${process.platform})`);
 
 let packagePath;
 try {

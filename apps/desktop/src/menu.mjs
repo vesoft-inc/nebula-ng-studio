@@ -26,7 +26,7 @@ export function buildApplicationMenu({ isDev, onOpenDataFolder, onOpenLogs }) {
       : []),
     {
       label: 'File',
-      submenu: [{ role: 'close' }],
+      submenu: isMac ? [{ role: 'close' }] : [{ role: 'close' }, { type: 'separator' }, { role: 'quit' }],
     },
     {
       label: 'Edit',

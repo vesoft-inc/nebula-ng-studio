@@ -10,6 +10,7 @@ import {
   createAuthSecrets,
   readOrCreateAuthSecrets,
   renderConfigTemplate,
+  toConfigPath,
   UserQuitError,
   yamlQuote,
 } from '../src/server/config.mjs';
@@ -33,8 +34,8 @@ test('renderConfigTemplate substitutes every placeholder and quotes paths', () =
   assert.ok(!rendered.includes('__PORT__'));
   assert.ok(!rendered.includes('__DB_PATH__'));
   assert.ok(!rendered.includes('__LOG_DIR__'));
-  assert.ok(rendered.includes(yamlQuote(path.join(dataDir, 'studio.db'))));
-  assert.ok(rendered.includes(yamlQuote(logDir)));
+  assert.ok(rendered.includes(yamlQuote(toConfigPath(path.join(dataDir, 'studio.db')))));
+  assert.ok(rendered.includes(yamlQuote(toConfigPath(logDir))));
   assert.ok(rendered.includes("data''s"));
 });
 
@@ -43,6 +44,23 @@ test('renderConfigTemplate rejects a port outside the valid range', () => {
     () => renderConfigTemplate(TEMPLATE, { port: 70000, dataDir: '/tmp/a', logDir: '/tmp/b' }),
     /Invalid Studio server port/
   );
+});
+
+test('renderConfigTemplate converts Windows paths to forward slashes', () => {
+  const dataDir = 'C:\\Users\\Test User\\AppData\\Roaming\\NebulaGraph Studio';
+  const logDir = `${dataDir}\\logs`;
+  const rendered = renderConfigTemplate(TEMPLATE, {
+    port: 7001,
+    dataDir,
+    logDir,
+    platform: 'win32',
+  });
+
+  assert.ok(rendered.includes("'C:/Users/Test User/AppData/Roaming/NebulaGraph Studio/studio.db'"));
+  assert.ok(rendered.includes("'C:/Users/Test User/AppData/Roaming/NebulaGraph Studio/logs'"));
+  assert.ok(!rendered.includes('\\'));
+  assert.equal(toConfigPath('C:\\a\\b', 'win32'), 'C:/a/b');
+  assert.equal(toConfigPath('/a/b', 'linux'), '/a/b');
 });
 
 test('yamlQuote escapes single quotes', () => {
@@ -55,7 +73,7 @@ test('auth secrets are generated once, reused, and owner-only', () => {
   const first = readOrCreateAuthSecrets(file);
   assert.ok(first.tokenSecret.length > 20);
   assert.ok([16, 24, 32].includes(Buffer.byteLength(first.encryptPassphrase, 'utf8')));
-  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 
   const second = readOrCreateAuthSecrets(file);
   assert.deepEqual(second, first);
@@ -63,7 +81,7 @@ test('auth secrets are generated once, reused, and owner-only', () => {
   fs.writeFileSync(file, '{not json');
   const third = readOrCreateAuthSecrets(file);
   assert.notDeepEqual(third, first);
-  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 });
 
 test('createAuthSecrets produces a 32-byte passphrase after base64url encoding', () => {

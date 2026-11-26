@@ -5,6 +5,7 @@
   "description": "NebulaGraph Studio desktop application",
   "license": "Apache-2.0",
   "author": "Vesoft Inc.",
+  "homepage": "https://github.com/vesoft-inc/nebula-ng-studio",
   "type": "module",
   "main": "src/main.mjs",
   "engines": {
@@ -16,7 +17,7 @@
     "pack": "node scripts/build.mjs --dir",
     "build": "node scripts/build.mjs",
     "verify": "node scripts/verify.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/binary-arch.test.mjs test/config.test.mjs test/external-url.test.mjs test/manager.test.mjs test/paths.test.mjs"
   },
   "devDependencies": {
     "electron": "45.5.0",

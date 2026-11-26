@@ -27,16 +27,26 @@ export function yamlQuote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-export function renderConfigTemplate(template, { port, dataDir, logDir }) {
+/**
+ * SQLite DSNs and go-zero log paths are more reliable with forward slashes on
+ * Windows (`file:C:/Users/.../studio.db?...`). Paths on other platforms are
+ * already POSIX.
+ */
+export function toConfigPath(value, platform = process.platform) {
+  return platform === 'win32' ? String(value).replaceAll('\\', '/') : String(value);
+}
+
+export function renderConfigTemplate(template, { port, dataDir, logDir, platform = process.platform }) {
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new Error(`Invalid Studio server port: ${port}`);
   }
   if (!dataDir || !logDir) throw new Error('dataDir and logDir are required');
 
+  const dbPath = toConfigPath(path.join(dataDir, 'studio.db'), platform);
   const rendered = template
     .replaceAll(PORT_PLACEHOLDER, String(port))
-    .replaceAll(DB_PLACEHOLDER, yamlQuote(path.join(dataDir, 'studio.db')))
-    .replaceAll(LOG_PLACEHOLDER, yamlQuote(logDir));
+    .replaceAll(DB_PLACEHOLDER, yamlQuote(dbPath))
+    .replaceAll(LOG_PLACEHOLDER, yamlQuote(toConfigPath(logDir, platform)));
 
   const leftover = rendered.match(/__[A-Z][A-Z0-9_]*__/);
   if (leftover) throw new Error(`Unresolved Studio config placeholder: ${leftover[0]}`);

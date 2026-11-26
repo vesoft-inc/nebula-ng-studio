@@ -5,8 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development vite",
-    "build": "NODE_ENV=production tsc && NODE_ENV=production vite build && pnpm copy:server",
+    "dev": "cross-env NODE_ENV=development vite",
+    "build": "cross-env NODE_ENV=production tsc && cross-env NODE_ENV=production vite build && pnpm copy:server",
     "copy:server": "node -e \"const fs=require('node:fs');if(!fs.existsSync('dist/index.html'))throw new Error('Studio dist is missing');fs.rmSync('../server/assets/public',{recursive:true,force:true});fs.cpSync('dist','../server/assets/public',{recursive:true})\"",
     "preview": "vite preview",
     "test": "vitest run",
@@ -82,6 +82,7 @@
     "@types/react-window": "^1.8.8",
     "@types/uuid": "^8.3.4",
     "@vitejs/plugin-react-swc": "^3.5.0",
+    "cross-env": "^7.0.3",
     "jsdom": "^25.0.1",
     "vite": "^5.2.6",
     "vite-plugin-ejs": "^1.7.0",

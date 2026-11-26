@@ -12,6 +12,7 @@ import { describeServerLayout, resolveServerLayout, validateServerLayout } from 
 import { createMainWindow, loadSplash } from './window.mjs';
 
 const APP_NAME = 'NebulaGraph Studio';
+const APP_ID = 'com.vesoft.nebula.studio';
 const DEV_APP_NAME = 'NebulaGraph Studio Dev';
 const SMOKE = process.argv.includes('--smoke-test');
 const USER_DATA_OVERRIDE = process.env.STUDIO_DESKTOP_USER_DATA;
@@ -20,6 +21,7 @@ const DEFAULT_SMOKE_DIR = path.join(os.tmpdir(), 'NebulaGraph Studio Smoke');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 app.setName(APP_NAME);
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
 const appDataDir = app.getPath('appData');
 const userDataDir =
@@ -306,11 +308,13 @@ async function boot() {
 
   logger = createLogger(path.join(getLogsDir(), 'desktop.log'), { echo: !app.isPackaged });
   installProcessHandlers();
-  app.setAboutPanelOptions({
-    applicationName: APP_NAME,
-    applicationVersion: readAppVersion(),
-    copyright: 'Copyright © Vesoft Inc.',
-  });
+  if (process.platform !== 'win32') {
+    app.setAboutPanelOptions({
+      applicationName: APP_NAME,
+      applicationVersion: readAppVersion(),
+      copyright: 'Copyright © Vesoft Inc.',
+    });
+  }
 
   if (!app.isPackaged && app.dock) {
     const devIcon = path.join(app.getAppPath(), 'resources', 'icon.png');

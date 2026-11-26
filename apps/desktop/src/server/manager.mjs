@@ -48,7 +48,12 @@ export async function probeReady(
 }
 
 function defaultSpawn({ command, args, cwd, env, stdio }) {
-  return nodeSpawn(command, args, { cwd, env, stdio });
+  return nodeSpawn(command, args, {
+    cwd,
+    env,
+    stdio,
+    windowsHide: process.platform === 'win32',
+  });
 }
 
 function processAlive(pid) {
@@ -60,7 +65,35 @@ function processAlive(pid) {
   }
 }
 
-function readProcessCommand(pid) {
+function readWindowsProcessCommand(pid) {
+  try {
+    const command = `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" -ErrorAction SilentlyContinue).CommandLine`;
+    const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+      encoding: 'utf8',
+      windowsHide: true,
+    }).trim();
+    if (output) return output;
+  } catch {
+    // Fall through to wmic on older/restricted systems.
+  }
+
+  try {
+    const output = execFileSync('wmic', ['process', 'where', `processid=${pid}`, 'get', 'commandline', '/value'], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+    const line = output
+      .split(/\r?\n/)
+      .map((value) => value.trim())
+      .find((value) => value.startsWith('CommandLine='));
+    return line ? line.slice('CommandLine='.length) : '';
+  } catch {
+    return '';
+  }
+}
+
+function readProcessCommand(pid, platform = process.platform) {
+  if (platform === 'win32') return readWindowsProcessCommand(pid);
   const ps = fs.existsSync('/bin/ps') ? '/bin/ps' : 'ps';
   try {
     return execFileSync(ps, ['-p', String(pid), '-o', 'command='], { encoding: 'utf8' }).trim();
@@ -78,8 +111,9 @@ export async function cleanupStaleServer({
   userDataDir,
   binaryPath,
   logger,
+  platform = process.platform,
   processAliveImpl = processAlive,
-  readCommandImpl = readProcessCommand,
+  readCommandImpl,
   killImpl = process.kill,
   sleep = delay,
   timeoutMs = 2_000,
@@ -93,7 +127,7 @@ export async function cleanupStaleServer({
   }
 
   if (Number.isInteger(pid) && pid > 0 && processAliveImpl(pid)) {
-    const command = readCommandImpl(pid);
+    const command = readCommandImpl ? readCommandImpl(pid) : readProcessCommand(pid, platform);
     if (binaryPath && command.includes(binaryPath)) {
       logger?.warn(`Stopping stale Studio backend process ${pid}`);
       try {
@@ -130,6 +164,7 @@ export class ServerManager {
     onUnexpectedExit,
     env = process.env,
     echoServerOutput = false,
+    platform = process.platform,
   }) {
     if (!layout) throw new Error('layout is required');
     if (!userDataDir) throw new Error('userDataDir is required');
@@ -144,6 +179,7 @@ export class ServerManager {
     this.onUnexpectedExit = onUnexpectedExit;
     this.env = env;
     this.echoServerOutput = echoServerOutput;
+    this.platform = platform;
     this.child = null;
     this.pid = null;
     this.url = null;
@@ -189,7 +225,12 @@ export class ServerManager {
 
       const secrets = readOrCreateAuthSecrets(path.join(this.userDataDir, 'auth.json'));
       const template = fs.readFileSync(this.layout.configTemplate, 'utf8');
-      const config = renderConfigTemplate(template, { port, dataDir, logDir });
+      const config = renderConfigTemplate(template, {
+        port,
+        dataDir,
+        logDir,
+        platform: this.platform,
+      });
       const configPath = path.join(this.userDataDir, 'config.yaml');
       writeFileAtomic(configPath, config, 0o600);
 
