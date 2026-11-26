@@ -153,6 +153,34 @@ async function waitForRenderer(window, timeoutMs = 30_000) {
   throw new Error('Studio did not finish rendering within 30 seconds');
 }
 
+function writeSmokeResult(payload) {
+  try {
+    fs.writeFileSync(path.join(userDataDir, 'smoke-result.json'), `${JSON.stringify(payload)}\n`);
+  } catch {
+    // The stdout result remains the primary channel.
+  }
+  process.stdout.write(`DESKTOP_SMOKE_RESULT ${JSON.stringify(payload)}\n`);
+}
+
+async function captureSmokeScreenshot(window) {
+  const screenshot = path.join(userDataDir, 'smoke-login.png');
+  try {
+    if (!window.isVisible()) {
+      window.show();
+      await delay(750);
+    }
+    const image = await window.webContents.capturePage();
+    if (image.isEmpty()) return null;
+    fs.writeFileSync(screenshot, image.toPNG());
+    return screenshot;
+  } catch (error) {
+    // The login page/title/path checks above are the renderer contract; GPU-less
+    // CI compositors can fail or blank capturePage without affecting the app.
+    console.warn(`Smoke screenshot unavailable: ${error?.message ?? error}`);
+    return null;
+  }
+}
+
 async function runSmoke(window, info) {
   try {
     await loadStudio(window, info.url);
@@ -169,37 +197,24 @@ async function runSmoke(window, info) {
     if (!page.appReady) throw new Error('Studio application root is empty');
     if (page.path !== '/login') throw new Error(`Expected the login page, got ${page.path}`);
 
-    let image = await window.webContents.capturePage();
-    if (image.isEmpty()) {
-      window.showInactive();
-      await delay(750);
-      image = await window.webContents.capturePage();
-    }
-
-    const screenshot = path.join(userDataDir, 'smoke-login.png');
-    fs.writeFileSync(screenshot, image.toPNG());
-
-    process.stdout.write(
-      `DESKTOP_SMOKE_RESULT ${JSON.stringify({
-        ok: true,
-        url: info.url,
-        port: info.port,
-        title: page.title,
-        path: page.path,
-        screenshot,
-        version: readAppVersion(),
-      })}\n`
-    );
+    const screenshot = await captureSmokeScreenshot(window);
+    writeSmokeResult({
+      ok: true,
+      url: info.url,
+      port: info.port,
+      title: page.title,
+      path: page.path,
+      screenshot,
+      version: readAppVersion(),
+    });
     await stopBackend();
     app.exit(0);
   } catch (error) {
-    process.stdout.write(
-      `DESKTOP_SMOKE_RESULT ${JSON.stringify({
-        ok: false,
-        error: String(error?.stack ?? error),
-        serverLogTail: tailFile(path.join(userDataDir, 'logs', 'server-stdout.log')),
-      })}\n`
-    );
+    writeSmokeResult({
+      ok: false,
+      error: String(error?.stack ?? error),
+      serverLogTail: tailFile(path.join(userDataDir, 'logs', 'server-stdout.log')),
+    });
     await stopBackend();
     app.exit(1);
   }
