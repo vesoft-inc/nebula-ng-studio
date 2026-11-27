@@ -1,0 +1,116 @@
+name: Publish Studio UI to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and upload the npm tarballs without publishing them.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  HUSKY: 0
+  NODE_VERSION: '24.21.0'
+  NPM_VERSION: '11.17.0'
+
+jobs:
+  pack:
+    name: Verify and pack Studio UI and Core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Verify the published Studio tag
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          expected="v$(node -p "require('./apps/web/package.json').version")"
+          if [ "${RELEASE_TAG}" != "${expected}" ]; then
+            echo "::error::The GitHub Release tag must match the Studio version (${expected})."
+            exit 1
+          fi
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and check shared packages
+        run: |
+          pnpm build:studio-ui
+          pnpm --filter @vesoft-inc/studio-core check:boundaries --dist
+          pnpm --filter @vesoft-inc/studio-ui-internal check:boundaries --dist
+          pnpm --filter @vesoft-inc/studio-ui check:boundaries --dist
+          pnpm --filter @vesoft-inc/studio-ui check:api
+
+      - name: Pack public artifacts
+        run: |
+          npm install --global "npm@${NPM_VERSION}" --registry=https://registry.npmjs.org --ignore-scripts
+          node scripts/studio-ui-release.mjs pack "${RUNNER_TEMP}/studio-ui-npm"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-ui-npm
+          path: ${{ runner.temp }}/studio-ui-npm/*.tgz
+          if-no-files-found: error
+
+  publish:
+    name: Publish public packages
+    needs: pack
+    if: github.repository == 'vesoft-inc/nebula-ng-studio' && !inputs.dry_run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: npm-release
+    concurrency:
+      group: studio-ui-npm-publication
+      queue: max
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: studio-ui-npm
+          path: ${{ runner.temp }}/studio-ui-npm
+
+      - name: Install publishing tools
+        run: |
+          pnpm install --filter nebula-ng-studio-workspace --frozen-lockfile --ignore-scripts
+          npm install --global "npm@${NPM_VERSION}" --registry=https://registry.npmjs.org --ignore-scripts
+
+      - name: Publish Core before UI and verify registry integrity
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # npm prefers Trusted Publishing and falls back to the configured token.
+          npm_config="${RUNNER_TEMP}/studio-ui-publish.npmrc"
+          printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > "${npm_config}"
+          NPM_CONFIG_USERCONFIG="${npm_config}" node scripts/studio-ui-release.mjs publish "${RUNNER_TEMP}/studio-ui-npm"

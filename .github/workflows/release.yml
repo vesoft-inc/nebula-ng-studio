@@ -277,6 +277,7 @@ jobs:
             echo
             echo 'The publish job runs in the `release` environment and leaves the GitHub Release as a draft for review.'
             echo 'Publishing the draft in GitHub automatically promotes the immutable image digest to the applicable channels in both registries.'
+            echo 'The published Release also triggers the Studio UI npm workflow for the same commit.'
           } >> "${GITHUB_STEP_SUMMARY}"
 
   publish-prepare:
@@ -973,7 +974,7 @@ jobs:
               echo '- Channel promotion: handled independently by the published-release workflow.'
             else
               echo '- Channel promotion: waiting for the draft Release to be published.'
-              echo '- Next: review and publish the draft Release; promotion then runs automatically.'
+              echo '- Next: review and publish the draft Release to trigger channel promotion and the Studio UI npm workflow.'
               echo "- Draft: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/edit/${TAG_NAME}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"

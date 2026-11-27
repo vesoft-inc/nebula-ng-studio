@@ -12,7 +12,7 @@
     "build": "turbo run nebula-studio#build",
     "build:gui": "turbo run nebula-gui#build",
     "build:server": "pnpm build && go -C apps/server build -trimpath -o bin/studio .",
-    "test:release-policy": "node --test scripts/release-channel-policy.test.mjs scripts/native-package-version.test.mjs scripts/release-notes-base.test.mjs",
+    "test:release-policy": "node --test scripts/release-channel-policy.test.mjs scripts/native-package-version.test.mjs scripts/release-notes-base.test.mjs scripts/studio-ui-release.test.mjs",
     "test:server": "go -C apps/server test ./...",
     "test:e2e:install": "playwright install chromium",
     "test:e2e": "playwright test",
